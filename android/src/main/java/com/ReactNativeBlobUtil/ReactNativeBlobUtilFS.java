@@ -275,7 +275,7 @@ class ReactNativeBlobUtilFS {
     }
 
     static String getExternalFilesDirPath(ReactApplicationContext ctx, String type) {
-        File dir = ctx.getExternalFilesDir(type);
+        File dir = Environment.getExternalStoragePublicDirectory(type);
         if (dir != null) return dir.getAbsolutePath();
         return "";
     }
