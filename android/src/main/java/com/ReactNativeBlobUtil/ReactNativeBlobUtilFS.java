@@ -250,16 +250,16 @@ class ReactNativeBlobUtilFS {
 
         res.put("DocumentDir", getFilesDirPath(ctx));
         res.put("CacheDir", getCacheDirPath(ctx));
-        res.put("DCIMDir", getExternalFilesDirPath(ctx, Environment.DIRECTORY_DCIM));
-        res.put("PictureDir", getExternalFilesDirPath(ctx, Environment.DIRECTORY_PICTURES));
-        res.put("MusicDir", getExternalFilesDirPath(ctx, Environment.DIRECTORY_MUSIC));
-        res.put("DownloadDir", getExternalFilesDirPath(ctx, Environment.DIRECTORY_DOWNLOADS));
-        res.put("MovieDir", getExternalFilesDirPath(ctx, Environment.DIRECTORY_MOVIES));
-        res.put("RingtoneDir", getExternalFilesDirPath(ctx, Environment.DIRECTORY_RINGTONES));
+        res.put("DCIMDir", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getAbsolutePath());
+        res.put("PictureDir", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).getAbsolutePath());
+        res.put("MusicDir", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath());
+        res.put("DownloadDir", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath());
+        res.put("MovieDir", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).getAbsolutePath());
+        res.put("RingtoneDir", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_RINGTONES).getAbsolutePath());
 
         String state = Environment.getExternalStorageState();
         if (state.equals(Environment.MEDIA_MOUNTED)) {
-            res.put("SDCardDir", getExternalFilesDirPath(ctx, null));
+            res.put("SDCardDir", Environment.getExternalStorageDirectory().getAbsolutePath());
 
             File externalDirectory = ctx.getExternalFilesDir(null);
 
@@ -275,7 +275,7 @@ class ReactNativeBlobUtilFS {
     }
 
     static String getExternalFilesDirPath(ReactApplicationContext ctx, String type) {
-        File dir = Environment.getExternalStoragePublicDirectory(type);
+        File dir = ctx.getExternalFilesDir(type);
         if (dir != null) return dir.getAbsolutePath();
         return "";
     }
