@@ -707,7 +707,7 @@ await ReactNativeBlobUtil.MediaCollection.writeToMediafileWithTransform('content
 #### copyToInternal
 Copies an entry form the media storage to the apps internal storage.
 ````js
-let destpath = ReactNativeBlobUtil.dirs.CacheDir + '/image.png';
+let destpath = ReactNativeBlobUtil.fs.dirs.CacheDir + '/image.png';
 await ReactNativeBlobUtil.MediaCollection.copyToInternal('content://....', // content uri of the entry in the media storage
         destpath // path to destination the entry should be copied to
 );
