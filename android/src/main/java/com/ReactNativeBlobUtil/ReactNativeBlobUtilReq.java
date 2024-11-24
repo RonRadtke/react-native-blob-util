@@ -240,8 +240,8 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
         Context appCtx = ReactNativeBlobUtilImpl.RCTContext.getApplicationContext();
         String t123 =  String.valueOf(options.addAndroidDownloads.hasKey("storeLocal"));
         String t1234 =  String.valueOf(options.addAndroidDownloads.getBoolean("storeLocal"));
-        RNLog.w(ReactNativeBlobUtilImpl.RCTContext, t123);
-        RNLog.w(ReactNativeBlobUtilImpl.RCTContext, t1234);
+        // RNLog.w(ReactNativeBlobUtilImpl.RCTContext, t123);
+        // RNLog.w(ReactNativeBlobUtilImpl.RCTContext, t1234);
         // use download manager instead of default HTTP implementation
         if (options.addAndroidDownloads != null && options.addAndroidDownloads.hasKey("useDownloadManager")) {
 
@@ -279,7 +279,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
 
 
                 if (options.addAndroidDownloads.hasKey("storeLocal") && options.addAndroidDownloads.getBoolean("storeLocal")) {
-                    RNLog.w(ReactNativeBlobUtilImpl.RCTContext, "a");
+                    // RNLog.w(ReactNativeBlobUtilImpl.RCTContext, "a");
                     String path = (String) ReactNativeBlobUtilFS.getSystemfolders(ReactNativeBlobUtilImpl.RCTContext).get("DownloadDir");
                     path = path + UUID.randomUUID().toString();
 
