@@ -9,6 +9,7 @@ import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.content.ContentUris;
 import android.content.ContentResolver;
+import android.os.Environment;
 
 import com.ReactNativeBlobUtil.ReactNativeBlobUtilUtils;
 
@@ -127,6 +128,19 @@ public class PathResolver {
             // Return the remote address
             if (isGooglePhotosUri(uri))
                 return uri.getLastPathSegment();
+
+            if (isExternalStorageDocument(uri)) {
+                final String[] split = uri.getPath().split(":");
+                final String type = split[0];
+
+                if ("/tree/primary".equalsIgnoreCase(type)) {
+                    File dir = Environment.getExternalStorageDirectory();
+                    if (dir != null) return dir + "/" + split[1];
+                    return "";
+                }
+
+                // TODO handle non-primary volumes
+            }
 
             return getDataColumn(context, uri, null, null);
         }
