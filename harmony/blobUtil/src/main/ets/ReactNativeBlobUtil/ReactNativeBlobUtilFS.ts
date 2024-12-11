@@ -9,6 +9,8 @@ import statvfs from "@ohos.file.statvfs"
 import {filePreview} from "@kit.PreviewKit";
 import fileUri from "@ohos.file.fileuri";
 
+const FILE_OR_DIR_NOT_EXIST: number = 13900002;
+
 export default class ReactNativeBlobUtilFS {
 
   private context: common.UIAbilityContext | undefined = undefined;
@@ -141,30 +143,40 @@ export default class ReactNativeBlobUtilFS {
     }
   }
 
-
-
-  writeFile(path: string,encoding: string,data: string ,transformFile: boolean, append: boolean):Promise<number> {
-    return new Promise((resolve,reject) => {
+  writeFile(path: string, encoding: string, data: string, transformFile: boolean, append: boolean): Promise<number> {
+    return new Promise((resolve, reject) => {
       try {
         let accessRes = fs.accessSync(path);
         let file = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
         if (append && accessRes) {
           file = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.APPEND);
         }
-        let writeLen = fs.writeSync(file.fd,data);
-        if(writeLen==-1){
-          console.log("write data to file succeed and size is:" + writeLen)
-        }else{
-          console.log('success')
+        let writeLen = fs.writeSync(file.fd, data);
+        if (writeLen === -1) {
+          console.log("write data to file succeed and size is:" + writeLen);
+        } else {
+          console.log('success');
         }
         fs.closeSync(file);
-        resolve(writeLen)
+        resolve(writeLen);
       } catch (err) {
-        let errMsg = "writeFile failed with error message: " + err.message + ", error code: " + err.code;
-        console.error(errMsg);
-        reject(errMsg);
+        if (err.code === FILE_OR_DIR_NOT_EXIST) {
+          try {
+            fs.mkdirSync(path.substring(0, path.lastIndexOf('/')), true);
+            this.writeFile(path, encoding, data, transformFile, append)
+              .then(length => resolve(length))
+              .catch(err => reject(err));
+          } catch (e) {
+            let errMsg = "writeFile failed with error message: " + err.message + ", error code: " + err.code;
+            reject(errMsg);
+          }
+        } else {
+          let errMsg = "writeFile failed with error message: " + err.message + ", error code: " + err.code;
+          console.error(errMsg);
+          reject(errMsg);
+        }
       }
-    })
+    });
   }
 
   writeFileArray(path:string,data:Array<any>,append:boolean):Promise<number> {

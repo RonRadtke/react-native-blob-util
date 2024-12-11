@@ -7,9 +7,11 @@ import { buffer } from '@kit.ArkTS';
 
 export type BlobUtilViewDescriptor = Descriptor<"RNCBlobUtil">
 export const FAST_BLOB_UTIL = "BlobUtil"
+const FILE_OR_DIR_NOT_EXIST: number = 13900002;
 
 export type Encoding = "utf8" | "ascii" | "base64";
 export type Stream = {encoding:string,stream:fs.Stream | undefined}
+
 export interface ReactNativeBlobUtilReadStream {
   path: string;
   encoding: Encoding;
@@ -38,25 +40,35 @@ export default class ReactNativeBlobUtilStream {
   }
 
 
-  async writeStream(filePath: string, encoding: string, append: boolean, callback: (errCode, errMsg, streamId?: string) => void) {
-    if (!fs.accessSync(filePath)) {
-      callback("ENOENT", "File '" + filePath + "' does not exist and could not be created");
-      return
+  async writeStream(filePath: string, encoding: string, append: boolean,
+    callback: (errCode, errMsg, streamId?: string) => void) {
+    let accessRes = fs.accessSync(filePath);
+    let file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
+    if (append && accessRes) {
+      file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.APPEND);
     }
-    let file = fs.openSync(filePath);
     this.encoding = encoding;
     try {
-      let stream = await fs.createStreamSync(filePath, "a+")
+      let stream = await fs.createStreamSync(filePath, "a+");
       let uuid = util.generateRandomUUID(true);
       ReactNativeBlobUtilStream.fileStreams.set(uuid, {
         stream: stream,
         encoding: encoding
-      })
-      this.stream = stream
+      });
+      this.stream = stream;
       fs.closeSync(file);
-      callback(null, null, uuid)
+      callback(null, null, uuid);
     } catch (err) {
-      callback("EUNSPECIFIED", "Failed to create write stream at path `" + filePath + "`; " + err.message);
+      if (err.code === FILE_OR_DIR_NOT_EXIST) {
+        try {
+          fs.mkdirSync(filePath.substring(0, filePath.lastIndexOf('/')), true);
+          await this.writeStream(filePath, encoding, append, callback);
+        } catch (e) {
+          callback("EUNSPECIFIED", "Failed to create write stream at path `" + filePath + "`; " + err.code);
+        }
+      } else {
+        callback("EUNSPECIFIED", "Failed to create write stream at path `" + filePath + "`; " + err.code);
+      }
     }
   }
 
