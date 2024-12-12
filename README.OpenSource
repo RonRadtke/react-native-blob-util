@@ -1,0 +1,11 @@
+[
+    {
+        "Name": "@react-native-oh-tpl/react-native-blob-util",
+        "License": "MIT License",
+        "License File": "https://github.com/react-native-oh-library/react-native-blob-util/blob/sig/LICENSE",
+        "Version Number": "0.19.6-0.0.14",
+        "Owner" : "xiafeng@huawei.com",
+        "Upstream URL": "https://github.com/react-native-oh-library/react-native-blob-util",
+        "Description": "A project committed to making file access and data transfer easier and more efficient for React Native developers."
+    }
+]
