@@ -53,8 +53,9 @@ export default class ReactNativeBlobUtilStream {
       file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.APPEND);
     }
     this.encoding = encoding;
+    let appends = append ? 'a+' : 'w+';
     try {
-      let stream = await fs.createStreamSync(filePath, "a+");
+      let stream = await fs.createStreamSync(filePath, appends);
       let uuid = util.generateRandomUUID(true);
       ReactNativeBlobUtilStream.fileStreams.set(uuid, {
         stream: stream,
