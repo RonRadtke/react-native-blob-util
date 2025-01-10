@@ -1,6 +1,6 @@
 {
     "name": "@react-native-oh-tpl/react-native-blob-util",
-    "version": "0.19.6-rc.1",
+    "version": "0.19.6-0.0.16",
     "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main": "index",
     "scripts": {
