@@ -13,7 +13,7 @@
     "dependencies": {
         "base-64": "0.1.0",
         "glob": "^10.3.10",
-        "rn-fetch-blob": "^0.12.0"
+        "react-native-blob-util": "^0.21.2"
     },
     "keywords": [
         "react-native",
