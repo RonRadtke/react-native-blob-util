@@ -1,31 +1,42 @@
 {
   "name": "ReactNativeBlobUtilWin",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
     "test": "jest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "windows": "npx @react-native-community/cli run-windows --release",
+    "test:windows": "jest --config jest.config.windows.js"
   },
   "dependencies": {
     "react": "18.1.0",
-    "react-native": "^0.70.3",
-    "react-native-windows": "^0.64.0",
-    "react-native-blob-util": "^0.17.1"
+    "react-native": "^0.76",
+    "react-native-blob-util": "link:../../",
+    "react-native-windows": "^0.76"
   },
   "devDependencies": {
-		"@babel/core": "^7.12.9",
-		"@babel/runtime": "^7.12.5",
-		"@react-native-community/eslint-config": "^2.0.0",
-		"babel-jest": "^26.6.3",
-		"eslint": "^7.32.0",
-		"jest": "^26.6.3",
-		"metro-react-native-babel-preset": "0.72.3",
-		"react-test-renderer": "18.1.0"
+    "@babel/core": "^7.12.9",
+    "@babel/runtime": "^7.12.5",
+    "@react-native-community/eslint-config": "^2.0.0",
+    "babel-jest": "^29.0.0",
+    "eslint": "^7.32.0",
+    "jest": "^29.0.0",
+    "react-test-renderer": "18.1.0",
+    "@rnx-kit/jest-preset": "^0.1.17",
+    "@react-native/metro-config": "^0.76.9",
+    "@react-native/babel-preset": "^0.76.1"
   },
   "jest": {
     "preset": "react-native"
+  },
+  "react-native-windows": {
+    "init-windows": {
+      "name": "ReactNativeBlobUtilWin",
+      "namespace": "ReactNativeBlobUtilWin",
+      "template": "cpp-app"
+    }
   }
 }

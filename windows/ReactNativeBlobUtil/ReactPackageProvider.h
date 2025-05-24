@@ -1,11 +1,14 @@
 #pragma once
+
 #include "ReactPackageProvider.g.h"
 
 using namespace winrt::Microsoft::ReactNative;
 
-namespace winrt::ReactNativeBlobUtil::implementation {
+namespace winrt::ReactNativeBlobUtil::implementation
+{
 
-struct ReactPackageProvider : ReactPackageProviderT<ReactPackageProvider> {
+struct ReactPackageProvider : ReactPackageProviderT<ReactPackageProvider>
+{
   ReactPackageProvider() = default;
 
   void CreatePackage(IReactPackageBuilder const &packageBuilder) noexcept;
@@ -13,7 +16,8 @@ struct ReactPackageProvider : ReactPackageProviderT<ReactPackageProvider> {
 
 } // namespace winrt::ReactNativeBlobUtil::implementation
 
-namespace winrt::ReactNativeBlobUtil::factory_implementation {
+namespace winrt::ReactNativeBlobUtil::factory_implementation
+{
 
 struct ReactPackageProvider : ReactPackageProviderT<ReactPackageProvider, implementation::ReactPackageProvider> {};
 

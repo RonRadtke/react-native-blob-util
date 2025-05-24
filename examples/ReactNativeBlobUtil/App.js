@@ -7,8 +7,8 @@
  */
 
 import React, {useState} from 'react';
-import {Alert, Button, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, View} from 'react-native';
-import {Picker} from '@react-native-picker/picker';
+import {Alert, Button, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+// import {Picker} from '@react-native-picker/picker'; Need to remove this package as it is not supported in Windows New Architecture
 
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 
@@ -489,8 +489,7 @@ const App: () => React$Node = () => {
     // App ************************************************************************
     return (
         <>
-            <StatusBar barStyle="dark-content" />
-            <SafeAreaView>
+            <View>
                 <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.scrollView}>
                     {global.HermesInternal == null ? null : (
                         <View style={styles.engine}>
@@ -604,72 +603,116 @@ const App: () => React$Node = () => {
                     </View>
 
                     <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'Hash - hash()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(hashPathParam) => setHashPathParam(hashPathParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" />
-                                <Picker hashAlgValue={hashAlgValue} onChangeText={(readPositionParam) => setReadPositionParam(readPositionParam)} style={{height: 50, width: 150}} onValueChange={(itemValue, itemIndex) => setHashAlgValue(itemValue)}>
-                                    <Picker.Item label="MD5" value="md5" />
-                                    <Picker.Item label="SHA1" value="sha1" />
-                                    <Picker.Item label="SHA224" value="sha224" />
-                                    <Picker.Item label="SHA256" value="sha256" />
-                                    <Picker.Item label="SHA384" value="sha384" />
-                                    <Picker.Item label="SHA512" value="sha512" />
-                                </Picker>
-                            </View>
-                            <Button title="Hash File" color="#9a73ef" onPress={hashCall} />
+                    <View style={styles.sectionContainer}>
+                        <Text style={styles.sectionTitle}>{'Hash - hash()'}</Text>
+                        <View style={styles.sectionDescription}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Source path"
+                            onChangeText={setHashPathParam}
+                            placeholderTextColor="#9a73ef"
+                            autoCapitalize="none"
+                        />
+                        <View style={styles.buttonGroup}>
+                            {['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'].map((alg) => (
+                            <Button
+                                key={alg}
+                                title={alg.toUpperCase()}
+                                color={hashAlgValue === alg ? '#7a42f4' : '#ccc'}
+                                onPress={() => setHashAlgValue(alg)}
+                            />
+                            ))}
                         </View>
+                        </View>
+                        <Button title="Hash File" color="#9a73ef" onPress={hashCall} />
+                    </View>
                     </View>
 
                     <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'write - writeFile(), appendFile()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(writeParam) => setWriteParam(writeParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" />
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(writeURIParam) => setWriteURIParam(writeURIParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" />
-                                <Picker writeEncodeStreamParam={writeEncodeParam} onChangeText={(readPositionParam) => setReadPositionParam(readPositionParam)} style={{height: 50, width: 150}} onValueChange={(itemValue, itemIndex) => setWriteEncodeParam(itemValue)}>
-                                    <Picker.Item label="UTF8" value="utf8" />
-                                    <Picker.Item label="Base64" value="base64" />
-                                    <Picker.Item label="ASCII" value="ascii" />
-                                    <Picker.Item label="URI" value="uri" />
-                                </Picker>
-                            </View>
-                            <Button title="Write" color="#9a73ef" onPress={writeFileCall} />
-                            <Button title="Append" color="#9a73ef" onPress={appendFileCall} />
+                    <View style={styles.sectionContainer}>
+                        <Text style={styles.sectionTitle}>{'write - writeFile(), appendFile()'}</Text>
+                        <View style={styles.sectionDescription}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Source path"
+                            onChangeText={setWriteParam}
+                            placeholderTextColor="#9a73ef"
+                            autoCapitalize="none"
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Destination path"
+                            onChangeText={setWriteURIParam}
+                            placeholderTextColor="#9a73ef"
+                            autoCapitalize="none"
+                        />
+                        <View style={styles.buttonGroup}>
+                            {['utf8', 'base64', 'ascii', 'uri'].map((enc) => (
+                            <Button
+                                key={enc}
+                                title={enc.toUpperCase()}
+                                color={writeEncodeParam === enc ? '#7a42f4' : '#ccc'}
+                                onPress={() => setWriteEncodeParam(enc)}
+                            />
+                            ))}
                         </View>
+                        </View>
+                        <Button title="Write" color="#9a73ef" onPress={writeFileCall} />
+                        <Button title="Append" color="#9a73ef" onPress={appendFileCall} />
+                    </View>
                     </View>
 
                     <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'WriteStream - writeStream()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(writeStreamParam) => setWriteStreamParam(writeStreamParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" />
-
-                                <Picker writeEncodeStreamParam={writeEncodeStreamParam} onChangeText={(readPositionParam) => setReadPositionParam(readPositionParam)} style={{height: 50, width: 150}} onValueChange={(itemValue, itemIndex) => setWriteStreamEncodeParam(itemValue)}>
-                                    <Picker.Item label="UTF8" value="utf8" />
-                                    <Picker.Item label="Base64" value="base64" />
-                                    <Picker.Item label="ASCII" value="ascii" />
-                                </Picker>
-                            </View>
-                            <Button title="Write" color="#9a73ef" onPress={writeStreamCall} />
-                            <Button title="Append" color="#9a73ef" onPress={appendStreamCall} />
+                    <View style={styles.sectionContainer}>
+                        <Text style={styles.sectionTitle}>{'WriteStream - writeStream()'}</Text>
+                        <View style={styles.sectionDescription}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Source path"
+                            onChangeText={setWriteStreamParam}
+                            placeholderTextColor="#9a73ef"
+                            autoCapitalize="none"
+                        />
+                        <View style={styles.buttonGroup}>
+                            {['utf8', 'base64', 'ascii'].map((enc) => (
+                            <Button
+                                key={enc}
+                                title={enc.toUpperCase()}
+                                color={writeEncodeStreamParam === enc ? '#7a42f4' : '#ccc'}
+                                onPress={() => setWriteStreamEncodeParam(enc)}
+                            />
+                            ))}
                         </View>
+                        </View>
+                        <Button title="Write" color="#9a73ef" onPress={writeStreamCall} />
+                        <Button title="Append" color="#9a73ef" onPress={appendStreamCall} />
+                    </View>
                     </View>
 
                     <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'ReadStream - readStream()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(readStreamParam) => setReadStreamParam(readStreamParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" />
-
-                                <Picker readEncodeStreamParam={readEncodeStreamParam} onChangeText={(readPositionParam) => setReadPositionParam(readPositionParam)} style={{height: 50, width: 150}} onValueChange={(itemValue, itemIndex) => setReadStreamEncodeParam(itemValue)}>
-                                    <Picker.Item label="UTF8" value="utf8" />
-                                    <Picker.Item label="Base64" value="base64" />
-                                    <Picker.Item label="ASCII" value="ascii" />
-                                </Picker>
-                            </View>
-                            <Button title="Read" color="#9a73ef" onPress={readStreamCall} />
+                    <View style={styles.sectionContainer}>
+                        <Text style={styles.sectionTitle}>{'ReadStream - readStream()'}</Text>
+                        <View style={styles.sectionDescription}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Source path"
+                            onChangeText={setReadStreamParam}
+                            placeholderTextColor="#9a73ef"
+                            autoCapitalize="none"
+                        />
+                        <View style={styles.buttonGroup}>
+                            {['utf8', 'base64', 'ascii'].map((enc) => (
+                            <Button
+                                key={enc}
+                                title={enc.toUpperCase()}
+                                color={readEncodeStreamParam === enc ? '#7a42f4' : '#ccc'}
+                                onPress={() => setReadStreamEncodeParam(enc)}
+                            />
+                            ))}
                         </View>
+                        </View>
+                        <Button title="Read" color="#9a73ef" onPress={readStreamCall} />
+                    </View>
                     </View>
 
                     <View style={styles.body}>
@@ -685,7 +728,7 @@ const App: () => React$Node = () => {
                         </View>
                     </View>
                 </ScrollView>
-            </SafeAreaView>
+            </View>
         </>
     );
 };
@@ -727,6 +770,12 @@ const styles = StyleSheet.create({
         paddingRight: 12,
         textAlign: 'right',
     },
+    buttonGroup: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginVertical: 8,
+      },
 });
 
 export default App;

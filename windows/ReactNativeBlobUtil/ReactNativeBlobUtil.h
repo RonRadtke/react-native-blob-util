@@ -1,4 +1,13 @@
 #pragma once
+
+#include "pch.h"
+#include "resource.h"
+
+#if __has_include("codegen/NativeBlobUtilsDataTypes.g.h")
+  #include "codegen/NativeBlobUtilsDataTypes.g.h"
+#endif
+
+#include "codegen/NativeBlobUtilsSpec.g.h"
 #include "NativeModules.h"
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Security.Cryptography.h>
@@ -88,7 +97,7 @@ public:
 struct ReactNativeBlobUtilConfig
 {
 public:
-	ReactNativeBlobUtilConfig(winrt::Microsoft::ReactNative::JSValueObject& options);
+	ReactNativeBlobUtilConfig(::React::JSValue& options);
 
 	bool overwrite;
 	std::chrono::seconds timeout;
@@ -104,276 +113,261 @@ public:
 struct ReactNativeBlobUtilProgressConfig {
 public:
 	ReactNativeBlobUtilProgressConfig() = default;
-	ReactNativeBlobUtilProgressConfig(int32_t count_, int32_t interval_);
+	ReactNativeBlobUtilProgressConfig(double count_, double interval_);
 	
-	int64_t count{ -1 };
-	int64_t interval{ -1 };
+	double count{ -1.0 };
+	double interval{ -1.0 };
 };
 
-
-REACT_MODULE(ReactNativeBlobUtil, L"ReactNativeBlobUtil");
-struct ReactNativeBlobUtil : std::enable_shared_from_this<ReactNativeBlobUtil>
+namespace winrt::ReactNativeBlobUtil
 {
-public:
-	using StreamId = std::string;
 
-	REACT_INIT(Initialize);
-	void ReactNativeBlobUtil::Initialize(winrt::Microsoft::ReactNative::ReactContext const& reactContext) noexcept;
+REACT_MODULE(ReactNativeBlobUtil)
+struct ReactNativeBlobUtil
+{
+    using ModuleSpec = ReactNativeBlobUtilCodegen::BlobUtilsSpec;
+    using StreamId = std::string;
 
-	REACT_CONSTANT_PROVIDER(ConstantsViaConstantsProvider);
-	void ReactNativeBlobUtil::ConstantsViaConstantsProvider(
-		winrt::Microsoft::ReactNative::ReactConstantProvider& constants) noexcept;
+    REACT_INIT(Initialize)
+    void Initialize(React::ReactContext const& reactContext) noexcept;
 
-	// createFile
-	REACT_METHOD(createFile);
-	winrt::fire_and_forget createFile(
-		std::string path,
-		std::wstring content,
-		std::string encoding,
-		winrt::Microsoft::ReactNative::ReactPromise<std::string> promise) noexcept;
+    REACT_GET_CONSTANTS(GetConstants)
+    ReactNativeBlobUtilCodegen::BlobUtilsSpec_Constants GetConstants() noexcept;
 
-	REACT_METHOD(createFileASCII);
+    REACT_METHOD(fetchBlobForm)
+    winrt::fire_and_forget fetchBlobForm(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, ::React::JSValueArray form, std::function<void(::React::JSValueArray)> callback) noexcept;
+
+    REACT_METHOD(fetchBlob)
+    winrt::fire_and_forget fetchBlob(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, std::string body, std::function<void(::React::JSValueArray)> callback) noexcept;
+
+    REACT_METHOD(createFile)
+        winrt::fire_and_forget createFile(
+                std::string path,
+                std::wstring content,
+                std::string encoding,
+                winrt::Microsoft::ReactNative::ReactPromise<void> promise
+            ) noexcept;
+
+    REACT_METHOD(createFileASCII)
 	winrt::fire_and_forget createFileASCII(
 		std::string path,
 		winrt::Microsoft::ReactNative::JSValueArray dataArray,
-		winrt::Microsoft::ReactNative::ReactPromise<std::string> promise) noexcept;
+		winrt::Microsoft::ReactNative::ReactPromise<void> promise) noexcept;
 
-
-	// writeFile
-	REACT_METHOD(writeFile);
+	REACT_METHOD(writeFile)
 	winrt::fire_and_forget writeFile(
 		std::string path,
 		std::string encoding,
 		std::wstring data,
+        bool transformFile,
 		bool append,
-		winrt::Microsoft::ReactNative::ReactPromise<int> promise) noexcept;
+		winrt::Microsoft::ReactNative::ReactPromise<double> promise) noexcept;
 
-	REACT_METHOD(writeFileArray);
+	REACT_METHOD(writeFileArray)
 	winrt::fire_and_forget writeFileArray(
 		std::string path,
 		winrt::Microsoft::ReactNative::JSValueArray dataArray,
 		bool append,
-		winrt::Microsoft::ReactNative::ReactPromise<int> promise) noexcept;
+		winrt::Microsoft::ReactNative::ReactPromise<double> promise) noexcept;
 
-	// writeStream
-	REACT_METHOD(writeStream);
-	winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
-		std::string path,
-		std::string encoding,
-		bool append,
-		std::function<void(std::string, std::string, std::string)> callback) noexcept;
+    REACT_METHOD(pathForAppGroup)
+    void pathForAppGroup(std::string groupName, ::React::ReactPromise<std::string>&& result) noexcept;
 
-	// writeChunk
-	REACT_METHOD(writeChunk);
-	void ReactNativeBlobUtil::writeChunk(
-		std::string streamId,
-		std::wstring data,
-		std::function<void(std::string)> callback) noexcept;
+    REACT_SYNC_METHOD(syncPathAppGroup)
+    std::string syncPathAppGroup(std::string groupName) noexcept;
 
-	REACT_METHOD(writeArrayChunk);
-	void ReactNativeBlobUtil::writeArrayChunk(
-		std::string streamId,
-		winrt::Microsoft::ReactNative::JSValueArray dataArray,
-		std::function<void(std::string)> callback) noexcept;
+    REACT_METHOD(exists)
+    void exists(std::string path, std::function<void(std::vector<bool> const&)> const& callback) noexcept;
 
-	// readStream
-	REACT_METHOD(readStream);
-	void ReactNativeBlobUtil::readStream(
-		std::string path,
-		std::string encoding,
-		uint32_t bufferSize,
-		uint64_t tick,
-		const std::string streamId) noexcept;
+    REACT_METHOD(writeStream)
+    winrt::fire_and_forget writeStream(std::string path, std::string encoding, bool appendData, std::function<void(::React::JSValueArray)> callback) noexcept;
 
+    REACT_METHOD(writeArrayChunk)
+    void writeArrayChunk(std::string streamId, ::React::JSValueArray&& dataArray, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
 
-	// mkdir
-	REACT_METHOD(mkdir);
-	void mkdir(
-		std::string path,
-		winrt::Microsoft::ReactNative::ReactPromise<bool> promise) noexcept;
+    REACT_METHOD(writeChunk)
+    void writeChunk(std::string streamId, std::string data, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
 
+    REACT_METHOD(closeStream)
+    void closeStream(std::string streamId, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
 
-	// readFile
-	REACT_METHOD(readFile);
+    REACT_METHOD(unlink)
+    winrt::fire_and_forget unlink(std::string path, std::function<void(::React::JSValueArray)> callback) noexcept;
+
+    REACT_METHOD(removeSession)
+    winrt::fire_and_forget removeSession(::React::JSValueArray paths, std::function<void(::React::JSValueArray)> callback) noexcept;
+
+    // readFile
+	REACT_METHOD(readFile)
 	winrt::fire_and_forget readFile(
 		std::string path,
 		std::string encoding,
-		winrt::Microsoft::ReactNative::ReactPromise<std::wstring> promise) noexcept;
-
+        bool transformFile,
+		::React::ReactPromise<::React::JSValueArray> promise) noexcept;
 
 	// hash
-	REACT_METHOD(hash);
+	REACT_METHOD(hash)
 	winrt::fire_and_forget hash(
 		std::string path,
 		std::string algorithm,
-		winrt::Microsoft::ReactNative::ReactPromise<std::wstring> promise) noexcept;
+		::React::ReactPromise<std::string> promise) noexcept;
 
 	// ls
-	REACT_METHOD(ls);
+	REACT_METHOD(ls)
 	winrt::fire_and_forget ls(
 		std::string path,
-		winrt::Microsoft::ReactNative::ReactPromise<std::vector<std::string>> promise) noexcept;
-
+		::React::ReactPromise<::React::JSValueArray> promise) noexcept;
 
 	// mv
-	REACT_METHOD(mv);
+	REACT_METHOD(mv)
 	winrt::fire_and_forget mv(
-		std::string src, // from
-		std::string dest, // to
-		std::function<void(std::string)> callback) noexcept;
-
+		std::string src,
+		std::string dest,
+		std::function<void(::React::JSValueArray)> callback) noexcept;
 
 	// cp
-	REACT_METHOD(cp);
+	REACT_METHOD(cp)
 	winrt::fire_and_forget cp(
 		std::string src, // from
 		std::string dest, // to
-		std::function<void(std::string)> callback) noexcept;
+		std::function<void(::React::JSValueArray)> callback) noexcept;
 
-
-	// exists
-	REACT_METHOD(exists);
-	void exists(
-		std::string path,
-		std::function<void(bool, bool)> callback) noexcept;
-
-
-	// unlink
-	REACT_METHOD(unlink);
-	winrt::fire_and_forget unlink(
-		std::string path,
-		std::function<void(std::string, bool)> callback) noexcept;
-
-
-	// lstat
-	REACT_METHOD(lstat);
+    // lstat
+	REACT_METHOD(lstat)
 	winrt::fire_and_forget lstat(
 		std::string path,
-		std::function<void(std::string, winrt::Microsoft::ReactNative::JSValueArray&)> callback) noexcept;
-
+		std::function<void(::React::JSValueArray)> callback) noexcept;
 
 	// stat
-	REACT_METHOD(stat);
+	REACT_METHOD(stat)
 	winrt::fire_and_forget stat(
 		std::string path,
-		std::function<void(std::string, winrt::Microsoft::ReactNative::JSValueObject&)> callback) noexcept;
+		std::function<void(::React::JSValueArray)> callback) noexcept;
 
 	// df
-	REACT_METHOD(df);
+	REACT_METHOD(df)
 	winrt::fire_and_forget df(
-		std::function<void(std::string, winrt::Microsoft::ReactNative::JSValueObject&)> callback) noexcept;
+		std::function<void(::React::JSValueArray)> callback) noexcept;
 
-	REACT_METHOD(slice);
-	winrt::fire_and_forget ReactNativeBlobUtil::slice(
+	REACT_METHOD(slice)
+	winrt::fire_and_forget slice(
 		std::string src,
 		std::string dest,
-		uint32_t start,
-		uint32_t end,
-		winrt::Microsoft::ReactNative::ReactPromise<std::string> promise) noexcept;
+		double start,
+		double end,
+		::React::ReactPromise<std::string> promise) noexcept;
 
-	REACT_METHOD(fetchBlob);
-	winrt::fire_and_forget fetchBlob(
-		winrt::Microsoft::ReactNative::JSValueObject options,
-		std::string taskId,
-		std::string method,
-		std::wstring url,
-		winrt::Microsoft::ReactNative::JSValueObject headers,
-		std::string body,
-		std::function<void(std::string, std::string, std::string)> callback) noexcept;
+    REACT_METHOD(mkdir)
+    void mkdir(std::string path, ::React::ReactPromise<bool>&& result) noexcept;
 
-	REACT_METHOD(fetchBlobForm);
-	winrt::fire_and_forget  fetchBlobForm(
-		winrt::Microsoft::ReactNative::JSValueObject options,
-		std::string taskId,
-		std::string method,
-		std::wstring url,
-		winrt::Microsoft::ReactNative::JSValueObject headers,
-		winrt::Microsoft::ReactNative::JSValueArray body,
-		std::function<void(std::string, std::string, std::string)> callback) noexcept;
+    REACT_METHOD(readStream)
+    winrt::fire_and_forget readStream(std::string path, std::string encoding, double bufferSize, double tick, std::string streamId) noexcept;
 
-	REACT_METHOD(enableProgressReport);
-	void enableProgressReport(
-		std::string taskId,
-		int interval,
-		int count) noexcept;
+    REACT_METHOD(getEnvironmentDirs)
+    void getEnvironmentDirs(std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
 
-	// enableUploadProgressReport
-	REACT_METHOD(enableUploadProgressReport);
-	void enableUploadProgressReport(
-		std::string taskId,
-		int interval,
-		int count) noexcept;
+    REACT_METHOD(cancelRequest)
+    void cancelRequest(std::string taskId, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
 
-	// cancelRequest
-	REACT_METHOD(cancelRequest);
-	void cancelRequest(
-		std::string taskId,
-		std::function<void(std::string, std::string)> callback) noexcept;
+    REACT_METHOD(enableProgressReport)
+    void enableProgressReport(std::string taskId, double interval, double count) noexcept;
 
-	REACT_METHOD(removeSession);
-	winrt::fire_and_forget ReactNativeBlobUtil::removeSession(
-		winrt::Microsoft::ReactNative::JSValueArray paths,
-		std::function<void(std::string)> callback) noexcept;
+    REACT_METHOD(enableUploadProgressReport)
+    void enableUploadProgressReport(std::string taskId, double interval, double count) noexcept;
 
-	REACT_METHOD(closeStream);
-	void closeStream(
-		std::string streamId,
-		std::function<void(std::string)> callback) noexcept;
+    REACT_METHOD(presentOptionsMenu)
+    void presentOptionsMenu(std::string uri, std::string scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
-	// addListener
-	REACT_METHOD(addListener);
-	void addListener(
-		std::string eventName
-	) noexcept;
+    REACT_METHOD(presentOpenInMenu)
+    void presentOpenInMenu(std::string uri, std::string scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
-	// removeListeners
-	REACT_METHOD(removeListeners);
-	void removeListeners(
-		double count
-	) noexcept;
+    REACT_METHOD(presentPreview)
+    void presentPreview(std::string uri, std::string scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
+    REACT_METHOD(excludeFromBackupKey)
+    void excludeFromBackupKey(std::string url, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
-	// Helper methods
+    REACT_METHOD(emitExpiredEvent)
+    void emitExpiredEvent(std::function<void(std::string)> const& callback) noexcept;
+
+    REACT_METHOD(actionViewIntent)
+    void actionViewIntent(std::string path, std::string mime, std::string chooserTitle, ::React::ReactPromise<void>&& result) noexcept;
+
+    REACT_METHOD(addCompleteDownload)
+    void addCompleteDownload(::React::JSValue&& config, ::React::ReactPromise<void>&& result) noexcept;
+
+    REACT_METHOD(copyToInternal)
+    void copyToInternal(std::string contentUri, std::string destpath, ::React::ReactPromise<std::string>&& result) noexcept;
+
+    REACT_METHOD(copyToMediaStore)
+    void copyToMediaStore(::React::JSValue&& filedata, std::string mt, std::string path, ::React::ReactPromise<std::string>&& result) noexcept;
+
+    REACT_METHOD(createMediaFile)
+    void createMediaFile(::React::JSValue&& filedata, std::string mt, ::React::ReactPromise<std::string>&& result) noexcept;
+
+    REACT_METHOD(getBlob)
+    void getBlob(std::string contentUri, std::string encoding, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
+
+    REACT_METHOD(getContentIntent)
+    void getContentIntent(std::string mime, ::React::ReactPromise<std::string>&& result) noexcept;
+
+    REACT_METHOD(getSDCardDir)
+    void getSDCardDir(::React::ReactPromise<std::string>&& result) noexcept;
+
+    REACT_METHOD(getSDCardApplicationDir)
+    void getSDCardApplicationDir(::React::ReactPromise<std::string>&& result) noexcept;
+
+    REACT_METHOD(scanFile)
+    void scanFile(::React::JSValueArray&& pairs, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
+
+    REACT_METHOD(writeToMediaFile)
+    void writeToMediaFile(std::string fileUri, std::string path, bool transformFile, ::React::ReactPromise<std::string>&& result) noexcept;
+
+    REACT_METHOD(addListener)
+    void addListener(std::string eventName) noexcept;
+
+    REACT_METHOD(removeListeners)
+    void removeListeners(double count) noexcept;
+
 private:
-	
+    React::ReactContext m_context;
 
-	constexpr static int64_t UNIX_EPOCH_IN_WINRT_SECONDS = 11644473600;
+    constexpr static int64_t UNIX_EPOCH_IN_WINRT_SECONDS = 11644473600;
 
-	std::map<StreamId, ReactNativeBlobUtilStream> m_streamMap;
-	//winrt::Windows::Web::Http::HttpClient m_httpClient;
-	winrt::Microsoft::ReactNative::ReactContext m_reactContext;
-	TaskCancellationManager m_tasks;
+    std::map<StreamId, ReactNativeBlobUtilStream> m_streamMap;
+    //winrt::Windows::Web::Http::HttpClient m_httpClient;
+    winrt::Microsoft::ReactNative::ReactContext m_reactContext;
+    TaskCancellationManager m_tasks;
 
-	winrt::Windows::Foundation::IAsyncAction ProcessRequestAsync(
-		const std::string& taskId,
-		const winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter& filter,
-		winrt::Windows::Web::Http::HttpRequestMessage& httpRequestMessage,
-		ReactNativeBlobUtilConfig& config,
-		std::function<void(std::string, std::string, std::string)> callback,
-		std::string& error) noexcept;
+    winrt::Windows::Foundation::IAsyncAction ProcessRequestAsync(
+        const std::string& taskId,
+        const winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter& filter,
+        winrt::Windows::Web::Http::HttpRequestMessage& httpRequestMessage,
+        ReactNativeBlobUtilConfig& config,
+        std::function<void(std::string, std::string, std::string)> callback,
+        std::string& error) noexcept;
 
-	const std::map<std::string, std::function<CryptographyCore::HashAlgorithmProvider()>> availableHashes{
-		{"md5", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Md5()); } },
-		{"sha1", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha1()); } },
-		{"sha256", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha256()); } },
-		{"sha384", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha384()); } },
-		{"sha512", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha512()); } }
-	};
+    const std::map<std::string, std::function<CryptographyCore::HashAlgorithmProvider()>> availableHashes{
+        {"md5", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Md5()); } },
+        {"sha1", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha1()); } },
+        {"sha256", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha256()); } },
+        {"sha384", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha384()); } },
+        {"sha512", []() { return CryptographyCore::HashAlgorithmProvider::OpenAlgorithm(CryptographyCore::HashAlgorithmNames::Sha512()); } }
+    };
 
-	void splitPath(const std::string& fullPath,
-		winrt::hstring& directoryPath,
-		winrt::hstring& fileName) noexcept;
+    void splitPath(const std::string& fullPath,
+        winrt::hstring& directoryPath,
+        winrt::hstring& fileName) noexcept;
 
-	void splitPath(const std::wstring& fullPath,
-		winrt::hstring& directoryPath,
-		winrt::hstring& fileName) noexcept;
+    void splitPath(const std::wstring& fullPath,
+        winrt::hstring& directoryPath,
+        winrt::hstring& fileName) noexcept;
 
-	const std::string prefix{ "ReactNativeBlobUtil-file://" };
+    const std::string prefix{ "ReactNativeBlobUtil-file://" };
 
-	std::mutex m_mutex;
-	std::map<std::string, ReactNativeBlobUtilProgressConfig> downloadProgressMap;
-	std::map<std::string, ReactNativeBlobUtilProgressConfig> uploadProgressMap;
+    std::mutex m_mutex;
+    std::map<std::string, ReactNativeBlobUtilProgressConfig> downloadProgressMap;
+    std::map<std::string, ReactNativeBlobUtilProgressConfig> uploadProgressMap;
 };
 
-
-
+} // namespace winrt::ReactNativeBlobUtil

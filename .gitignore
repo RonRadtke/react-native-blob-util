@@ -31,6 +31,9 @@ project.xcworkspace
 Podfile*
 contents.xcworkspacedata
 
+# packages
+windows/packages/
+
 # VSCode
 #
 .vscode
@@ -52,3 +55,5 @@ buck-out/
 android/app/libs
 android/keystores/debug.keystore
 /ios/ReactNativeBlobUtil.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+**/msbuild.binlog
