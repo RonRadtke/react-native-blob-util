@@ -12,10 +12,10 @@
     "test:windows": "jest --config jest.config.windows.js"
   },
   "dependencies": {
-    "react": "18.2.0",
-    "react-native": "^0.76",
+    "react": "19.0.0",
+    "react-native": "0.78.2",
     "react-native-blob-util": "file:../../",
-    "react-native-windows": "^0.76"
+    "react-native-windows": "0.78.2"
   },
   "devDependencies": {
     "@babel/core": "^7.12.9",
