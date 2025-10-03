@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
     'ReactNativeBlobUtilPrivacyInfo' => ['ios/PrivacyInfo.xcprivacy'],
   }
   s.platforms       = { :ios => "11.0" }
-  s.framework    = 'AssetsLibrary'
+  s.framework    = 'Photos'
 
   if fabric_enabled
     # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.

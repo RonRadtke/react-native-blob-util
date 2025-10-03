@@ -18,7 +18,7 @@
 #import "RCTBridgeModule.h"
 #endif
 
-#import <AssetsLibrary/AssetsLibrary.h>
+#import <Photos/Photos.h>
 
 @interface ReactNativeBlobUtilFS : NSObject <NSStreamDelegate>  {
     NSOutputStream * outStream;
@@ -57,7 +57,7 @@
 + (NSString *) getTempPath:(NSString*)taskId withExtension:(NSString *)ext;
 + (NSString *) getPathOfAsset:(NSString *)assetURI;
 + (NSString *) getPathForAppGroup:(NSString *)groupName;
-+ (void) getPathFromUri:(NSString *)uri completionHandler:(void(^)(NSString * path, ALAssetRepresentation *asset)) onComplete;
++ (void) getPathFromUri:(NSString *)uri completionHandler:(void(^)(NSString * path, PHAsset *asset)) onComplete;
 
 // fs methods
 + (ReactNativeBlobUtilFS *) getFileStreams;
@@ -82,7 +82,7 @@
      resolver:(RCTPromiseResolveBlock)resolve
      rejecter:(RCTPromiseRejectBlock)reject;
 //+ (void) writeFileFromFile:(NSString *)src toFile:(NSString *)dest append:(BOOL)append;
-+ (void) writeAssetToPath:(ALAssetRepresentation * )rep dest:(NSString *)dest;
++ (void) writeAssetToPath:(PHAsset * )asset dest:(NSString *)dest;
 + (void) readStream:(NSString *)uri encoding:(NSString * )encoding bufferSize:(int)bufferSize tick:(int)tick streamId:(NSString *)streamId baseModule:(ReactNativeBlobUtil *)baseModule;
 + (void) df:(RCTResponseSenderBlock)callback;
 
