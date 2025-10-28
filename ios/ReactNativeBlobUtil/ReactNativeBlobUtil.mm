@@ -760,10 +760,12 @@ RCT_EXPORT_METHOD(cancelRequest:(NSString *)taskId callback:(RCTResponseSenderBl
 }
 
 #pragma mark - net.enableProgressReport
-RCT_EXPORT_METHOD(enableProgressReport:(NSString *)taskId interval:(nonnull NSNumber*)interval count:(nonnull NSNumber*)count)
+RCT_EXPORT_METHOD(enableProgressReport:(NSString *)taskId interval:(double)interval count:(double)count)
 {
+    NSNumber *intervalNumber = [NSNumber numberWithDouble:interval];
+    NSNumber *countNumber = [NSNumber numberWithInteger:count];
 
-    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:Download interval:interval count:count];
+    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:Download interval:intervalNumber count:countNumber];
     [[ReactNativeBlobUtilNetwork sharedInstance] enableProgressReport:taskId config:cfg];
 }
 
