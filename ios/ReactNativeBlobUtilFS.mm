@@ -11,7 +11,7 @@
 #import "ReactNativeBlobUtilFS.h"
 #import "ReactNativeBlobUtilConst.h"
 #import "ReactNativeBlobUtilFileTransformer.h"
-#import <AssetsLibrary/AssetsLibrary.h>
+#import <Photos/Photos.h>
 
 #import <CommonCrypto/CommonDigest.h>
 
@@ -154,7 +154,7 @@ NSMutableDictionary *fileStreams = nil;
            streamId:(NSString *)streamId
           baseModule:(ReactNativeBlobUtil*)baseModule
 {
-    [[self class] getPathFromUri:uri completionHandler:^(NSString *path, ALAssetRepresentation *asset) {
+    [[self class] getPathFromUri:uri completionHandler:^(NSString *path, PHAsset *asset) {
 
         __block int read = 0;
         __block int backoff = tick *1000;
@@ -188,17 +188,34 @@ NSMutableDictionary *fileStreams = nil;
             }
             else if (asset != nil)
             {
-                int cursor = 0;
-                NSError * err;
-                while((read = [asset getBytes:buffer fromOffset:cursor length:bufferSize error:&err]) > 0)
-                {
-                    cursor += read;
-                    [[self class] emitDataChunks:[NSData dataWithBytes:buffer length:read] encoding:encoding streamId:streamId baseModule:baseModule];
-                    if(tick > 0)
-                    {
-                        usleep(backoff);
-                    }
-                }
+                // For PHAsset, we need to get the full image data first
+                PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+                options.synchronous = YES;
+                options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+                options.resizeMode = PHImageRequestOptionsResizeModeNone;
+                
+                [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+                    if (imageData) {
+                        // Write to temporary file and then read it back in chunks
+                        NSString *tempPath = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"temp_asset_%@.tmp", [[NSUUID UUID] UUIDString]]];
+                        [imageData writeToFile:tempPath atomically:YES];
+                        
+                        NSInputStream *stream = [[NSInputStream alloc] initWithFileAtPath:tempPath];
+                        [stream open];
+                        while((read = [stream read:buffer maxLength:bufferSize]) > 0)
+                        {
+                            [[self class] emitDataChunks:[NSData dataWithBytes:buffer length:read] encoding:encoding streamId:streamId baseModule:baseModule];
+                            if(tick > 0)
+                            {
+                                usleep(backoff);
+                            }
+                        }
+                        [stream close];
+                        
+                        // Clean up temp file
+                        [[NSFileManager defaultManager] removeItemAtPath:tempPath error:nil];
+                     }
+                }];
             }
             else
             {
@@ -290,7 +307,7 @@ NSMutableDictionary *fileStreams = nil;
 
 + (NSNumber *) writeFileFromFile:(NSString *)src toFile:(NSString *)dest append:(BOOL)append callback:(void(^)(NSString * errMsg, NSNumber *size))callback
 {
-    [[self class] getPathFromUri:src completionHandler:^(NSString *path, ALAssetRepresentation *asset) {
+    [[self class] getPathFromUri:src completionHandler:^(NSString *path, PHAsset *asset) {
         if(path != nil)
         {
             __block NSInputStream * is = [[NSInputStream alloc] initWithFileAtPath:path];
@@ -313,21 +330,24 @@ NSMutableDictionary *fileStreams = nil;
         }
         else if(asset != nil)
         {
-
-            __block NSOutputStream * os = [[NSOutputStream alloc] initToFileAtPath:dest append:append];
-            int read = 0;
-            int cursor = 0;
-            __block long written = 0;
-            uint8_t buffer[10240];
-            [os open];
-            while((read = [asset getBytes:buffer fromOffset:cursor length:10240 error:nil]) > 0)
-            {
-                cursor += read;
-                [os write:buffer maxLength:read];
-            }
-            __block NSNumber * size = [NSNumber numberWithLong:written];
-            [os close];
-            callback(nil, size);
+            // For PHAsset, get the full image data and write it
+            PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+            options.synchronous = YES;
+            options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            options.resizeMode = PHImageRequestOptionsResizeModeNone;
+            
+            [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+                if (imageData) {
+                    NSOutputStream *os = [[NSOutputStream alloc] initToFileAtPath:dest append:append];
+                    [os open];
+                    [imageData writeToFile:dest atomically:YES];
+                    NSNumber *size = [NSNumber numberWithLong:imageData.length];
+                    [os close];
+                    callback(nil, size);
+                } else {
+                    callback(@"Failed to get image data from asset", nil);
+                }
+            }];
         }
         else
             callback(@"failed to resolve path", nil);
@@ -496,23 +516,26 @@ NSMutableDictionary *fileStreams = nil;
          transformFile:(BOOL) transformFile
        onComplete:(void (^)(NSData * content, NSString * codeStr, NSString * errMsg))onComplete
 {
-    [[self class] getPathFromUri:path completionHandler:^(NSString *path, ALAssetRepresentation *asset) {
+    [[self class] getPathFromUri:path completionHandler:^(NSString *path, PHAsset *asset) {
         __block NSData * fileContent;
         NSError * err;
         __block Byte * buffer;
         if(asset != nil)
         {
-            int size = asset.size;
-            buffer = (Byte *)malloc(size);
-            [asset getBytes:buffer fromOffset:0 length:asset.size error:&err];
-            if(err != nil)
-            {
-                onComplete(nil, @"EUNSPECIFIED", [err description]);
-                free(buffer);
-                return;
-            }
-            fileContent = [NSData dataWithBytes:buffer length:size];
-            free(buffer);
+            // For PHAsset, get the full image data
+            PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+            options.synchronous = YES;
+            options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            options.resizeMode = PHImageRequestOptionsResizeModeNone;
+            
+            [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+                if (imageData) {
+                    onComplete(imageData, nil, nil);
+                } else {
+                    onComplete(nil, @"EUNSPECIFIED", @"Failed to get image data from asset");
+                }
+            }];
+            return;
         }
         else
         {
@@ -795,7 +818,7 @@ typedef enum {
 
 + (void) exists:(NSString *) path callback:(RCTResponseSenderBlock)callback
 {
-    [[self class] getPathFromUri:path completionHandler:^(NSString *path, ALAssetRepresentation *asset) {
+    [[self class] getPathFromUri:path completionHandler:^(NSString *path, PHAsset *asset) {
         if(path != nil)
         {
             BOOL isDir = NO;
@@ -886,7 +909,7 @@ typedef enum {
      resolver:(RCTPromiseResolveBlock)resolve
      rejecter:(RCTPromiseRejectBlock)reject
 {
-    [[self class] getPathFromUri:path completionHandler:^(NSString *path, ALAssetRepresentation *asset)
+    [[self class] getPathFromUri:path completionHandler:^(NSString *path, PHAsset *asset)
     {
         if(path != nil)
         {
@@ -945,39 +968,34 @@ typedef enum {
         }
         else if (asset != nil)
         {
-            long expected = [end longValue] - [start longValue];
-            long read = 0;
-            long chunkRead = 0;
-            NSOutputStream * os = [[NSOutputStream alloc] initToFileAtPath:dest append:NO];
-            [os open];
-            long size = asset.size;
-            long max = MIN(size, [end longValue]);
-
-            while(read < expected) {
-                uint8_t chunk[10240];
-                uint8_t * pointerToChunk = &chunk[0];
-                long chunkSize = 0;
-                if([start longValue] + read + 10240 > max)
-                {
-                    NSLog(@"read chunk %lu", max - read - [start longValue]);
-                    chunkSize = max - read - [start longValue];
-                    chunkRead = [asset getBytes:pointerToChunk fromOffset:[start longValue] + read length:chunkSize error:nil];
+            // For PHAsset, get the full image data and then slice it
+            PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+            options.synchronous = YES;
+            options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            options.resizeMode = PHImageRequestOptionsResizeModeNone;
+            
+            [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+                if (imageData) {
+                    long startPos = [start longValue];
+                    long endPos = [end longValue];
+                    long dataLength = imageData.length;
+                    
+                    // Clamp the range to the actual data length
+                    startPos = MAX(0, MIN(startPos, dataLength));
+                    endPos = MAX(startPos, MIN(endPos, dataLength));
+                    
+                    NSRange range = NSMakeRange(startPos, endPos - startPos);
+                    NSData *sliceData = [imageData subdataWithRange:range];
+                    
+                    if ([sliceData writeToFile:dest atomically:YES]) {
+                        resolve(dest);
+                    } else {
+                        reject(@"EUNSPECIFIED", @"Failed to write slice to file", nil);
+                    }
+                } else {
+                    reject(@"EUNSPECIFIED", @"Failed to get image data from asset", nil);
                 }
-                else
-                {
-                    NSLog(@"read chunk %lu", 10240);
-                    chunkSize = 10240;
-                    chunkRead = [asset getBytes:pointerToChunk fromOffset:[start longValue] + read length:chunkSize error:nil];
-                }
-                if( chunkRead <= 0)
-                    break;
-                long remain = expected - read;
-
-                [os write:chunk maxLength:chunkSize];
-                read += chunkRead;
-            }
-            [os close];
-            resolve(dest);
+            }];
         }
         else {
             reject(@"EINVAL", [NSString stringWithFormat: @"Could not resolve URI %@", path ], nil);
@@ -1001,20 +1019,18 @@ typedef enum {
 
 # pragma mark - get absolute path of resource
 
-+ (void) getPathFromUri:(NSString *)uri completionHandler:(void(^)(NSString * path, ALAssetRepresentation *asset)) onComplete
++ (void) getPathFromUri:(NSString *)uri completionHandler:(void(^)(NSString * path, PHAsset *asset)) onComplete
 {
     if([uri hasPrefix:AL_PREFIX])
     {
         NSURL *asseturl = [NSURL URLWithString:uri];
-        __block ALAssetsLibrary* assetslibrary = [[ALAssetsLibrary alloc] init];
-        [assetslibrary assetForURL:asseturl
-                       resultBlock:^(ALAsset *asset) {
-                           __block ALAssetRepresentation * present = [asset defaultRepresentation];
-                           onComplete(nil, present);
-                       }
-                      failureBlock:^(NSError *error) {
-                          onComplete(nil, nil);
-                      }];
+        PHFetchResult<PHAsset *> *assets = [PHAsset fetchAssetsWithALAssetURLs:@[asseturl] options:nil];
+        if (assets.count > 0) {
+            PHAsset *asset = assets.firstObject;
+            onComplete(nil, asset);
+        } else {
+            onComplete(nil, nil);
+        }
     }
     else
     {
@@ -1044,20 +1060,20 @@ typedef enum {
 
 }
 
-+ (void) writeAssetToPath:(ALAssetRepresentation * )rep dest:(NSString *)dest
++ (void) writeAssetToPath:(PHAsset * )asset dest:(NSString *)dest
 {
-    int read = 0;
-    int cursor = 0;
-    Byte * buffer = (Byte *)malloc(10240);
-    NSOutputStream * ostream = [[NSOutputStream alloc] initToFileAtPath:dest append:NO];
-    [ostream open];
-    while((read = [rep getBytes:buffer fromOffset:cursor length:10240 error:nil]) > 0)
-    {
-        cursor+=10240;
-        [ostream write:buffer maxLength:read];
+    if (asset.mediaType == PHAssetMediaTypeImage) {
+        PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+        options.synchronous = YES;
+        options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+        options.resizeMode = PHImageRequestOptionsResizeModeNone;
+        
+        [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+            if (imageData) {
+                [imageData writeToFile:dest atomically:YES];
+            }
+        }];
     }
-    [ostream close];
-    free(buffer);
     return;
 }
 

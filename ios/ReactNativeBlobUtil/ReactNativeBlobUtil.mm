@@ -512,7 +512,7 @@ RCT_EXPORT_METHOD(ls:(NSString *)path resolver:(RCTPromiseResolveBlock)resolve r
 RCT_EXPORT_METHOD(stat:(NSString *)target callback:(RCTResponseSenderBlock) callback)
 {
 
-    [ReactNativeBlobUtilFS getPathFromUri:target completionHandler:^(NSString *path, ALAssetRepresentation *asset) {
+    [ReactNativeBlobUtilFS getPathFromUri:target completionHandler:^(NSString *path, PHAsset *asset) {
         __block NSMutableDictionary * result;
         if(path != nil)
         {
@@ -536,10 +536,29 @@ RCT_EXPORT_METHOD(stat:(NSString *)target callback:(RCTResponseSenderBlock) call
         }
         else if(asset != nil)
         {
-            __block NSNumber * size = [NSNumber numberWithLong:[asset size]];
-            result = [asset metadata];
-            [result setValue:size forKey:@"size"];
-            callback(@[[NSNull null], result]);
+            // For PHAsset, get basic metadata
+            NSMutableDictionary *assetInfo = [NSMutableDictionary dictionary];
+            [assetInfo setValue:[NSNumber numberWithLong:asset.pixelWidth] forKey:@"width"];
+            [assetInfo setValue:[NSNumber numberWithLong:asset.pixelHeight] forKey:@"height"];
+            [assetInfo setValue:[NSNumber numberWithLong:asset.duration] forKey:@"duration"];
+            [assetInfo setValue:[NSDate date] forKey:@"lastModified"];
+            [assetInfo setValue:@"asset" forKey:@"type"];
+            [assetInfo setValue:@"PHAsset" forKey:@"filename"];
+            
+            // Get actual file size by requesting image data
+            PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
+            options.synchronous = YES;
+            options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+            options.resizeMode = PHImageRequestOptionsResizeModeNone;
+            
+            [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+                if (imageData) {
+                    [assetInfo setValue:[NSNumber numberWithLong:imageData.length] forKey:@"size"];
+                } else {
+                    [assetInfo setValue:[NSNumber numberWithLong:0] forKey:@"size"];
+                }
+                callback(@[[NSNull null], assetInfo]);
+            }];
         }
         else
         {
@@ -597,7 +616,7 @@ RCT_EXPORT_METHOD(cp:(NSString*)src toPath:(NSString *)dest callback:(RCTRespons
   callback:(RCTResponseSenderBlock)callback
 {
 //    path = [ReactNativeBlobUtilFS getPathOfAsset:path];
-    [ReactNativeBlobUtilFS getPathFromUri:src completionHandler:^(NSString *path, ALAssetRepresentation *asset) {
+    [ReactNativeBlobUtilFS getPathFromUri:src completionHandler:^(NSString *path, PHAsset *asset) {
         NSError * error = nil;
         if(path == nil)
         {
