@@ -728,7 +728,7 @@ RCT_EXPORT_METHOD(hash:(NSString *)path
 }
 
 #pragma mark - fs.readStream
-RCT_EXPORT_METHOD(readStream:(NSString *)path encoding:(NSString *)encoding bufferSize:(int)bufferSize tick:(int)tick streamId:(NSString *)streamId)
+RCT_EXPORT_METHOD(readStream:(NSString *)path encoding:(NSString *)encoding bufferSize:(double)bufferSize tick:(double)tick streamId:(NSString *)streamId)
 {
     if(bufferSize == 0) {
         if([[encoding lowercaseString] isEqualToString:@"base64"])

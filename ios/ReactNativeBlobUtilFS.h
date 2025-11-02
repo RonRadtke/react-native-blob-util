@@ -83,7 +83,7 @@
      rejecter:(RCTPromiseRejectBlock)reject;
 //+ (void) writeFileFromFile:(NSString *)src toFile:(NSString *)dest append:(BOOL)append;
 + (void) writeAssetToPath:(PHAsset * )asset dest:(NSString *)dest;
-+ (void) readStream:(NSString *)uri encoding:(NSString * )encoding bufferSize:(int)bufferSize tick:(int)tick streamId:(NSString *)streamId baseModule:(ReactNativeBlobUtil *)baseModule;
++ (void) readStream:(NSString *)uri encoding:(NSString * )encoding bufferSize:(double)bufferSize tick:(double)tick streamId:(NSString *)streamId baseModule:(ReactNativeBlobUtil *)baseModule;
 + (void) df:(RCTResponseSenderBlock)callback;
 
 // constructor
