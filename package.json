@@ -1,68 +1,70 @@
 {
-  "name": "react-native-blob-util",
-  "version": "0.24.2",
-  "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
-  "main": "index",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "dependencies": {
-    "base-64": "0.1.0",
-    "glob": "13.0.0"
-  },
-  "keywords": [
-    "react-native",
-    "fetch",
-    "blob",
-    "fs",
-    "upload",
-    "file",
-    "download",
-    "filestream",
-    "image header"
-  ],
-  "repository": {
-    "url": "https://github.com/RonRadtke/react-native-blob-util"
-  },
-  "author": {
-    "name": "RonRadtke",
-    "username": "RonRadtke"
-  },
-  "license": "MIT",
-  "contributors": [
-    "Traviskn <>",
-    "Ben <benhsieh@catchplay.com>",
-    "wkh237 <xeiyan@gmail.com>"
-  ],
-  "devDependencies": {
-    "@react-native-community/eslint-config": "^3.0.0",
-    "@typescript-eslint/parser": "^3.4.0",
-    "eslint": ">7.0.0",
-    "eslint-config-defaults": "^9.0.0",
-    "eslint-plugin-react": "^7.24.0",
-    "react": "19.0.0",
-    "react-native": "0.78.2",
-    "react-native-windows": "0.78.2"
-  },
-  "peerDependencies": {
-    "react": "*",
-    "react-native": "*"
-  },
-  "codegenConfig": {
-    "name": "ReactNativeBlobUtilSpec",
-    "type": "modules",
-    "jsSrcsDir": "codegenSpecs",
-    "windows": {
-      "namespace": "ReactNativeBlobUtilCodegen",
-      "outputDirectory": "windows/ReactNativeBlobUtil/codegen",
-      "separateDataTypes": true
+    "name" : "react-native-blob-util",
+    "version" : "0.24.2",
+    "description" : "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
+    "main" : "index",
+    "scripts" : {
+        "test" : "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies" : {
+        "base-64" : "0.1.0",
+        "glob" : "13.0.0"
+    },
+    "keywords" : [
+        "react-native",
+        "fetch",
+        "blob",
+        "fs",
+        "upload",
+        "file",
+        "download",
+        "filestream",
+        "image header"
+    ],
+    "repository" : {
+        "url" : "https://github.com/RonRadtke/react-native-blob-util"
+    },
+    "author" : {
+        "name" : "RonRadtke",
+        "username" : "RonRadtke"
+    },
+    "license" : "MIT",
+    "contributors" : [
+        "Traviskn <>",
+        "Ben <benhsieh@catchplay.com>",
+        "wkh237 <xeiyan@gmail.com>"
+    ],
+    "devDependencies" : {
+        "@typescript-eslint/eslint-plugin": "^8.46.4",
+        "@typescript-eslint/parser": "^8.46.4",
+        "eslint": "^8.57.1",
+        "eslint-plugin-ft-flow" : "^3.0.11",
+        "eslint-plugin-import" : "^2.32.0",
+        "eslint-plugin-react" : "^7.37.5",
+        "eslint-plugin-react-native" : "^5.0.0",
+        "react" : "19.0.0",
+        "react-native" : "0.78.2",
+        "react-native-windows" : "0.78.2"
+    },
+    "peerDependencies" : {
+        "react" : "*",
+        "react-native" : "*"
+    },
+    "codegenConfig" : {
+        "name" : "ReactNativeBlobUtilSpec",
+        "type" : "modules",
+        "jsSrcsDir" : "codegenSpecs",
+        "windows" : {
+            "namespace" : "ReactNativeBlobUtilCodegen",
+            "outputDirectory" : "windows/ReactNativeBlobUtil/codegen",
+            "separateDataTypes" : true
+        }
+    },
+    "react-native-windows" : {
+        "init-windows" : {
+            "name" : "ReactNativeBlobUtil",
+            "namespace" : "ReactNativeBlobUtil",
+            "template" : "cpp-lib"
+        }
     }
-  },
-  "react-native-windows": {
-    "init-windows": {
-      "name": "ReactNativeBlobUtil",
-      "namespace": "ReactNativeBlobUtil",
-      "template": "cpp-lib"
-    }
-  }
 }
