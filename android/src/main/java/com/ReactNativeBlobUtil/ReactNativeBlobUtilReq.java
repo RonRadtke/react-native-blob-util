@@ -12,8 +12,9 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.LinkProperties;
-import android.net.LinkAddress;
-import java.net.Inet4Address;  
+import android.net.RouteInfo;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -44,6 +45,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.UnknownHostException;
 import java.net.Proxy;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -391,9 +393,21 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
 
             // wifi only, need ACCESS_NETWORK_STATE permission
             // and API level >= 21
-            boolean targetHostIpAvailable = (this.options.targetHostIp != null && !this.options.targetHostIp.isEmpty());
+            final String targetHostIp = this.options.targetHostIp;
+            boolean targetHostIpAvailable = (targetHostIp != null && !targetHostIp.isEmpty());
+            
             if (this.options.wifiOnly) {
                 boolean found = false;
+
+                // convert targetHostIp from String into InetAddress
+                InetAddress targetHostAddr = null;
+                if (targetHostIpAvailable) {
+                    try {
+                        targetHostAddr = InetAddress.getByName(targetHostIp);
+                    } catch (UnknownHostException e) {
+                        targetHostAddr = null; // skip
+                    }
+                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     ConnectivityManager connectivityManager = (ConnectivityManager) ReactNativeBlobUtilImpl.RCTContext.getSystemService(ReactNativeBlobUtilImpl.RCTContext.CONNECTIVITY_SERVICE);
@@ -408,9 +422,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
 
                         // if targetHostIpAvailable does not match, fallback to any wifi
                         if (targetHostIpAvailable) {
-                            String targetHostIp = this.options.targetHostIp;
-
-                            if (networkMatchesTargetIp(connectivityManager, network, targetHostIp)) {
+                            if (networkMatchesTargetIp(connectivityManager, network, targetHostIp, targetHostAddr)) {
                                 clientBuilder.proxy(Proxy.NO_PROXY);
                                 clientBuilder.socketFactory(network.getSocketFactory());
                                 found = true;
@@ -1048,28 +1060,33 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
     /**
      * Check if a network matches the target host IP address
      */
-    private boolean networkMatchesTargetIp(ConnectivityManager cm, Network network, String targetHostIp) {
+    private boolean networkMatchesTargetIp(ConnectivityManager cm, Network network, String targetHostIp, InetAddress targetHostAddr) {
         LinkProperties lp = cm.getLinkProperties(network);
         if (lp == null) return false;
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // For Android R and above, use DHCP server address
+            // For Android 11 and above, use DHCP server address
             Inet4Address dhcpServer = lp.getDhcpServerAddress();
             if (dhcpServer != null && dhcpServer.getHostAddress().equals(targetHostIp)) {
                 return true;
             }
         }
-        
-        // Always fall back to linkAddresses check
-        List<LinkAddress> linkAddresses = lp.getLinkAddresses();
-        if (linkAddresses != null && !linkAddresses.isEmpty()) {
-            for (LinkAddress la : linkAddresses) {
-                if (la.getAddress().getHostAddress().equals(targetHostIp)) {
-                    return true;
+
+        // For older versions or Android 11+ if DHCP does not match, check routing table
+        if (targetHostAddr != null) {
+            List<RouteInfo> routes = lp.getRoutes();
+            if (routes != null) {
+                for (RouteInfo route : routes) {
+                    if (route.isDefaultRoute()) {
+                        continue;
+                    }
+                    if (route.matches(targetHostAddr)) {
+                        return true;
+                    }
                 }
             }
         }
-        
+
         return false;
     }
 }
