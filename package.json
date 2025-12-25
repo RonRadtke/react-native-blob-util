@@ -1,6 +1,6 @@
 {
     "name" : "react-native-blob-util",
-    "version" : "0.24.5",
+    "version" : "0.24.6",
     "description" : "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main" : "index",
     "scripts" : {
