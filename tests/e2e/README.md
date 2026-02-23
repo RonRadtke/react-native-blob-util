@@ -16,28 +16,45 @@ This suite drives the example app UI with Appium/WebdriverIO and executes file o
 From repo root:
 
 ```sh
-# Android (requires emulator + app path OR package)
+# Android (requires emulator; app auto-builds if not provided)
 npm run e2e:android
 
 # iOS (requires macOS simulator + app path OR bundle id)
 npm run e2e:ios
 ```
 
+Android auto-build prerequisites:
+
+- Java and Android SDK available on PATH.
+- A running Android emulator/device.
+
 The runner will:
 
 1. Start `tests/e2e/server.js` if not running.
 2. Start Appium if not running.
 3. Install missing Appium drivers for selected platforms.
-4. Execute the scenario suite.
+4. For Android, auto-build `tests/e2e/android-app` if no APK/package target is provided and no APK already exists.
+5. Execute the scenario suite.
 
 ## Required app config
 
 ### Android
 
-Set one of:
+By default, Android tests use the included app at `tests/e2e/android-app`:
+
+- Existing APK: `tests/e2e/android-app/android/app/build/outputs/apk/debug/app-debug.apk`
+- If missing, the runner installs app dependencies and builds it automatically.
+
+You can still override by setting one of:
 
 - `E2E_APP_PATH` (or `E2E_APP_PATH_ANDROID`) to an `.apk`
 - `ANDROID_APP_PACKAGE` (+ usually `ANDROID_APP_ACTIVITY`) for an already installed app
+
+To force a fresh Android app build even when an APK exists:
+
+```sh
+E2E_REBUILD_ANDROID_APP=1 npm run e2e:android
+```
 
 ### iOS
 
@@ -104,3 +121,4 @@ and runs this same suite against provided app artifacts (`android_app`, `ios_app
 - `E2E_FORCE_WINDOWS`: allow Windows run on non-Windows host
 - `E2E_SCENARIOS`: comma-separated scenario list
 - `E2E_SCENARIOS_ANDROID`, `E2E_SCENARIOS_IOS`, `E2E_SCENARIOS_WINDOWS`: per-platform scenario list
+- `E2E_REBUILD_ANDROID_APP`: when truthy (`1`, `true`, `yes`, `on`), rebuild included Android E2E app before running

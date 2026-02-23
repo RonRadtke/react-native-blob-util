@@ -92,7 +92,7 @@ jobs:
     name: Android E2E
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    if: contains(inputs.platforms, 'android') && (inputs.android_app != '' || inputs.android_app_package != '')
+    if: contains(inputs.platforms, 'android')
     steps:
       - uses: actions/checkout@v4
 

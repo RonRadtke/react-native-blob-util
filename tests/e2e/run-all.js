@@ -1,4 +1,5 @@
 const http = require('http');
+const fs = require('fs');
 const path = require('path');
 const {spawn} = require('child_process');
 
@@ -6,9 +7,14 @@ const rootDir = path.resolve(__dirname, '..', '..');
 const VALID_PLATFORMS = ['android', 'ios', 'windows'];
 const isWin = process.platform === 'win32';
 const npxCmd = 'npx';
+const npmCmd = 'npm';
 const nodeCmd = process.execPath;
 const npxEnv = {...process.env, npm_config_yes: 'true'};
 const cmdExe = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe';
+const gradleCmd = isWin ? 'gradlew.bat' : './gradlew';
+const androidE2eAppDir = path.join(rootDir, 'tests', 'e2e', 'android-app');
+const androidE2eProjectDir = path.join(androidE2eAppDir, 'android');
+const androidE2eApkPath = path.join(androidE2eProjectDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
 
 const appiumHost = process.env.APPIUM_HOST || '127.0.0.1';
 const appiumPort = Number(process.env.APPIUM_PORT || 4723);
@@ -76,12 +82,15 @@ const log = (message) => {
 };
 
 const stripAnsi = (value) => value.replace(/\u001b\[[0-9;]*m/g, '');
+const isTruthy = (value) => ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase());
+const fileExists = (targetPath) => fs.existsSync(targetPath);
 
 const resolveSpawnCommand = (cmd, args = []) => {
-    if (isWin && (cmd === 'npx' || cmd === 'npx.cmd')) {
+    const normalized = cmd.toLowerCase();
+    if (isWin && (normalized === 'npx' || normalized === 'npx.cmd' || normalized === 'npm' || normalized === 'npm.cmd' || normalized.endsWith('.cmd') || normalized.endsWith('.bat'))) {
         return {
             command: cmdExe,
-            args: ['/d', '/s', '/c', 'npx', ...args],
+            args: ['/d', '/s', '/c', cmd, ...args],
         };
     }
 
@@ -197,6 +206,53 @@ const ensureDrivers = async (platforms) => {
             await runCommand(npxCmd, ['appium', 'driver', 'install', driver], {cwd: rootDir, env: npxEnv});
         }
     }
+};
+
+const ensureAndroidAppDependencies = async () => {
+    const nodeModulesDir = path.join(androidE2eAppDir, 'node_modules');
+    const hasReactNative = fileExists(path.join(nodeModulesDir, 'react-native'));
+    const hasBlobUtil = fileExists(path.join(nodeModulesDir, 'react-native-blob-util'));
+    if (fileExists(nodeModulesDir) && hasReactNative && hasBlobUtil) {
+        return;
+    }
+    log('Installing Android E2E app dependencies.');
+    await runCommand(npmCmd, ['install'], {cwd: androidE2eAppDir});
+};
+
+const buildAndroidE2eApk = async () => {
+    const gradleWrapper = path.join(androidE2eProjectDir, isWin ? 'gradlew.bat' : 'gradlew');
+    if (!fileExists(gradleWrapper)) {
+        throw new Error(`Android E2E app is missing: ${androidE2eProjectDir}`);
+    }
+
+    await ensureAndroidAppDependencies();
+    log('Building Android E2E app debug APK.');
+    await runCommand(gradleCmd, ['assembleDebug'], {cwd: androidE2eProjectDir});
+
+    if (!fileExists(androidE2eApkPath)) {
+        throw new Error(`Expected APK not found: ${androidE2eApkPath}`);
+    }
+};
+
+const ensureAndroidAppTarget = async (platforms) => {
+    if (!platforms.includes('android')) {
+        return;
+    }
+
+    if (process.env.E2E_APP_PATH_ANDROID || process.env.E2E_APP_PATH || process.env.ANDROID_APP_PACKAGE) {
+        return;
+    }
+
+    const forceBuild = isTruthy(process.env.E2E_REBUILD_ANDROID_APP);
+    if (!forceBuild && fileExists(androidE2eApkPath)) {
+        process.env.E2E_APP_PATH_ANDROID = androidE2eApkPath;
+        log(`Using existing Android E2E APK: ${androidE2eApkPath}`);
+        return;
+    }
+
+    await buildAndroidE2eApk();
+    process.env.E2E_APP_PATH_ANDROID = androidE2eApkPath;
+    log(`Using Android E2E APK: ${androidE2eApkPath}`);
 };
 
 const startAppium = async () => {
@@ -333,6 +389,7 @@ const main = async () => {
         throw new Error('No valid platforms to run. Set E2E_PLATFORMS to android,ios,windows.');
     }
 
+    await ensureAndroidAppTarget(platforms);
     await ensureDrivers(platforms);
 
     const processes = [];
