@@ -11,6 +11,7 @@
 #import "ReactNativeBlobUtilFS.h"
 #import "ReactNativeBlobUtilConst.h"
 #import "ReactNativeBlobUtilFileTransformer.h"
+#import "ReactNativeBlobUtilNetwork.h"
 #import "ReactNativeBlobUtilReqBuilder.h"
 
 #import <CommonCrypto/CommonDigest.h>
@@ -489,6 +490,7 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
                  }
              ]);
 
+    [[ReactNativeBlobUtilNetwork sharedInstance] removeRequestForTaskId:self.taskId];
     respData = nil;
     receivedBytes = 0;
     [session finishTasksAndInvalidate];
