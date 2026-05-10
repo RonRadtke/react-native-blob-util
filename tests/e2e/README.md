@@ -6,7 +6,7 @@ This suite drives the example app UI with Appium/WebdriverIO and executes file o
 
 - Scenario-driven tests under `tests/e2e/appium/scenarios/`.
 - Shared helpers under `tests/e2e/appium/lib/`.
-- One-command runners that auto-start the local HTTP server and Appium:
+- One-command runners that auto-start the local HTTP server, Metro for Android, and Appium:
   - `npm run e2e:android`
   - `npm run e2e:ios`
   - `npm run e2e:all`
@@ -31,10 +31,11 @@ Android auto-build prerequisites:
 The runner will:
 
 1. Start `tests/e2e/server.js` if not running.
-2. Start Appium if not running.
-3. Install missing Appium drivers for selected platforms.
-4. For Android, auto-build `tests/e2e/android-app` if no APK/package target is provided and no APK already exists.
-5. Execute the scenario suite.
+2. Start Metro for Android if not running.
+3. Start Appium if not running.
+4. Install missing Appium drivers for selected platforms.
+5. For Android, auto-build `tests/e2e/android-app` if no APK/package target is provided and no APK already exists.
+6. Execute the scenario suite.
 
 ## Required app config
 
@@ -88,6 +89,7 @@ Per-platform override:
 - `--platforms android,ios`
 - `--no-server` (use an already running HTTP server)
 - `--no-appium` (use an already running Appium server)
+- `--no-metro` (use an already running Metro server)
 - `--skip-driver-install`
 
 ## GitHub Actions
@@ -109,6 +111,8 @@ and runs this same suite against provided app artifacts (`android_app`, `ios_app
 - `E2E_SERVER_HOST`: default `127.0.0.1` in runner, `0.0.0.0` in server
 - `E2E_SERVER_PORT`: default `19076`
 - `E2E_SERVER_URL`: override server base URL used by the app
+- `E2E_METRO_HOST`: default `127.0.0.1`
+- `E2E_METRO_PORT` / `RCT_METRO_PORT`: default `8081`
 - `E2E_APP_PATH`: generic app path (`.apk`, `.app`, `.ipa`)
 - `E2E_APP_PATH_ANDROID`, `E2E_APP_PATH_IOS`, `E2E_APP_PATH_WINDOWS`: per-platform app paths
 - `ANDROID_APP_PACKAGE`, `ANDROID_APP_ACTIVITY`

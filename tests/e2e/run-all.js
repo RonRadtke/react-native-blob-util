@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const {spawn} = require('child_process');
+const {spawn, spawnSync} = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..', '..');
 const VALID_PLATFORMS = ['android', 'ios', 'windows'];
@@ -23,12 +23,15 @@ const appiumBasePath = rawAppiumPath.replace(/\/+$/, '');
 
 const serverHost = process.env.E2E_SERVER_HOST || '127.0.0.1';
 const serverPort = Number(process.env.E2E_SERVER_PORT || 19076);
+const metroHost = process.env.E2E_METRO_HOST || '127.0.0.1';
+const metroPort = Number(process.env.E2E_METRO_PORT || process.env.RCT_METRO_PORT || 8081);
 
 const parseArgs = (argv) => {
     const options = {
         platforms: null,
         startServer: true,
         startAppium: true,
+        startMetro: true,
         installDrivers: true,
     };
 
@@ -59,12 +62,16 @@ const parseArgs = (argv) => {
             options.startAppium = false;
             continue;
         }
+        if (arg === '--no-metro') {
+            options.startMetro = false;
+            continue;
+        }
         if (arg === '--skip-driver-install') {
             options.installDrivers = false;
             continue;
         }
         if (arg === '--help' || arg === '-h') {
-            console.log('Usage: node tests/e2e/run-all.js [--platforms android,ios] [--no-server] [--no-appium] [--skip-driver-install]');
+            console.log('Usage: node tests/e2e/run-all.js [--platforms android,ios] [--no-server] [--no-appium] [--no-metro] [--skip-driver-install]');
             process.exit(0);
         }
         throw new Error(`Unknown argument: ${arg}`);
@@ -100,6 +107,19 @@ const resolveSpawnCommand = (cmd, args = []) => {
 const spawnCommand = (cmd, args = [], options = {}) => {
     const resolved = resolveSpawnCommand(cmd, args);
     return spawn(resolved.command, resolved.args, options);
+};
+
+const stopProcess = (proc) => {
+    if (!proc || proc.killed || !proc.pid) {
+        return;
+    }
+
+    if (isWin) {
+        spawnSync('taskkill', ['/pid', String(proc.pid), '/t', '/f'], {stdio: 'ignore'});
+        return;
+    }
+
+    proc.kill();
 };
 
 const runCommand = (cmd, args, options = {}) =>
@@ -292,6 +312,31 @@ const startServer = async () => {
     return child;
 };
 
+const startMetro = async (platforms) => {
+    if (!platforms.includes('android')) {
+        return null;
+    }
+
+    const statusUrl = `http://${metroHost}:${metroPort}/status`;
+    if (await checkUrl(statusUrl)) {
+        log('Using existing Metro server.');
+        return null;
+    }
+    if (!cliOptions.startMetro) {
+        throw new Error(`Metro is not reachable at ${statusUrl}. Start it manually or omit --no-metro.`);
+    }
+
+    await ensureAndroidAppDependencies();
+    log('Starting Metro server for Android E2E app.');
+    const child = spawnCommand(npxCmd, ['react-native', 'start', '--port', String(metroPort)], {
+        cwd: androidE2eAppDir,
+        stdio: 'inherit',
+        env: {...npxEnv, RCT_METRO_PORT: String(metroPort)},
+    });
+    await waitForUrl(statusUrl, 60000, 'Metro');
+    return child;
+};
+
 const resolvePlatforms = () => {
     const raw = cliOptions.platforms || process.env.E2E_PLATFORMS || 'android,ios,windows';
     const platforms = raw
@@ -399,6 +444,11 @@ const main = async () => {
             processes.push(serverProcess);
         }
 
+        const metroProcess = await startMetro(platforms);
+        if (metroProcess) {
+            processes.push(metroProcess);
+        }
+
         const appiumProcess = await startAppium();
         if (appiumProcess) {
             processes.push(appiumProcess);
@@ -409,9 +459,7 @@ const main = async () => {
         }
     } finally {
         for (const proc of processes.reverse()) {
-            if (proc && !proc.killed) {
-                proc.kill();
-            }
+            stopProcess(proc);
         }
     }
 };
