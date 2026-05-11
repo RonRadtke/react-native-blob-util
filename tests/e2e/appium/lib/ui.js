@@ -3,115 +3,104 @@ const {sleep, byId} = require('./utils');
 const safeIsExisting = async (element) => element.isExisting().catch(() => false);
 const safeIsDisplayed = async (element) => element.isDisplayed().catch(() => false);
 
-const scrollWithKey = async (context, key, attempts = 1) => {
+const waitForAppReady = async (context, timeout = 30000) => {
     const {driver} = context;
-    const scrollView = await driver.$(byId('main-scroll-view'));
-    if (await safeIsExisting(scrollView)) {
-        await scrollView.click();
-    }
-    for (let i = 0; i < attempts; i += 1) {
-        await driver.keys([key]);
-        await sleep(200);
-    }
-};
 
-const mobileScroll = async (driver, direction) => {
-    const {width, height} = await driver.getWindowRect();
-    const x = Math.floor(width / 2);
-    const startY = direction === 'down' ? Math.floor(height * 0.8) : Math.floor(height * 0.25);
-    const endY = direction === 'down' ? Math.floor(height * 0.25) : Math.floor(height * 0.8);
-
-    await driver.performActions([
-        {
-            type: 'pointer',
-            id: 'finger1',
-            parameters: {pointerType: 'touch'},
-            actions: [
-                {type: 'pointerMove', duration: 0, x, y: startY},
-                {type: 'pointerDown', button: 0},
-                {type: 'pause', duration: 100},
-                {type: 'pointerMove', duration: 500, x, y: endY},
-                {type: 'pointerUp', button: 0},
-            ],
+    await driver.waitUntil(
+        async () => {
+            const source = await driver.getPageSource();
+            return (
+                source.includes('React Native Blob Util E2E App') ||
+                source.includes('e2e-base-url-input') ||
+                source.includes('E2E Controls')
+            );
         },
-    ]);
-    await driver.releaseActions();
+        {
+            timeout,
+            timeoutMsg: 'React Native app did not become ready',
+        },
+    );
 };
 
-const scrollToAndroidAccessibilityId = async (driver, id) => {
-    for (let i = 0; i < 10; i += 1) {
-        const element = await driver.$(byId(id));
-        if (await safeIsDisplayed(element)) {
-            return element;
-        }
-        await mobileScroll(driver, 'down');
-        await sleep(200);
+const ensureAppStillActive = async (context) => {
+    const source = await context.driver.getPageSource();
+
+    if (!source.includes('React Native Blob Util E2E App') && !source.includes('e2e-base-url-input')) {
+        throw new Error('App is not active after scroll. Current UI is not the React Native app.');
     }
-    return driver.$(byId(id));
 };
 
-const scrollToTop = async (context) => {
-    const {driver, platform} = context;
-    if (platform === 'android') {
-        try {
-            await driver.$('android=new UiScrollable(new UiSelector().scrollable(true)).scrollToBeginning(6)');
-            return;
-        } catch (err) {
-            // Fall through to generic scroll.
-        }
-    }
-    if (platform === 'windows') {
-        await scrollWithKey(context, 'PageUp', 6);
-        return;
-    }
-    for (let i = 0; i < 6; i += 1) {
-        await mobileScroll(driver, 'up');
-    }
+const mobileScroll = async (context, direction) => {
+    const {driver} = context;
+
+    const container = await driver.$('~main-scroll-container');
+    await container.waitForDisplayed({timeout: 10000});
+
+    const rect = await driver.getElementRect(container.elementId);
+
+    await driver.execute('mobile: scrollGesture', {
+        left: rect.x + Math.floor(rect.width * 0.1),
+        top: rect.y + Math.floor(rect.height * 0.15),
+        width: Math.floor(rect.width * 0.8),
+        height: Math.floor(rect.height * 0.55),
+        direction,
+        percent: 0.35,
+    });
+
+    await sleep(300);
+    await ensureAppStillActive(context);
 };
 
 const scrollDownOnce = async (context) => {
-    const {driver, platform} = context;
-    if (platform === 'windows') {
-        await scrollWithKey(context, 'PageDown', 1);
+    if (context.platform === 'windows') {
+        await context.driver.keys(['PageDown']);
+        await sleep(300);
         return;
     }
-    await mobileScroll(driver, 'down');
+
+    await mobileScroll(context, 'down');
+};
+
+const scrollToTop = async (context) => {
+    if (context.platform === 'windows') {
+        for (let i = 0; i < 4; i += 1) {
+            await context.driver.keys(['PageUp']);
+            await sleep(300);
+        }
+        return;
+    }
+
+    for (let i = 0; i < 4; i += 1) {
+        await mobileScroll(context, 'up');
+    }
 };
 
 const waitForDisplayed = async (context, selector, timeout = 20000) => {
-    const {driver, platform} = context;
-    const element = await driver.$(selector);
-    if (await safeIsDisplayed(element)) {
-        return element;
-    }
-
-    if (platform === 'android' && selector.startsWith('~')) {
-        const candidate = await scrollToAndroidAccessibilityId(driver, selector.slice(1));
-        if (await safeIsDisplayed(candidate)) {
-            return candidate;
-        }
-    }
+    const {driver} = context;
 
     const start = Date.now();
+
     while (Date.now() - start < timeout) {
-        await scrollDownOnce(context);
         const candidate = await driver.$(selector);
+
         if (await safeIsDisplayed(candidate)) {
             return candidate;
         }
+
+        await scrollDownOnce(context);
         await sleep(200);
     }
 
-    await element.waitForDisplayed({timeout});
-    return element;
+    throw new Error(`Element not visible: ${selector}`);
 };
 
 const tap = async (context, testId) => {
     try {
         await context.driver.hideKeyboard();
     } catch (err) {
-        // Keyboard may already be hidden, or the platform may not support this command.
+        // Keyboard may already be hidden.
     }
+
     const element = await waitForDisplayed(context, byId(testId));
     await element.click();
 };
@@ -119,40 +108,51 @@ const tap = async (context, testId) => {
 const setInput = async (context, testId, value) => {
     const element = await waitForDisplayed(context, byId(testId));
     await element.click();
+
     try {
         await element.clearValue();
     } catch (err) {
-        // clearValue is not supported on every platform/control type.
+        // clearValue may not be supported.
     }
+
     await element.setValue(String(value ?? ''));
+
     try {
         await context.driver.hideKeyboard();
     } catch (err) {
-        // Keyboard may already be hidden, or the platform may not support this command.
+        // Keyboard may already be hidden.
     }
+
+    await sleep(500);
 };
 
 const getLogText = async (context) => {
-    await scrollToTop(context);
     return context.driver.getPageSource();
 };
 
 const waitForLogContains = async (context, expected, timeout = 20000) => {
     const start = Date.now();
+
     while (Date.now() - start < timeout) {
         const logText = await getLogText(context);
+
         if (logText.includes(expected)) {
             return;
         }
+
         await sleep(500);
     }
+
     throw new Error(`Expected log to include "${expected}"`);
 };
 
 const enableE2eMode = async (context) => {
     const {driver} = context;
-    await scrollToTop(context);
+
+    await waitForAppReady(context);
+
     const logView = await driver.$(byId('e2e-log'));
+
     if (!(await safeIsExisting(logView))) {
         await tap(context, 'e2e-toggle-button');
         await waitForDisplayed(context, byId('e2e-log'));
@@ -160,23 +160,24 @@ const enableE2eMode = async (context) => {
 };
 
 const setBaseUrl = async (context, url) => {
-    await scrollToTop(context);
+    await waitForAppReady(context);
     await setInput(context, 'e2e-base-url-input', url);
 };
 
 const resetFixtures = async (context) => {
-    await scrollToTop(context);
+    await waitForAppReady(context);
     await tap(context, 'e2e-reset-fixtures-button');
     await waitForLogContains(context, 'E2E: Fixtures ready');
 };
 
 const clearLog = async (context) => {
-    await scrollToTop(context);
+    await waitForAppReady(context);
     await tap(context, 'e2e-clear-log-button');
 };
 
 module.exports = {
     byId,
+    waitForAppReady,
     scrollToTop,
     waitForDisplayed,
     tap,
