@@ -16,17 +16,38 @@ const scrollWithKey = async (context, key, attempts = 1) => {
 };
 
 const mobileScroll = async (driver, direction) => {
-    try {
-        await driver.execute('mobile: scroll', {direction});
-        return;
-    } catch (err) {
-        // Some driver versions do not expose mobile:scroll.
+    const {width, height} = await driver.getWindowRect();
+    const x = Math.floor(width / 2);
+    const startY = direction === 'down' ? Math.floor(height * 0.8) : Math.floor(height * 0.25);
+    const endY = direction === 'down' ? Math.floor(height * 0.25) : Math.floor(height * 0.8);
+
+    await driver.performActions([
+        {
+            type: 'pointer',
+            id: 'finger1',
+            parameters: {pointerType: 'touch'},
+            actions: [
+                {type: 'pointerMove', duration: 0, x, y: startY},
+                {type: 'pointerDown', button: 0},
+                {type: 'pause', duration: 100},
+                {type: 'pointerMove', duration: 500, x, y: endY},
+                {type: 'pointerUp', button: 0},
+            ],
+        },
+    ]);
+    await driver.releaseActions();
+};
+
+const scrollToAndroidAccessibilityId = async (driver, id) => {
+    for (let i = 0; i < 10; i += 1) {
+        const element = await driver.$(byId(id));
+        if (await safeIsDisplayed(element)) {
+            return element;
+        }
+        await mobileScroll(driver, 'down');
+        await sleep(200);
     }
-    try {
-        await driver.execute('mobile: swipe', {direction});
-    } catch (err) {
-        // Let caller retry on next loop.
-    }
+    return driver.$(byId(id));
 };
 
 const scrollToTop = async (context) => {
@@ -65,12 +86,10 @@ const waitForDisplayed = async (context, selector, timeout = 20000) => {
     }
 
     if (platform === 'android' && selector.startsWith('~')) {
-        const id = selector.slice(1).replace(/"/g, '\\"');
-        const scrollSelector =
-            `android=new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().description("${id}"))`;
-        const scrolled = await driver.$(scrollSelector);
-        await scrolled.waitForDisplayed({timeout});
-        return scrolled;
+        const candidate = await scrollToAndroidAccessibilityId(driver, selector.slice(1));
+        if (await safeIsDisplayed(candidate)) {
+            return candidate;
+        }
     }
 
     const start = Date.now();
@@ -88,6 +107,11 @@ const waitForDisplayed = async (context, selector, timeout = 20000) => {
 };
 
 const tap = async (context, testId) => {
+    try {
+        await context.driver.hideKeyboard();
+    } catch (err) {
+        // Keyboard may already be hidden, or the platform may not support this command.
+    }
     const element = await waitForDisplayed(context, byId(testId));
     await element.click();
 };
@@ -101,11 +125,16 @@ const setInput = async (context, testId, value) => {
         // clearValue is not supported on every platform/control type.
     }
     await element.setValue(String(value ?? ''));
+    try {
+        await context.driver.hideKeyboard();
+    } catch (err) {
+        // Keyboard may already be hidden, or the platform may not support this command.
+    }
 };
 
 const getLogText = async (context) => {
-    const element = await waitForDisplayed(context, byId('e2e-log-output'));
-    return element.getText();
+    await scrollToTop(context);
+    return context.driver.getPageSource();
 };
 
 const waitForLogContains = async (context, expected, timeout = 20000) => {
