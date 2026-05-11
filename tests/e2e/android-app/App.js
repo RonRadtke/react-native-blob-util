@@ -478,6 +478,8 @@ const App: () => React$Node = () => {
 
     const readStreamCall = () => {
         appendLog(`readStream start: ${readStreamParam} ${readEncodeStreamParam}`);
+        let sawData = false;
+        let totalLength = 0;
 
         ReactNativeBlobUtil.fs
             .readStream(
@@ -488,8 +490,9 @@ const App: () => React$Node = () => {
             )
             .then((stream) => {
                 stream.onData((chunk) => {
+                    sawData = true;
+                    totalLength += String(chunk).length;
                     appendLog('readStream data: ' + chunk);
-                    notify('readStream', 'length: ' + String(chunk).length);
                 });
 
                 stream.onError((err) => {
@@ -497,6 +500,12 @@ const App: () => React$Node = () => {
                 });
 
                 stream.onEnd(() => {
+                    if (sawData) {
+                        notify('readStream', `length: ${totalLength}`);
+                    }
+                    else {
+                        notify('readStream', 'no data emitted');
+                    }
                     appendLog('readStream end');
                 });
 
@@ -532,7 +541,9 @@ const App: () => React$Node = () => {
                     res.path(),
                 )
                     .then((dest) => {
-                        ReactNativeBlobUtil.android.actionViewIntent(dest, 'image/png');
+                        if (!e2eEnabled) {
+                            ReactNativeBlobUtil.android.actionViewIntent(dest, 'image/png');
+                        }
                         notify('MediaStore', dest);
                     })
                     .catch(notifyError);

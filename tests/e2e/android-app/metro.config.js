@@ -13,6 +13,21 @@ const repoRoot = path.resolve(appDir, '..', '..', '..');
 const config = {
     watchFolders: [repoRoot],
     resolver: {
+        resolveRequest: (context, moduleName, platform) => {
+            if (
+                moduleName === 'react' ||
+                moduleName.startsWith('react/') ||
+                moduleName === 'react-native' ||
+                moduleName.startsWith('react-native/')
+            ) {
+                return {
+                    type: 'sourceFile',
+                    filePath: require.resolve(moduleName, {paths: [appDir]}),
+                };
+            }
+
+            return context.resolveRequest(context, moduleName, platform);
+        },
         extraNodeModules: {
             react: path.join(appDir, 'node_modules', 'react'),
             'react-native': path.join(appDir, 'node_modules', 'react-native'),
