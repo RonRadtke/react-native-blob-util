@@ -38,6 +38,18 @@ const E2EButton = ({id, title, onPress, color}) => (
         <Text style={styles.e2eButtonText}>{title}</Text>
     </Pressable>
 );
+const E2EPanelTab = ({id, title, active, onPress}) => (
+    <Pressable
+        onPress={onPress}
+        testID={id}
+        nativeID={id}
+        accessibilityLabel={id}
+        accessibilityRole="button"
+        accessible={true}
+        style={[styles.e2eTab, active ? styles.e2eTabActive : null]}>
+        <Text style={styles.e2eTabText}>{title}</Text>
+    </Pressable>
+);
 
 const App: () => React$Node = () => {
     const [e2eEnabled, setE2eEnabled] = useState(false);
@@ -72,6 +84,8 @@ const App: () => React$Node = () => {
 
     const [readStreamParam, setReadStreamParam] = useState('');
     const [readEncodeStreamParam, setReadStreamEncodeParam] = useState('utf8');
+
+    const [activeE2ePanel, setActiveE2ePanel] = useState('base');
 
     const e2eRoot = ReactNativeBlobUtil.fs.dirs.DocumentDir + '/e2e';
     const imageToUploadPath = ReactNativeBlobUtil.fs.dirs.DocumentDir + '/ImageToUpload.jpg';
@@ -463,18 +477,30 @@ const App: () => React$Node = () => {
     };
 
     const readStreamCall = () => {
+        appendLog(`readStream start: ${readStreamParam} ${readEncodeStreamParam}`);
+
         ReactNativeBlobUtil.fs
-            .readStream(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + readStreamParam, readEncodeStreamParam, 4000, 200)
+            .readStream(
+                ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + readStreamParam,
+                readEncodeStreamParam,
+                4000,
+                200,
+            )
             .then((stream) => {
-                let data = '';
-                stream.open();
                 stream.onData((chunk) => {
-                    data += chunk;
+                    appendLog('readStream data: ' + chunk);
+                    notify('readStream', 'length: ' + String(chunk).length);
                 });
+
+                stream.onError((err) => {
+                    notifyError(err);
+                });
+
                 stream.onEnd(() => {
-                    appendLog('readStream data: ' + data);
-                    notify('readStream', 'length: ' + data.length);
+                    appendLog('readStream end');
                 });
+
+                stream.open();
             })
             .catch(notifyError);
     };
@@ -651,379 +677,233 @@ const App: () => React$Node = () => {
     };
 
     return (
-        <>
-            <View style={styles.root}>
-                <View
-                    testID="main-scroll-container"
-                    nativeID="main-scroll-container"
-                    accessibilityLabel="main-scroll-container"
-                    accessible={true}
-                    style={styles.root}>
-                    <ScrollView
-                        contentInsetAdjustmentBehavior="automatic"
-                        style={styles.scrollView}
-                        accessible={false}>
+        <View style={styles.body}>
+            <View style={styles.e2eContainer}>
+                <Text style={styles.sectionTitle}>{'E2E Controls'}</Text>
 
-                        <Text style={styles.sectionTitle}>{'React Native Blob Util E2E App'}</Text>
-
-                        <View style={{display: 'none'}}>
-                            <View style={styles.sectionContainer}>
-                                <View style={styles.sectionDescription}>
-                                    <Text>
-                                        {'DocumentDir: ' + ReactNativeBlobUtil.fs.dirs.DocumentDir + '\n'}
-                                        {'CacheDir: ' + ReactNativeBlobUtil.fs.dirs.CacheDir + '\n'}
-                                        {'PictureDir: ' + ReactNativeBlobUtil.fs.dirs.PictureDir + '\n'}
-                                        {'MusicDir: ' + ReactNativeBlobUtil.fs.dirs.MusicDir + '\n'}
-                                        {'DownloadDir: ' + ReactNativeBlobUtil.fs.dirs.DownloadDir + '\n'}
-                                        {'DCIMDir: ' + ReactNativeBlobUtil.fs.dirs.DCIMDir + '\n'}
-                                        {'SDCardDir: ' + ReactNativeBlobUtil.fs.dirs.SDCardDir + '\n'}
-                                        {'SDCardApplicationDir: ' + ReactNativeBlobUtil.fs.dirs.SDCardApplicationDir + '\n'}
-                                        {'MainBundleDir: ' + ReactNativeBlobUtil.fs.dirs.MainBundleDir + '\n'}
-                                        {'LibraryDir: ' + ReactNativeBlobUtil.fs.dirs.LibraryDir + '\n'}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'E2E Controls'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Base URL"
-                                        value={baseUrl}
-                                        onChangeText={setBaseUrl}
-                                        placeholderTextColor="#9a73ef"
-                                        autoCapitalize="none"
-                                        {...e2eId('e2e-base-url-input')}
-                                    />
-                                </View>
-                                <View style={styles.buttonGroup}>
-                                    <E2EButton id="e2e-toggle-button" title={e2eEnabled ? 'Disable E2E Mode' : 'Enable E2E Mode'} color="#9a73ef" onPress={toggleE2eMode}/>
-                                    <E2EButton id="e2e-reset-fixtures-button" title="Reset E2E Fixtures" color="#9a73ef" onPress={resetE2eFixtures}/>
-                                    <E2EButton id="e2e-clear-log-button" title="Clear E2E Log" color="#9a73ef" onPress={clearLog}/>
-                                </View>
-
-                                {e2eEnabled ? (
-                                    <View style={styles.e2eLog} {...e2eId('e2e-log')}>
-                                        <Text style={styles.e2eLogText} {...e2eId(`e2e-last-log-output:${lastLogEntry}`)}>
-                                            {lastLogEntry || 'No last log entry'}
-                                        </Text>
-                                        <Text style={styles.e2eLogText} {...e2eTestId('e2e-log-output')}>
-                                            {logEntries.length === 0 ? 'No log entries' : logEntries.join('\n')}
-                                        </Text>
-                                    </View>
-                                ) : null}
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'exists - exists(), isDir()'}</Text>
-                                <TextInput style={styles.input} placeholder="Path" onChangeText={setExistsParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('exists-path-input')} />
-                                <E2EButton id="exists-button" title="Check if exists" color="#9a73ef" onPress={existsCall}/>
-                                <E2EButton id="isdir-button" title="Check if is dir" color="#9a73ef" onPress={isDirCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'df - df()'}</Text>
-                                <E2EButton id="df-button" title="Get free/total disk space" color="#9a73ef" onPress={dfCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'ls - ls()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput style={styles.input} placeholder="Directory Path" onChangeText={setLSParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('ls-path-input')} />
-                                </View>
-                                <E2EButton id="ls-button" title="Get specified directory info" color="#9a73ef" onPress={lsCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'cp and mv - cp() and mv()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput style={styles.input} placeholder="Source File Path" onChangeText={setCPSourceParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('cp-source-input')} />
-                                    <TextInput style={styles.input} placeholder="Destintation File Path" onChangeText={setCPDestParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('cp-dest-input')} />
-                                </View>
-                                <E2EButton id="cp-button" title="Copy File to Destination" color="#9a73ef" onPress={cpCall}/>
-                                <E2EButton id="mv-button" title="Move File to Destination" color="#9a73ef" onPress={mvCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'unlink - unlink()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput style={styles.input} placeholder="File Path" onChangeText={setUnlinkParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('unlink-path-input')} />
-                                </View>
-                                <E2EButton id="unlink-button" title="Unlink" color="#9a73ef" onPress={unlinkCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'stat - stat(), lstat()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput style={styles.input} placeholder="Source path" onChangeText={setStatParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('stat-path-input')} />
-                                </View>
-                                <E2EButton id="stat-button" title="stat Call" color="#9a73ef" onPress={statCall}/>
-                                <E2EButton id="lstat-button" title="lstat Call" color="#9a73ef" onPress={lstatCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'mkdir - mkdir(), createFile()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput style={styles.input} placeholder="Source path" onChangeText={setMkdirParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('mkdir-path-input')} />
-                                    <TextInput style={styles.input} placeholder="URI source path" onChangeText={setMkdirURIParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('mkdir-uri-input')} />
-                                </View>
-                                <E2EButton id="mkdir-button" title="mkdir" color="#9a73ef" onPress={mkdirCall}/>
-                                <E2EButton id="create-utf8-button" title="Create UTF8 file" color="#9a73ef" onPress={createFileUTF8Call}/>
-                                <E2EButton id="create-ascii-button" title="Create ASCII file" color="#9a73ef" onPress={createFileASCIICall}/>
-                                <E2EButton id="create-base64-button" title="Create base64 file" color="#9a73ef" onPress={createFileBase64Call}/>
-                                <E2EButton id="create-uri-button" title="Create file from URI" color="#9a73ef" onPress={createFileURICall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'readFile - readFile()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput style={styles.input} placeholder="Source path" onChangeText={setReadParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('read-path-input')} />
-                                </View>
-                                <E2EButton id="read-utf8-button" title="Read UTF8 file" color="#9a73ef" onPress={readFileUTF8Call}/>
-                                <E2EButton id="read-ascii-button" title="Read ASCII file" color="#9a73ef" onPress={readFileASCIICall}/>
-                                <E2EButton id="read-base64-button" title="Read base64 file" color="#9a73ef" onPress={readFileBase64Call}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'Hash - hash()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Source path"
-                                        onChangeText={setHashPathParam}
-                                        placeholderTextColor="#9a73ef"
-                                        autoCapitalize="none"
-                                        {...e2eId('hash-path-input')}
-                                    />
-                                    <View style={styles.buttonGroup}>
-                                        {['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'].map((alg) => (
-                                            <E2EButton
-                                                key={alg}
-                                                id={`hash-${alg}-button`}
-                                                title={alg.toUpperCase()}
-                                                color={hashAlgValue === alg ? '#7a42f4' : '#777'}
-                                                onPress={() => setHashAlgValue(alg)}
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                                <E2EButton id="hash-button" title="Hash File" color="#9a73ef" onPress={hashCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'write - writeFile(), appendFile()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Source path"
-                                        onChangeText={setWriteParam}
-                                        placeholderTextColor="#9a73ef"
-                                        autoCapitalize="none"
-                                        {...e2eId('write-path-input')}
-                                    />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Destination path"
-                                        onChangeText={setWriteURIParam}
-                                        placeholderTextColor="#9a73ef"
-                                        autoCapitalize="none"
-                                        {...e2eId('write-uri-input')}
-                                    />
-                                    <View style={styles.buttonGroup}>
-                                        {['utf8', 'base64', 'ascii', 'uri'].map((enc) => (
-                                            <E2EButton
-                                                key={enc}
-                                                id={`write-enc-${enc}-button`}
-                                                title={enc.toUpperCase()}
-                                                color={writeEncodeParam === enc ? '#7a42f4' : '#777'}
-                                                onPress={() => setWriteEncodeParam(enc)}
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                                <E2EButton id="write-button" title="Write" color="#9a73ef" onPress={writeFileCall}/>
-                                <E2EButton id="append-button" title="Append" color="#9a73ef" onPress={appendFileCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'WriteStream - writeStream()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Source path"
-                                        onChangeText={setWriteStreamParam}
-                                        placeholderTextColor="#9a73ef"
-                                        autoCapitalize="none"
-                                        {...e2eId('write-stream-path-input')}
-                                    />
-                                    <View style={styles.buttonGroup}>
-                                        {['utf8', 'base64', 'ascii'].map((enc) => (
-                                            <E2EButton
-                                                key={enc}
-                                                id={`write-stream-enc-${enc}-button`}
-                                                title={enc.toUpperCase()}
-                                                color={writeEncodeStreamParam === enc ? '#7a42f4' : '#777'}
-                                                onPress={() => setWriteStreamEncodeParam(enc)}
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                                <E2EButton id="write-stream-button" title="Write" color="#9a73ef" onPress={writeStreamCall}/>
-                                <E2EButton id="append-stream-button" title="Append" color="#9a73ef" onPress={appendStreamCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'ReadStream - readStream()'}</Text>
-                                <View style={styles.sectionDescription}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Source path"
-                                        onChangeText={setReadStreamParam}
-                                        placeholderTextColor="#9a73ef"
-                                        autoCapitalize="none"
-                                        {...e2eId('read-stream-path-input')}
-                                    />
-                                    <View style={styles.buttonGroup}>
-                                        {['utf8', 'base64', 'ascii'].map((enc) => (
-                                            <E2EButton
-                                                key={enc}
-                                                id={`read-stream-enc-${enc}-button`}
-                                                title={enc.toUpperCase()}
-                                                color={readEncodeStreamParam === enc ? '#7a42f4' : '#777'}
-                                                onPress={() => setReadStreamEncodeParam(enc)}
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                                <E2EButton id="read-stream-button" title="Read" color="#9a73ef" onPress={readStreamCall}/>
-                            </View>
-                        </View>
-
-                        <View style={styles.body}>
-                            <View style={styles.sectionContainer}>
-                                <Text style={styles.sectionTitle}>{'FetchBlobTest'}</Text>
-                                <View style={styles.sectionDescription}/>
-                                <E2EButton id="fetch-button" title="Attempt Fetch" color="#9a73ef" onPress={fetchCall}/>
-                                <E2EButton id="media-store-button" title="Attempt Android Media Storage" color="#9a73ef" onPress={androidmediastore}/>
-                                <E2EButton id="upload-file-button" title="Upload File from Storage" color="#9a73ef" onPress={uploadFromStorageCall}/>
-                                <E2EButton id="upload-text-button" title="Upload Text From Storage" color="#9a73ef" onPress={uploadTextFromCall}/>
-                                <E2EButton id="multipart-button" title="Multipart Call" color="#9a73ef" onPress={MultipartFileAndData}/>
-                                <E2EButton id="progress-button" title="Progress Call" color="#9a73ef" onPress={MakeRequestWithProgress}/>
-                            </View>
-                        </View>
-                    </ScrollView>
+                <View style={styles.e2eTabs}>
+                    {[
+                        ['base', 'Base'],
+                        ['exists', 'Exists'],
+                        ['ls', 'LS'],
+                        ['copy', 'Copy'],
+                        ['unlink', 'Unlink'],
+                        ['stat', 'Stat'],
+                        ['create', 'Create'],
+                        ['read', 'Read'],
+                        ['hash', 'Hash'],
+                        ['write', 'Write'],
+                        ['writeStream', 'WStream'],
+                        ['readStream', 'RStream'],
+                        ['network', 'Net'],
+                    ].map(([panel, title]) => (
+                        <E2EPanelTab
+                            key={panel}
+                            id={`e2e-panel-${panel}`}
+                            title={title}
+                            active={activeE2ePanel === panel}
+                            onPress={() => setActiveE2ePanel(panel)}
+                        />
+                    ))}
                 </View>
+
+                {activeE2ePanel === 'base' ? (
+                    <View>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Base URL"
+                            value={baseUrl}
+                            onChangeText={setBaseUrl}
+                            placeholderTextColor="#9a73ef"
+                            autoCapitalize="none"
+                            {...e2eId('e2e-base-url-input')}
+                        />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="e2e-toggle-button" title={e2eEnabled ? 'Disable E2E Mode' : 'Enable E2E Mode'} color="#9a73ef" onPress={toggleE2eMode} />
+                            <E2EButton id="e2e-reset-fixtures-button" title="Reset E2E Fixtures" color="#9a73ef" onPress={resetE2eFixtures} />
+                            <E2EButton id="e2e-clear-log-button" title="Clear E2E Log" color="#9a73ef" onPress={clearLog} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'exists' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Path" onChangeText={setExistsParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('exists-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="exists-button" title="Exists" color="#9a73ef" onPress={existsCall} />
+                            <E2EButton id="isdir-button" title="Is Dir" color="#9a73ef" onPress={isDirCall} />
+                            <E2EButton id="df-button" title="DF" color="#9a73ef" onPress={dfCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'ls' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Directory Path" onChangeText={setLSParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('ls-path-input')} />
+                        <E2EButton id="ls-button" title="LS" color="#9a73ef" onPress={lsCall} />
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'copy' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source File Path" onChangeText={setCPSourceParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('cp-source-input')} />
+                        <TextInput style={styles.input} placeholder="Destination File Path" onChangeText={setCPDestParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('cp-dest-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="cp-button" title="Copy" color="#9a73ef" onPress={cpCall} />
+                            <E2EButton id="mv-button" title="Move" color="#9a73ef" onPress={mvCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'unlink' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="File Path" onChangeText={setUnlinkParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('unlink-path-input')} />
+                        <E2EButton id="unlink-button" title="Unlink" color="#9a73ef" onPress={unlinkCall} />
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'stat' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setStatParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('stat-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="stat-button" title="Stat" color="#9a73ef" onPress={statCall} />
+                            <E2EButton id="lstat-button" title="LStat" color="#9a73ef" onPress={lstatCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'create' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setMkdirParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('mkdir-path-input')} />
+                        <TextInput style={styles.input} placeholder="URI source path" onChangeText={setMkdirURIParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('mkdir-uri-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="mkdir-button" title="mkdir" color="#9a73ef" onPress={mkdirCall} />
+                            <E2EButton id="create-utf8-button" title="UTF8" color="#9a73ef" onPress={createFileUTF8Call} />
+                            <E2EButton id="create-ascii-button" title="ASCII" color="#9a73ef" onPress={createFileASCIICall} />
+                            <E2EButton id="create-base64-button" title="Base64" color="#9a73ef" onPress={createFileBase64Call} />
+                            <E2EButton id="create-uri-button" title="URI" color="#9a73ef" onPress={createFileURICall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'read' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setReadParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('read-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="read-utf8-button" title="UTF8" color="#9a73ef" onPress={readFileUTF8Call} />
+                            <E2EButton id="read-ascii-button" title="ASCII" color="#9a73ef" onPress={readFileASCIICall} />
+                            <E2EButton id="read-base64-button" title="Base64" color="#9a73ef" onPress={readFileBase64Call} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'hash' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setHashPathParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('hash-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            {['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'].map((alg) => (
+                                <E2EButton key={alg} id={`hash-${alg}-button`} title={alg.toUpperCase()} color={hashAlgValue === alg ? '#7a42f4' : '#777'} onPress={() => setHashAlgValue(alg)} />
+                            ))}
+                            <E2EButton id="hash-button" title="Hash" color="#9a73ef" onPress={hashCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'write' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setWriteParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('write-path-input')} />
+                        <TextInput style={styles.input} placeholder="Destination path" onChangeText={setWriteURIParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('write-uri-input')} />
+                        <View style={styles.buttonGroup}>
+                            {['utf8', 'base64', 'ascii', 'uri'].map((enc) => (
+                                <E2EButton key={enc} id={`write-enc-${enc}-button`} title={enc.toUpperCase()} color={writeEncodeParam === enc ? '#7a42f4' : '#777'} onPress={() => setWriteEncodeParam(enc)} />
+                            ))}
+                            <E2EButton id="write-button" title="Write" color="#9a73ef" onPress={writeFileCall} />
+                            <E2EButton id="append-button" title="Append" color="#9a73ef" onPress={appendFileCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'writeStream' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setWriteStreamParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('write-stream-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            {['utf8', 'base64', 'ascii'].map((enc) => (
+                                <E2EButton key={enc} id={`write-stream-enc-${enc}-button`} title={enc.toUpperCase()} color={writeEncodeStreamParam === enc ? '#7a42f4' : '#777'} onPress={() => setWriteStreamEncodeParam(enc)} />
+                            ))}
+                            <E2EButton id="write-stream-button" title="Write" color="#9a73ef" onPress={writeStreamCall} />
+                            <E2EButton id="append-stream-button" title="Append" color="#9a73ef" onPress={appendStreamCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'readStream' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setReadStreamParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('read-stream-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            {['utf8', 'base64', 'ascii'].map((enc) => (
+                                <E2EButton key={enc} id={`read-stream-enc-${enc}-button`} title={enc.toUpperCase()} color={readEncodeStreamParam === enc ? '#7a42f4' : '#777'} onPress={() => setReadStreamEncodeParam(enc)} />
+                            ))}
+                            <E2EButton id="read-stream-button" title="Read" color="#9a73ef" onPress={readStreamCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'network' ? (
+                    <View style={styles.buttonGroup}>
+                        <E2EButton id="fetch-button" title="Fetch" color="#9a73ef" onPress={fetchCall} />
+                        <E2EButton id="media-store-button" title="Media" color="#9a73ef" onPress={androidmediastore} />
+                        <E2EButton id="upload-file-button" title="Upload File" color="#9a73ef" onPress={uploadFromStorageCall} />
+                        <E2EButton id="upload-text-button" title="Upload Text" color="#9a73ef" onPress={uploadTextFromCall} />
+                        <E2EButton id="multipart-button" title="Multipart" color="#9a73ef" onPress={MultipartFileAndData} />
+                        <E2EButton id="progress-button" title="Progress" color="#9a73ef" onPress={MakeRequestWithProgress} />
+                    </View>
+                ) : null}
+
+                {e2eEnabled ? (
+                    <View style={styles.e2eLog} {...e2eId('e2e-log')}>
+                        <Text style={styles.e2eLogText} {...e2eId(`e2e-last-log-output:${lastLogEntry}`)}>
+                            {lastLogEntry || 'No last log entry'}
+                        </Text>
+                        <Text style={styles.e2eLogText} {...e2eTestId('e2e-log-output')}>
+                            {logEntries.length === 0 ? 'No log entries' : logEntries.join('\n')}
+                        </Text>
+                    </View>
+                ) : null}
             </View>
-        </>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-    },
-    scrollView: {
-        backgroundColor: Colors.black,
-    },
-    engine: {
-        position: 'absolute',
-        right: 0,
-    },
-    body: {
+    e2eContainer: {
+        paddingHorizontal: 12,
+        paddingTop: 12,
+        paddingBottom: 8,
         backgroundColor: Colors.dark,
     },
-    sectionContainer: {
-        marginTop: 32,
-        paddingHorizontal: 24,
-    },
-    sectionTitle: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: Colors.white,
-    },
-    sectionDescription: {
-        marginTop: 8,
-        fontSize: 18,
-        fontWeight: '400',
-        color: Colors.dark,
-    },
-    highlight: {
-        fontWeight: '700',
-    },
-    footer: {
-        color: Colors.dark,
-        fontSize: 12,
-        fontWeight: '600',
-        padding: 4,
-        paddingRight: 12,
-        textAlign: 'right',
-    },
-    buttonGroup: {
+
+    e2eTabs: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 4,
         marginVertical: 8,
     },
-    e2eButton: {
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        marginVertical: 4,
-        backgroundColor: '#9a73ef',
+
+    e2eTab: {
+        paddingVertical: 6,
+        paddingHorizontal: 8,
+        backgroundColor: '#444',
         borderRadius: 4,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
-    e2eButtonText: {
-        color: Colors.white,
-        fontSize: 16,
-        fontWeight: '600',
+
+    e2eTabActive: {
+        backgroundColor: '#7a42f4',
     },
-    e2eLog: {
-        marginTop: 8,
-        padding: 8,
-        borderWidth: 1,
-        borderColor: Colors.dark,
-        backgroundColor: Colors.black,
-        maxHeight: 200,
-    },
-    e2eLogText: {
+
+    e2eTabText: {
         color: Colors.white,
         fontSize: 12,
-        marginBottom: 4,
-    },
-    input: {
-        color: Colors.white,
-        borderColor: '#9a73ef',
-        borderWidth: 1,
-        padding: 8,
-        marginVertical: 4,
+        fontWeight: '600',
     },
 });
 

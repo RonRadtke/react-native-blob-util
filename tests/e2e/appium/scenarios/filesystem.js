@@ -77,7 +77,7 @@ const runCreateAndReadChecks = async (context) => {
     await tap(context, 'read-utf8-button');
     await waitForLogContains(context, 'readFile utf8: foo');
     await tap(context, 'read-ascii-button');
-    await waitForLogContains(context, 'readFile ascii: foo');
+    await waitForLogContains(context, 'readFile ascii: 102,111,111');
     await tap(context, 'read-base64-button');
     await waitForLogContains(context, 'readFile base64: Zm9v');
     await clearLog(context);

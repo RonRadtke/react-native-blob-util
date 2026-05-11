@@ -22,87 +22,91 @@ const waitForAppReady = async (context, timeout = 30000) => {
     );
 };
 
-const ensureAppStillActive = async (context) => {
-    const source = await context.driver.getPageSource();
-
-    if (!source.includes('React Native Blob Util E2E App') && !source.includes('e2e-base-url-input')) {
-        throw new Error('App is not active after scroll. Current UI is not the React Native app.');
+const panelForTestId = (testId) => {
+    if (
+        testId === 'e2e-base-url-input' ||
+        testId === 'e2e-toggle-button' ||
+        testId === 'e2e-reset-fixtures-button' ||
+        testId === 'e2e-clear-log-button' ||
+        testId === 'e2e-log'
+    ) {
+        return 'base';
     }
+
+    if (testId.startsWith('e2e-')) return 'base';
+
+    if (testId.startsWith('exists-') || testId.startsWith('isdir-') || testId.startsWith('df-')) return 'exists';
+    if (testId.startsWith('ls-')) return 'ls';
+
+    if (testId.startsWith('cp-') || testId.startsWith('mv-')) return 'copy';
+    if (testId.startsWith('unlink-')) return 'unlink';
+    if (testId.startsWith('stat-') || testId.startsWith('lstat-')) return 'stat';
+
+    if (testId.startsWith('mkdir-') || testId.startsWith('create-')) return 'create';
+
+    if (testId.startsWith('read-stream-')) return 'readStream';
+    if (testId.startsWith('read-')) return 'read';
+
+    if (testId.startsWith('hash-')) return 'hash';
+
+    if (testId.startsWith('write-stream-') || testId.startsWith('append-stream-')) return 'writeStream';
+    if (testId.startsWith('write-') || testId.startsWith('append-')) return 'write';
+
+    if (
+        testId.startsWith('fetch-') ||
+        testId.startsWith('media-store-') ||
+        testId.startsWith('upload-') ||
+        testId.startsWith('multipart-') ||
+        testId.startsWith('progress-')
+    ) {
+        return 'network';
+    }
+
+    return null;
 };
 
-const mobileScroll = async (context, direction) => {
-    const {driver} = context;
-
-    const container = await driver.$('~main-scroll-container');
-    await container.waitForDisplayed({timeout: 10000});
-
-    const rect = await driver.getElementRect(container.elementId);
-
-    await driver.execute('mobile: scrollGesture', {
-        left: rect.x + Math.floor(rect.width * 0.1),
-        top: rect.y + Math.floor(rect.height * 0.15),
-        width: Math.floor(rect.width * 0.8),
-        height: Math.floor(rect.height * 0.55),
-        direction,
-        percent: 0.35,
-    });
-
-    await sleep(300);
-    await ensureAppStillActive(context);
+const selectorToTestId = (selector) => {
+    if (selector.startsWith('~')) return selector.slice(1);
+    return selector;
 };
 
-const scrollDownOnce = async (context) => {
-    if (context.platform === 'windows') {
-        await context.driver.keys(['PageDown']);
-        await sleep(300);
+const openPanelForTestId = async (context, testId) => {
+    const panel = panelForTestId(testId);
+
+    if (!panel) {
         return;
     }
 
-    await mobileScroll(context, 'down');
-};
+    const tab = await context.driver.$(byId(`e2e-panel-${panel}`));
 
-const scrollToTop = async (context) => {
-    if (context.platform === 'windows') {
-        for (let i = 0; i < 4; i += 1) {
-            await context.driver.keys(['PageUp']);
-            await sleep(300);
-        }
-        return;
-    }
-
-    for (let i = 0; i < 4; i += 1) {
-        await mobileScroll(context, 'up');
+    if (await safeIsDisplayed(tab)) {
+        await tab.click();
+        await sleep(250);
     }
 };
 
 const waitForDisplayed = async (context, selector, timeout = 20000) => {
     const {driver} = context;
 
-    const start = Date.now();
-
-    while (Date.now() - start < timeout) {
-        const candidate = await driver.$(selector);
-
-        if (await safeIsDisplayed(candidate)) {
-            return candidate;
-        }
-
-        await scrollDownOnce(context);
-        await sleep(200);
+    if (context.platform === 'android' && !selector.startsWith('~')) {
+        selector = `~${selector}`;
     }
 
-    throw new Error(`Element not visible: ${selector}`);
+    const testId = selectorToTestId(selector);
+
+    await waitForAppReady(context);
+    await openPanelForTestId(context, testId);
+
+    const element = await driver.$(selector);
+    await element.waitForDisplayed({timeout});
+
+    return element;
 };
 
 const tap = async (context, testId) => {
-    try {
-        await context.driver.hideKeyboard();
-    } catch (err) {
-        // Keyboard may already be hidden.
-    }
-
     const element = await waitForDisplayed(context, byId(testId));
     await element.click();
+    await sleep(250);
 };
 
 const setInput = async (context, testId, value) => {
@@ -116,12 +120,6 @@ const setInput = async (context, testId, value) => {
     }
 
     await element.setValue(String(value ?? ''));
-
-    try {
-        await context.driver.hideKeyboard();
-    } catch (err) {
-        // Keyboard may already be hidden.
-    }
 
     await sleep(500);
 };
@@ -160,19 +158,20 @@ const enableE2eMode = async (context) => {
 };
 
 const setBaseUrl = async (context, url) => {
-    await waitForAppReady(context);
     await setInput(context, 'e2e-base-url-input', url);
 };
 
 const resetFixtures = async (context) => {
-    await waitForAppReady(context);
     await tap(context, 'e2e-reset-fixtures-button');
     await waitForLogContains(context, 'E2E: Fixtures ready');
 };
 
 const clearLog = async (context) => {
-    await waitForAppReady(context);
     await tap(context, 'e2e-clear-log-button');
+};
+
+const scrollToTop = async () => {
+    // No-op by design. E2E panels avoid Appium/system scrolling.
 };
 
 module.exports = {
