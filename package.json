@@ -15,7 +15,8 @@
     "dependencies": {
         "appium-uiautomator2-driver": "^7.0.0",
         "base-64": "0.1.0",
-        "glob": "13.0.1"
+        "glob": "13.0.1",
+        "uuid" : "^13.0.0"
     },
     "keywords": [
         "react-native",
