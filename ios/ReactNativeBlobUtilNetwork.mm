@@ -45,7 +45,7 @@ static void initialize_tables() {
 - (id)init {
     self = [super init];
     if (self) {
-        self.requestsTable = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory valueOptions:NSMapTableWeakMemory];
+        self.requestsTable = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory valueOptions:NSMapTableStrongMemory];
 
         self.taskQueue = [[NSOperationQueue alloc] init];
         self.taskQueue.qualityOfService = NSQualityOfServiceUtility;
@@ -85,8 +85,10 @@ static void initialize_tables() {
                 callback:callback];
 
     @synchronized([ReactNativeBlobUtilNetwork class]) {
-        [self.requestsTable setObject:request forKey:taskId];
-        [self checkProgressConfigForTask:taskId];
+        if (taskId != nil && request.task != nil) {
+            [self.requestsTable setObject:request forKey:taskId];
+            [self checkProgressConfigForTask:taskId];
+        }
     }
 }
 
@@ -138,10 +140,22 @@ static void initialize_tables() {
 
     @synchronized ([ReactNativeBlobUtilNetwork class]) {
         task = [self.requestsTable objectForKey:taskId].task;
+        [self.requestsTable removeObjectForKey:taskId];
+        [self.rebindProgressDict removeObjectForKey:taskId];
+        [self.rebindUploadProgressDict removeObjectForKey:taskId];
     }
 
     if (task && task.state == NSURLSessionTaskStateRunning) {
         [task cancel];
+    }
+}
+
+- (void) removeRequestForTaskId:(NSString *)taskId
+{
+    @synchronized ([ReactNativeBlobUtilNetwork class]) {
+        [self.requestsTable removeObjectForKey:taskId];
+        [self.rebindProgressDict removeObjectForKey:taskId];
+        [self.rebindUploadProgressDict removeObjectForKey:taskId];
     }
 }
 

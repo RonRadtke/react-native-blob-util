@@ -41,6 +41,7 @@
 - (void) cancelRequest:(NSString * _Nonnull)taskId;
 - (void) enableProgressReport:(NSString * _Nonnull) taskId config:(ReactNativeBlobUtilProgress * _Nullable)config;
 - (void) enableUploadProgress:(NSString * _Nonnull) taskId config:(ReactNativeBlobUtilProgress * _Nullable)config;
+- (void) removeRequestForTaskId:(NSString * _Nonnull)taskId;
 
 
 @end

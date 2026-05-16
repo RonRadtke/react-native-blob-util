@@ -1,16 +1,24 @@
 {
-    "name" : "react-native-blob-util",
-    "version" : "0.24.7",
-    "description" : "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
-    "main" : "index",
-    "scripts" : {
-        "test" : "echo \"Error: no test specified\" && exit 1"
+    "name": "react-native-blob-util",
+    "version": "0.24.7",
+    "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
+    "main": "index",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "e2e:server": "node tests/e2e/server.js",
+        "e2e:android": "node tests/e2e/run-all.js --platforms android",
+        "e2e:ios": "node tests/e2e/run-all.js --platforms ios",
+        "e2e:windows": "node tests/e2e/run-all.js --platforms windows",
+        "e2e:runner": "node tests/e2e/appium/run.js",
+        "e2e:all": "node tests/e2e/run-all.js"
     },
-    "dependencies" : {
-        "base-64" : "0.1.0",
-        "glob" : "13.0.1"
+    "dependencies": {
+        "appium-uiautomator2-driver": "^7.0.0",
+        "base-64": "0.1.0",
+        "glob": "13.0.1",
+        "uuid" : "^13.0.0"
     },
-    "keywords" : [
+    "keywords": [
         "react-native",
         "fetch",
         "blob",
@@ -24,54 +32,55 @@
         "ios",
         "file system"
     ],
-    "repository" : {
-        "url" : "https://github.com/RonRadtke/react-native-blob-util"
+    "repository": {
+        "url": "https://github.com/RonRadtke/react-native-blob-util"
     },
-    "author" : {
-        "name" : "RonRadtke",
-        "username" : "RonRadtke"
+    "author": {
+        "name": "RonRadtke",
+        "username": "RonRadtke"
     },
     "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/ronradtke"
+        "type": "github",
+        "url": "https://github.com/sponsors/ronradtke"
     },
-    "license" : "MIT",
-    "contributors" : [
+    "license": "MIT",
+    "contributors": [
         "Traviskn <>",
         "Ben <benhsieh@catchplay.com>",
         "wkh237 <xeiyan@gmail.com>"
     ],
-    "devDependencies" : {
+    "devDependencies": {
         "@typescript-eslint/eslint-plugin": "^8.46.4",
         "@typescript-eslint/parser": "^8.46.4",
         "eslint": "^8.57.1",
-        "eslint-plugin-ft-flow" : "^3.0.11",
-        "eslint-plugin-import" : "^2.32.0",
-        "eslint-plugin-react" : "^7.37.5",
-        "eslint-plugin-react-native" : "^5.0.0",
-        "react" : "19.0.0",
-        "react-native" : "0.78.2",
-        "react-native-windows" : "0.78.2"
+        "eslint-plugin-ft-flow": "^3.0.11",
+        "eslint-plugin-import": "^2.32.0",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-native": "^5.0.0",
+        "react": "19.0.0",
+        "react-native": "0.78.2",
+        "react-native-windows": "0.78.2",
+        "webdriverio": "^8.41.0"
     },
-    "peerDependencies" : {
-        "react" : "*",
-        "react-native" : "*"
+    "peerDependencies": {
+        "react": "*",
+        "react-native": "*"
     },
-    "codegenConfig" : {
-        "name" : "ReactNativeBlobUtilSpec",
-        "type" : "modules",
-        "jsSrcsDir" : "codegenSpecs",
-        "windows" : {
-            "namespace" : "ReactNativeBlobUtilCodegen",
-            "outputDirectory" : "windows/ReactNativeBlobUtil/codegen",
-            "separateDataTypes" : true
+    "codegenConfig": {
+        "name": "ReactNativeBlobUtilSpec",
+        "type": "modules",
+        "jsSrcsDir": "codegenSpecs",
+        "windows": {
+            "namespace": "ReactNativeBlobUtilCodegen",
+            "outputDirectory": "windows/ReactNativeBlobUtil/codegen",
+            "separateDataTypes": true
         }
     },
-    "react-native-windows" : {
-        "init-windows" : {
-            "name" : "ReactNativeBlobUtil",
-            "namespace" : "ReactNativeBlobUtil",
-            "template" : "cpp-lib"
+    "react-native-windows": {
+        "init-windows": {
+            "name": "ReactNativeBlobUtil",
+            "namespace": "ReactNativeBlobUtil",
+            "template": "cpp-lib"
         }
     }
 }

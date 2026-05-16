@@ -33,7 +33,7 @@
 @property (nullable, nonatomic) NSError * error;
 @property (nullable, nonatomic) ReactNativeBlobUtilProgress *progressConfig;
 @property (nullable, nonatomic) ReactNativeBlobUtilProgress *uploadProgressConfig;
-@property (nullable, nonatomic, weak) NSURLSessionTask *task;
+@property (nullable, strong, nonatomic) NSURLSessionTask *task;
 
 - (void) sendRequest:(NSDictionary  * _Nullable )options
        contentLength:(long)contentLength
