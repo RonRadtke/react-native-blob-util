@@ -1,0 +1,224 @@
+name: Mobile E2E (Appium)
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Comma-separated platforms to run (android,ios)"
+        required: false
+        default: "android,ios"
+        type: string
+      scenarios_android:
+        description: "Android scenarios (default: filesystem,network)"
+        required: false
+        default: ""
+        type: string
+      scenarios_ios:
+        description: "iOS scenarios (default: filesystem,network)"
+        required: false
+        default: ""
+        type: string
+      android_app:
+        description: "Android app path or URL to .apk"
+        required: false
+        default: ""
+        type: string
+      android_app_package:
+        description: "Android package for preinstalled app"
+        required: false
+        default: ""
+        type: string
+      android_app_activity:
+        description: "Android main activity for preinstalled app"
+        required: false
+        default: ""
+        type: string
+      ios_app:
+        description: "iOS app path or URL (.app or .zip containing .app)"
+        required: false
+        default: ""
+        type: string
+      ios_bundle_id:
+        description: "iOS bundle id for preinstalled simulator app"
+        required: false
+        default: ""
+        type: string
+      ios_simulator_name:
+        description: "Preferred iOS simulator device name"
+        required: false
+        default: "iPhone 15"
+        type: string
+  workflow_call:
+    inputs:
+      platforms:
+        required: false
+        default: "android,ios"
+        type: string
+      scenarios_android:
+        required: false
+        default: ""
+        type: string
+      scenarios_ios:
+        required: false
+        default: ""
+        type: string
+      android_app:
+        required: false
+        default: ""
+        type: string
+      android_app_package:
+        required: false
+        default: ""
+        type: string
+      android_app_activity:
+        required: false
+        default: ""
+        type: string
+      ios_app:
+        required: false
+        default: ""
+        type: string
+      ios_bundle_id:
+        required: false
+        default: ""
+        type: string
+      ios_simulator_name:
+        required: false
+        default: "iPhone 15"
+        type: string
+
+jobs:
+  android:
+    name: Android E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: contains(inputs.platforms, 'android')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve Android app
+        id: resolve_android_app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_INPUT="${{ inputs.android_app }}"
+          if [[ -z "$APP_INPUT" ]]; then
+            echo "app_path=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$APP_INPUT" =~ ^https?:// ]]; then
+            TARGET="$RUNNER_TEMP/e2e-android.apk"
+            curl -fL "$APP_INPUT" -o "$TARGET"
+            echo "app_path=$TARGET" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "app_path=$APP_INPUT" >> "$GITHUB_OUTPUT"
+
+      - name: Run Android emulator and E2E
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_7
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: npm run e2e:android
+        env:
+          E2E_APP_PATH_ANDROID: ${{ steps.resolve_android_app.outputs.app_path }}
+          ANDROID_APP_PACKAGE: ${{ inputs.android_app_package }}
+          ANDROID_APP_ACTIVITY: ${{ inputs.android_app_activity }}
+          E2E_SCENARIOS_ANDROID: ${{ inputs.scenarios_android }}
+
+  ios:
+    name: iOS E2E
+    runs-on: macos-14
+    timeout-minutes: 70
+    if: contains(inputs.platforms, 'ios') && (inputs.ios_app != '' || inputs.ios_bundle_id != '')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve iOS app
+        id: resolve_ios_app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_INPUT="${{ inputs.ios_app }}"
+          if [[ -z "$APP_INPUT" ]]; then
+            echo "app_path=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$APP_INPUT" =~ ^https?:// ]]; then
+            BASENAME="$(basename "${APP_INPUT%%\?*}")"
+            TARGET="$RUNNER_TEMP/$BASENAME"
+            curl -fL "$APP_INPUT" -o "$TARGET"
+            APP_INPUT="$TARGET"
+          fi
+
+          if [[ "$APP_INPUT" == *.zip ]]; then
+            EXTRACT_DIR="$RUNNER_TEMP/e2e-ios-app"
+            rm -rf "$EXTRACT_DIR"
+            mkdir -p "$EXTRACT_DIR"
+            unzip -q "$APP_INPUT" -d "$EXTRACT_DIR"
+            APP_BUNDLE="$(find "$EXTRACT_DIR" -type d -name '*.app' | head -n 1)"
+            if [[ -z "$APP_BUNDLE" ]]; then
+              echo "No .app found in $APP_INPUT" >&2
+              exit 1
+            fi
+            echo "app_path=$APP_BUNDLE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "app_path=$APP_INPUT" >> "$GITHUB_OUTPUT"
+
+      - name: Boot iOS simulator
+        id: boot_simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          REQUESTED="${{ inputs.ios_simulator_name }}"
+          DEVICE=""
+
+          if xcrun simctl list devices available | grep -F "$REQUESTED" >/dev/null; then
+            DEVICE="$REQUESTED"
+          else
+            DEVICE="$(xcrun simctl list devices available | sed -n 's/^[[:space:]]*\(iPhone[^()]*\) (.*/\1/p' | head -n 1 | xargs)"
+          fi
+
+          if [[ -z "$DEVICE" ]]; then
+            echo "No available iOS simulator device found." >&2
+            exit 1
+          fi
+
+          echo "device_name=$DEVICE" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+      - name: Run iOS E2E
+        run: npm run e2e:ios
+        env:
+          E2E_APP_PATH_IOS: ${{ steps.resolve_ios_app.outputs.app_path }}
+          IOS_BUNDLE_ID: ${{ inputs.ios_bundle_id }}
+          DEVICE_NAME_IOS: ${{ steps.boot_simulator.outputs.device_name }}
+          E2E_SCENARIOS_IOS: ${{ inputs.scenarios_ios }}
