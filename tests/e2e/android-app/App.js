@@ -476,6 +476,23 @@ const App: () => React$Node = () => {
         }
     };
 
+    const writeStreamNestedCachePathCall = async () => {
+        const dir = ReactNativeBlobUtil.fs.dirs.CacheDir + '/issue-333';
+        const path = dir + '/stream.tmp';
+
+        try {
+            await ReactNativeBlobUtil.fs.unlink(dir).catch(() => {});
+            const stream = await ReactNativeBlobUtil.fs.writeStream(path, 'utf8', true);
+            await stream.write('foo');
+            await stream.close();
+            const exists = await ReactNativeBlobUtil.fs.exists(path);
+            notify('writeStream nested cache path', 'exists=' + exists);
+        }
+        catch (err) {
+            notifyError(err);
+        }
+    };
+
     const readStreamCall = () => {
         appendLog(`readStream start: ${readStreamParam} ${readEncodeStreamParam}`);
         let sawData = false;
@@ -523,6 +540,21 @@ const App: () => React$Node = () => {
                 notify('fetch', res.path());
             })
             .catch(notifyError);
+    };
+
+    const fetchNestedCachePathCall = async () => {
+        const dir = ReactNativeBlobUtil.fs.dirs.CacheDir + '/issue-453';
+        const path = dir + '/download.tmp';
+
+        try {
+            await ReactNativeBlobUtil.fs.unlink(dir).catch(() => {});
+            await ReactNativeBlobUtil.config({path}).fetch('GET', buildUrl('/image.png'));
+            const exists = await ReactNativeBlobUtil.fs.exists(path);
+            notify('fetch nested cache path', 'exists=' + exists);
+        }
+        catch (err) {
+            notifyError(err);
+        }
     };
 
     const androidmediastore = () => {
@@ -843,6 +875,7 @@ const App: () => React$Node = () => {
                             ))}
                             <E2EButton id="write-stream-button" title="Write" color="#9a73ef" onPress={writeStreamCall} />
                             <E2EButton id="append-stream-button" title="Append" color="#9a73ef" onPress={appendStreamCall} />
+                            <E2EButton id="write-stream-nested-cache-button" title="Cache" color="#9a73ef" onPress={writeStreamNestedCachePathCall} />
                         </View>
                     </View>
                 ) : null}
@@ -862,6 +895,7 @@ const App: () => React$Node = () => {
                 {activeE2ePanel === 'network' ? (
                     <View style={styles.buttonGroup}>
                         <E2EButton id="fetch-button" title="Fetch" color="#9a73ef" onPress={fetchCall} />
+                        <E2EButton id="fetch-nested-cache-path-button" title="Fetch Cache" color="#9a73ef" onPress={fetchNestedCachePathCall} />
                         <E2EButton id="media-store-button" title="Media" color="#9a73ef" onPress={androidmediastore} />
                         <E2EButton id="upload-file-button" title="Upload File" color="#9a73ef" onPress={uploadFromStorageCall} />
                         <E2EButton id="upload-text-button" title="Upload Text" color="#9a73ef" onPress={uploadTextFromCall} />

@@ -52,17 +52,32 @@ public class ReactNativeBlobUtilFileResp extends ResponseBody {
             boolean appendToExistingFile = !overwrite;
             path = path.replace("?append=true", "");
             mPath = path;
-            File f = new File(path);
-
-            File parent = f.getParentFile();
-            if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                throw new IllegalStateException("Couldn't create dir: " + parent);
-            }
-
-            if (!f.exists())
-                f.createNewFile();
-            ofStream = new FileOutputStream(new File(path), appendToExistingFile);
+            File f = prepareOutputFile(path);
+            ofStream = new FileOutputStream(f, appendToExistingFile);
         }
+    }
+
+    private static File prepareOutputFile(String path) throws IOException {
+        File file = new File(path).getCanonicalFile();
+        File parent = file.getParentFile();
+
+        if (parent == null) {
+            throw new IOException("Invalid output path: " + path);
+        }
+
+        if (!parent.exists() && !parent.mkdirs() && !parent.exists()) {
+            throw new IOException("Couldn't create dir: " + parent);
+        }
+
+        if (file.exists() && file.isDirectory()) {
+            throw new IOException("Output path is a directory: " + file);
+        }
+
+        if (!file.exists() && !file.createNewFile() && !file.exists()) {
+            throw new IOException("Couldn't create file: " + file);
+        }
+
+        return file;
     }
 
     @Override
@@ -137,8 +152,10 @@ public class ReactNativeBlobUtilFileResp extends ResponseBody {
                 }
 
                 return read;
+            } catch (IOException ex) {
+                throw ex;
             } catch (Exception ex) {
-                return -1;
+                throw new IOException(ex);
             }
         }
 

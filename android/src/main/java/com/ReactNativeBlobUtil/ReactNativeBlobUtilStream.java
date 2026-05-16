@@ -153,25 +153,6 @@ public class ReactNativeBlobUtilStream {
             path = resolved;
 
         try {
-            File dest = new File(path);
-            File dir = dest.getParentFile();
-
-            if (resolved != null && !dest.exists()) {
-                if (dir != null && !dir.exists()) {
-                    if (!dir.mkdirs()) {
-                        callback.invoke("ENOTDIR", "Failed to create parent directory of '" + path + "'");
-                        return;
-                    }
-                }
-                if (!dest.createNewFile()) {
-                    callback.invoke("ENOENT", "File '" + path + "' does not exist and could not be created");
-                    return;
-                }
-            } else if (dest.isDirectory()) {
-                callback.invoke("EISDIR", "Expecting a file but '" + path + "' is a directory");
-                return;
-            }
-
             OutputStream fs;
             if (resolved != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {
                 fs = ReactNativeBlobUtilImpl.RCTContext.getAssets().openFd(path.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")).createOutputStream ();
@@ -180,7 +161,8 @@ public class ReactNativeBlobUtilStream {
             else if (resolved == null) {
                 fs = ReactNativeBlobUtilImpl.RCTContext.getContentResolver().openOutputStream(Uri.parse(path));
             } else {
-                fs = new FileOutputStream(path, append);
+                File dest = prepareOutputFile(path);
+                fs = new FileOutputStream(dest, append);
             }
             this.encoding = encoding;
             String streamId = UUID.randomUUID().toString();
@@ -190,6 +172,29 @@ public class ReactNativeBlobUtilStream {
         } catch (Exception err) {
             callback.invoke("EUNSPECIFIED", "Failed to create write stream at path `" + path + "`; " + err.getLocalizedMessage());
         }
+    }
+
+    private static File prepareOutputFile(String path) throws IOException {
+        File file = new File(path).getCanonicalFile();
+        File parent = file.getParentFile();
+
+        if (parent == null) {
+            throw new IOException("Invalid output path: " + path);
+        }
+
+        if (!parent.exists() && !parent.mkdirs() && !parent.exists()) {
+            throw new IOException("Failed to create parent directory of '" + path + "'");
+        }
+
+        if (file.exists() && file.isDirectory()) {
+            throw new IOException("Expecting a file but '" + path + "' is a directory");
+        }
+
+        if (!file.exists() && !file.createNewFile() && !file.exists()) {
+            throw new IOException("File '" + path + "' does not exist and could not be created");
+        }
+
+        return file;
     }
 
     /**

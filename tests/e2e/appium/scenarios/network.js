@@ -7,6 +7,11 @@ const runNetworkScenario = async (context) => {
     await waitForLogContains(context, 'fetch:');
 
     if (platform === 'android') {
+        await tap(context, 'fetch-nested-cache-path-button');
+        await waitForLogContains(context, 'fetch nested cache path: exists=true');
+    }
+
+    if (platform === 'android') {
         await tap(context, 'media-store-button');
         await waitForLogContains(context, 'MediaStore:');
     }

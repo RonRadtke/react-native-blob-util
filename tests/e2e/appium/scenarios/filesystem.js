@@ -121,6 +121,10 @@ const runStreamChecks = async (context) => {
         await clearLog(context);
     }
 
+    await tap(context, 'write-stream-nested-cache-button');
+    await waitForLogContains(context, 'writeStream nested cache path: exists=true');
+    await clearLog(context);
+
     await setInput(context, 'read-stream-path-input', 'e2e/stream.txt');
     await tap(context, 'read-stream-enc-utf8-button');
     await tap(context, 'read-stream-button');
