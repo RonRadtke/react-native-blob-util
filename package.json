@@ -1,6 +1,6 @@
 {
     "name": "react-native-blob-util",
-    "version": "0.24.8",
+    "version": "0.24.9",
     "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main": "index",
     "scripts": {
@@ -13,10 +13,8 @@
         "e2e:all": "node tests/e2e/run-all.js"
     },
     "dependencies": {
-        "appium-uiautomator2-driver": "^7.0.0",
         "base-64": "0.1.0",
-        "glob": "13.0.1",
-        "uuid" : "^13.0.0"
+        "glob": "13.0.1"
     },
     "keywords": [
         "react-native",
@@ -52,6 +50,7 @@
     "devDependencies": {
         "@typescript-eslint/eslint-plugin": "^8.46.4",
         "@typescript-eslint/parser": "^8.46.4",
+        "appium-uiautomator2-driver": "^7.0.0",
         "eslint": "^8.57.1",
         "eslint-plugin-ft-flow": "^3.0.11",
         "eslint-plugin-import": "^2.32.0",
