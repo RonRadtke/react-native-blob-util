@@ -617,6 +617,14 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
 
             if (options.timeout >= 0) {
                 clientBuilder.connectTimeout(options.timeout, TimeUnit.MILLISECONDS);
+            }
+            // For file-to-disk downloads use no read timeout: the 60-second default
+            // can fire on slow connections before a large file finishes transferring.
+            // Individual socket reads on a healthy connection take milliseconds, so
+            // there is no risk of hanging indefinitely; the user can always cancel().
+            if (responseType == ResponseType.FileStorage) {
+                clientBuilder.readTimeout(0, TimeUnit.MILLISECONDS);
+            } else if (options.timeout >= 0) {
                 clientBuilder.readTimeout(options.timeout, TimeUnit.MILLISECONDS);
             }
 
@@ -781,11 +789,18 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
             case FileStorage:
                 ResponseBody responseBody = resp.body();
 
+                // Drain via byteStream() — avoids OkHttp's bytes() check that rejects
+                // content-length > Integer.MAX_VALUE (2 GB). ProgressReportingSource.read()
+                // writes each chunk to disk as a side-effect. Closing the stream flushes
+                // and closes the FileOutputStream that holds the destination file.
                 try {
-                    // In order to write response data to `destPath` we have to invoke this method.
-                    // It uses customized response body which is able to report download progress
-                    // and write response data to destination path.
-                    responseBody.bytes();
+                    java.io.InputStream drainStream = responseBody.byteStream();
+                    try {
+                        byte[] drainBuf = new byte[65536];
+                        while (drainStream.read(drainBuf) != -1) { }
+                    } finally {
+                        try { drainStream.close(); } catch (Exception ignored2) { }
+                    }
                 } catch (Exception ignored) {
 //                    ignored.printStackTrace();
                 }

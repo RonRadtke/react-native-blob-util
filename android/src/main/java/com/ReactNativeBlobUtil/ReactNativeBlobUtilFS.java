@@ -29,6 +29,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -251,41 +252,27 @@ class ReactNativeBlobUtilFS {
             path = resolved;
         try {
             byte[] bytes;
-            int bytesRead;
-            int length;  // max. array length limited to "int", also see https://stackoverflow.com/a/10787175/544779
 
             if (resolved != null && resolved.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {
                 String assetName = path.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "");
-                // This fails should an asset file be >2GB
-                InputStream in = ReactNativeBlobUtilImpl.RCTContext.getAssets().open(assetName);
-                length = in.available();
-                bytes = new byte[length];
-                bytesRead = in.read(bytes, 0, length);
-                in.close();
+                try (InputStream in = ReactNativeBlobUtilImpl.RCTContext.getAssets().open(assetName)) {
+                    bytes = readBytesWithLimit(in);
+                }
             }
             // issue 287
             else if (resolved == null) {
-                InputStream in = ReactNativeBlobUtilImpl.RCTContext.getContentResolver().openInputStream(Uri.parse(path));
-                // TODO See https://developer.android.com/reference/java/io/InputStream.html#available()
-                // Quote: "Note that while some implementations of InputStream will return the total number of bytes
-                // in the stream, many will not. It is never correct to use the return value of this method to
-                // allocate a buffer intended to hold all data in this stream."
-                length = in.available();
-                bytes = new byte[length];
-                bytesRead = in.read(bytes);
-                in.close();
+                try (InputStream in = ReactNativeBlobUtilImpl.RCTContext.getContentResolver().openInputStream(Uri.parse(path))) {
+                    if (in == null) {
+                        promise.reject("ENOENT", "No such file '" + path + "'");
+                        return;
+                    }
+                    bytes = readBytesWithLimit(in);
+                }
             } else {
                 File f = new File(path);
-                length = (int) f.length();
-                bytes = new byte[length];
-                FileInputStream in = new FileInputStream(f);
-                bytesRead = in.read(bytes);
-                in.close();
-            }
-
-            if (bytesRead < length) {
-                promise.reject("EUNSPECIFIED", "Read only " + bytesRead + " bytes of " + length);
-                return;
+                try (FileInputStream in = new FileInputStream(f)) {
+                    bytes = readBytesWithLimit(in);
+                }
             }
 
             if (transformFile) {
@@ -324,6 +311,18 @@ class ReactNativeBlobUtilFS {
             promise.reject("EUNSPECIFIED", err.getLocalizedMessage());
         }
 
+    }
+
+    private static byte[] readBytesWithLimit(InputStream in) throws IOException {
+        byte[] buffer = new byte[10240];
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        int read;
+
+        while ((read = in.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+        }
+
+        return output.toByteArray();
     }
 
     /**
