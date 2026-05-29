@@ -241,6 +241,52 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
     }
 }
 
+- (BOOL)copyDownloadedFile:(NSURL *)sourceURL toPath:(NSString *)targetPath append:(BOOL)append
+{
+    NSInputStream *inputStream = [NSInputStream inputStreamWithURL:sourceURL];
+    NSOutputStream *outputStream = [NSOutputStream outputStreamToFileAtPath:targetPath append:append];
+
+    if (!inputStream || !outputStream) {
+        return NO;
+    }
+
+    [inputStream open];
+    [outputStream open];
+
+    uint8_t buffer[65536];
+    BOOL success = YES;
+
+    while ([inputStream hasBytesAvailable]) {
+        NSInteger bytesRead = [inputStream read:buffer maxLength:sizeof(buffer)];
+        if (bytesRead < 0) {
+            success = NO;
+            break;
+        }
+        if (bytesRead == 0) {
+            break;
+        }
+
+        NSInteger bytesWritten = 0;
+        while (bytesWritten < bytesRead) {
+            NSInteger writeResult = [outputStream write:&buffer[bytesWritten] maxLength:(NSUInteger)(bytesRead - bytesWritten)];
+            if (writeResult <= 0) {
+                success = NO;
+                break;
+            }
+            bytesWritten += writeResult;
+        }
+
+        if (!success) {
+            break;
+        }
+    }
+
+    [inputStream close];
+    [outputStream close];
+
+    return success;
+}
+
 
 #pragma mark - Received Response
 // set expected content length on response received
@@ -558,10 +604,40 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
 
     NSFileManager *fm = [NSFileManager defaultManager];
+    if (respFile && ![self ShouldTransformFile]) {
+        if (writeStream) {
+            [writeStream close];
+            writeStream = nil;
+        }
+
+        NSString *folder = [destPath stringByDeletingLastPathComponent];
+        if (![fm fileExistsAtPath:folder]) {
+            [fm createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:NULL error:nil];
+        }
+
+        BOOL overwrite = [options valueForKey:@"overwrite"] == nil ? YES : [[options valueForKey:@"overwrite"] boolValue];
+        BOOL appendToExistingFile = [destPath containsString:@"?append=true"] || !overwrite;
+        NSString *normalizedDestPath = [destPath stringByReplacingOccurrencesOfString:@"?append=true" withString:@""];
+        destPath = normalizedDestPath;
+
+        if (!appendToExistingFile && [fm fileExistsAtPath:destPath]) {
+            [fm removeItemAtPath:destPath error:nil];
+        }
+
+        if (!appendToExistingFile) {
+            NSError *moveError = nil;
+            if ([fm moveItemAtURL:location toURL:[NSURL fileURLWithPath:destPath] error:&moveError]) {
+                return;
+            }
+        }
+
+        if ([self copyDownloadedFile:location toPath:destPath append:appendToExistingFile]) {
+            return;
+        }
+    }
+
     NSData *data = [fm contentsAtPath:location.path];
-
     [self configureWriteStream];
-
     [self processData:data];
 
 }
