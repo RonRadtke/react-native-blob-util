@@ -21,6 +21,9 @@ NSString *const CONFIG_WIFI_ONLY = @"wifiOnly";
 NSString *const CONFIG_INDICATOR = @"indicator";
 NSString *const CONFIG_KEY = @"key";
 NSString *const CONFIG_EXTRA_BLOB_CTYPE = @"binaryContentTypes";
+NSString *const CONFIG_CUSTOM_CA_CERTS = @"customCACerts";
+NSString *const CONFIG_PINNED_HOSTS = @"pinnedHosts";
+NSString *const CONFIG_TRUST_SYSTEM_CERTS = @"trustSystemCerts";
 
 NSString *const EVENT_STATE_CHANGE = @"ReactNativeBlobUtilState";
 NSString *const EVENT_SERVER_PUSH = @"ReactNativeBlobUtilServerPush";
