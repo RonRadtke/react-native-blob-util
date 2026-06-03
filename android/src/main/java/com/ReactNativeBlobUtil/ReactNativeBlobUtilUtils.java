@@ -72,10 +72,19 @@ public class ReactNativeBlobUtilUtils {
 
     public static OkHttpClient.Builder getUnsafeOkHttpClient(OkHttpClient client) {
         try {
+            X509TrustManager trustManager = sharedTrustManager;
+            if (trustManager == null) {
+                trustManager = new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                    @Override
+                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                    @Override
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[]{}; }
+                };
+            }
 
-            if (sharedTrustManager == null) throw new IllegalStateException("Use of own trust manager but none defined");
-
-            final TrustManager[] trustAllCerts = new TrustManager[]{sharedTrustManager};
+            final TrustManager[] trustAllCerts = new TrustManager[]{trustManager};
 
             // Install the all-trusting trust manager
             final SSLContext sslContext = SSLContext.getInstance("SSL");
@@ -84,7 +93,7 @@ public class ReactNativeBlobUtilUtils {
             final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
             OkHttpClient.Builder builder = client.newBuilder();
-            builder.sslSocketFactory(sslSocketFactory, sharedTrustManager);
+            builder.sslSocketFactory(sslSocketFactory, trustManager);
             builder.hostnameVerifier(new HostnameVerifier() {
                 @Override
                 public boolean verify(String hostname, SSLSession session) {
@@ -147,10 +156,17 @@ public class ReactNativeBlobUtilUtils {
             builder.sslSocketFactory(sslContext.getSocketFactory(), customTrustManager);
 
             if (pinnedHosts != null && !pinnedHosts.isEmpty()) {
+                final HostnameVerifier defaultVerifier = javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier();
                 builder.hostnameVerifier(new HostnameVerifier() {
                     @Override
                     public boolean verify(String hostname, SSLSession session) {
-                        return pinnedHosts.contains(hostname);
+                        if (pinnedHosts.contains(hostname)) {
+                            return true;
+                        }
+                        if (trustSystemCerts) {
+                            return defaultVerifier.verify(hostname, session);
+                        }
+                        return false;
                     }
                 });
             }
