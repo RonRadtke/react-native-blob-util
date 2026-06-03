@@ -72,6 +72,8 @@ public class ReactNativeBlobUtilUtils {
 
     public static OkHttpClient.Builder getUnsafeOkHttpClient(OkHttpClient client) {
         try {
+            // Fallback to trust-all when no shared manager is set — trusty: true must always
+            // work regardless of whether a prior request configured sharedTrustManager.
             X509TrustManager trustManager = sharedTrustManager;
             if (trustManager == null) {
                 trustManager = new X509TrustManager() {
@@ -160,12 +162,17 @@ public class ReactNativeBlobUtilUtils {
                 builder.hostnameVerifier(new HostnameVerifier() {
                     @Override
                     public boolean verify(String hostname, SSLSession session) {
+                        // Intentionally skip hostname verification for pinned hosts. The primary
+                        // use case is IP-based private PKI (IoT devices, gateways) where certs
+                        // rarely carry IP SANs. Trust is scoped by the custom CA itself.
                         if (pinnedHosts.contains(hostname)) {
                             return true;
                         }
                         if (trustSystemCerts) {
                             return defaultVerifier.verify(hostname, session);
                         }
+                        // Non-pinned hosts are rejected when trustSystemCerts is false —
+                        // this fails at hostname verification, not trust evaluation.
                         return false;
                     }
                 });
@@ -178,27 +185,31 @@ public class ReactNativeBlobUtilUtils {
     }
 
     private static Certificate loadCertificateFromResources(Context context, CertificateFactory cf, String certName) {
-        String[] extensions = {"cer", "der", "pem"};
-        for (String ext : extensions) {
-            int resId = context.getResources().getIdentifier(certName, "raw", context.getPackageName());
-            if (resId == 0) {
-                resId = context.getResources().getIdentifier(certName + "_" + ext, "raw", context.getPackageName());
-            }
-            if (resId == 0) continue;
-
-            try (InputStream is = context.getResources().openRawResource(resId)) {
-                if ("pem".equals(ext)) {
-                    byte[] derBytes = pemToDer(is);
-                    if (derBytes != null) {
-                        return cf.generateCertificate(new ByteArrayInputStream(derBytes));
-                    }
-                } else {
-                    return cf.generateCertificate(is);
-                }
-            } catch (Exception e) {
-                // Try next extension
+        int resId = context.getResources().getIdentifier(certName, "raw", context.getPackageName());
+        if (resId == 0) {
+            String[] suffixes = {"_pem", "_der", "_cer"};
+            for (String suffix : suffixes) {
+                resId = context.getResources().getIdentifier(certName + suffix, "raw", context.getPackageName());
+                if (resId != 0) break;
             }
         }
+        if (resId == 0) return null;
+
+        try (InputStream is = context.getResources().openRawResource(resId)) {
+            return cf.generateCertificate(is);
+        } catch (Exception e) {
+            // DER parsing failed — try PEM-to-DER conversion
+        }
+
+        try (InputStream is = context.getResources().openRawResource(resId)) {
+            byte[] derBytes = pemToDer(is);
+            if (derBytes != null) {
+                return cf.generateCertificate(new ByteArrayInputStream(derBytes));
+            }
+        } catch (Exception e) {
+            // PEM conversion also failed
+        }
+
         return null;
     }
 

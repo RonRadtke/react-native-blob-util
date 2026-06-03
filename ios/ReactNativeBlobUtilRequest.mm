@@ -554,8 +554,7 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
         for (NSString *certName in customCACerts) {
             SecCertificateRef cert = [self loadCertificateFromBundle:certName];
             if (cert) {
-                [anchorCertsArray addObject:(__bridge id)cert];
-                CFRelease(cert);
+                [anchorCertsArray addObject:(__bridge_transfer id)cert];
             }
         }
 
