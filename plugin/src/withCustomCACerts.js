@@ -1,4 +1,4 @@
-const { withDangerousMod, withXcodeProject } = require("expo/config-plugins");
+const { withDangerousMod, withXcodeProject, IOSConfig } = require("expo/config-plugins");
 const fs = require("fs");
 const path = require("path");
 
@@ -18,8 +18,9 @@ function withIosCerts(config, certs) {
         const projectRoot = config.modRequest.projectRoot;
         const project = config.modResults;
 
-        const iosCertsDir = path.join(projectRoot, "ios/certs");
-        fs.mkdirSync(iosCertsDir, { recursive: true });
+        const iosDir = path.join(projectRoot, "ios");
+        const certsDir = path.join(iosDir, "certs");
+        fs.mkdirSync(certsDir, { recursive: true });
 
         for (const cert of certs) {
             const srcPath = path.join(projectRoot, cert.path);
@@ -30,33 +31,16 @@ function withIosCerts(config, certs) {
 
             const ext = path.extname(cert.path);
             const destFilename = cert.name + ext;
-            fs.copyFileSync(srcPath, path.join(iosCertsDir, destFilename));
+            const destPath = path.join(certsDir, destFilename);
+            fs.copyFileSync(srcPath, destPath);
 
-            const mainGroup = project.getFirstProject().firstProject.mainGroup;
-            const resourcesGroup = project.pbxGroupByName("Resources") || project.addPbxGroup([], "Resources", "Resources");
-
-            if (!project.pbxGroupByName("Resources")) {
-                project.addToPbxGroup(resourcesGroup.uuid, mainGroup);
-            }
-
-            const certFileRef = project.addFile("certs/" + destFilename, resourcesGroup.uuid, {
-                lastKnownFileType: "text",
+            IOSConfig.XcodeUtils.addResourceFileToGroup({
+                filepath: destPath,
+                groupName: "Resources",
+                project,
+                isBuildFile: true,
+                verbose: true,
             });
-
-            if (certFileRef) {
-                project.addToPbxBuildFileSection(certFileRef);
-                const nativeTargets = project.pbxNativeTargetSection();
-                for (const key in nativeTargets) {
-                    const target = nativeTargets[key];
-                    if (target.buildPhases) {
-                        const resourcesPhase = target.buildPhases.find((phase) => phase.comment === "Resources");
-                        if (resourcesPhase) {
-                            project.addToPbxResourcesBuildPhase(certFileRef);
-                            break;
-                        }
-                    }
-                }
-            }
         }
 
         return config;
