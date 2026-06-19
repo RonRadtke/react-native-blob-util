@@ -15,6 +15,7 @@
 #import "ReactNativeBlobUtilReqBuilder.h"
 
 #import <CommonCrypto/CommonDigest.h>
+#import <Security/Security.h>
 
 
 typedef NS_ENUM(NSUInteger, ResponseFormat) {
@@ -572,9 +573,102 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
 {
     if ([[options valueForKey:CONFIG_TRUSTY] boolValue]) {
         completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
+        return;
+    }
+
+    NSArray *customCACerts = [options valueForKey:CONFIG_CUSTOM_CA_CERTS];
+    if (customCACerts && [customCACerts isKindOfClass:[NSArray class]] && customCACerts.count > 0 &&
+        [challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+
+        NSArray *pinnedHosts = [options valueForKey:CONFIG_PINNED_HOSTS];
+        if (pinnedHosts && [pinnedHosts isKindOfClass:[NSArray class]] && pinnedHosts.count > 0) {
+            NSString *host = challenge.protectionSpace.host;
+            if (![pinnedHosts containsObject:host]) {
+                completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+                return;
+            }
+        }
+
+        SecTrustRef serverTrust = challenge.protectionSpace.serverTrust;
+        if (serverTrust == NULL) {
+            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+            return;
+        }
+
+        NSMutableArray *anchorCertsArray = [NSMutableArray array];
+
+        for (NSString *certName in customCACerts) {
+            SecCertificateRef cert = [self loadCertificateFromBundle:certName];
+            if (cert) {
+                [anchorCertsArray addObject:(__bridge_transfer id)cert];
+            }
+        }
+
+        if (anchorCertsArray.count == 0) {
+            NSLog(@"[ReactNativeBlobUtil] No valid certificates loaded from customCACerts, falling back to default");
+            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+            return;
+        }
+
+        SecTrustSetAnchorCertificates(serverTrust, (__bridge CFArrayRef)anchorCertsArray);
+
+        BOOL trustSystemCerts = [[options valueForKey:CONFIG_TRUST_SYSTEM_CERTS] boolValue];
+        SecTrustSetAnchorCertificatesOnly(serverTrust, !trustSystemCerts);
+
+        CFErrorRef error = NULL;
+        bool trusted = SecTrustEvaluateWithError(serverTrust, &error);
+
+        if (trusted) {
+            NSURLCredential *credential = [NSURLCredential credentialForTrust:serverTrust];
+            completionHandler(NSURLSessionAuthChallengeUseCredential, credential);
+        } else {
+            if (error) {
+                NSLog(@"[ReactNativeBlobUtil] Custom CA trust evaluation failed: %@", (__bridge NSError *)error);
+                CFRelease(error);
+            }
+            completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+        }
     } else {
         completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
     }
+}
+
+- (SecCertificateRef) loadCertificateFromBundle:(NSString *)certName
+{
+    // Try .cer / .der first (binary DER format)
+    NSArray *extensions = @[@"cer", @"der", @"pem"];
+    for (NSString *ext in extensions) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:certName ofType:ext];
+        if (!path) continue;
+
+        NSData *data = [NSData dataWithContentsOfFile:path];
+        if (!data) continue;
+
+        if ([ext isEqualToString:@"pem"]) {
+            data = [self derDataFromPEM:data];
+            if (!data) continue;
+        }
+
+        SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)data);
+        if (cert) return cert;
+    }
+
+    NSLog(@"[ReactNativeBlobUtil] Could not load certificate '%@' from bundle", certName);
+    return NULL;
+}
+
+- (NSData *) derDataFromPEM:(NSData *)pemData
+{
+    NSString *pemString = [[NSString alloc] initWithData:pemData encoding:NSUTF8StringEncoding];
+    if (!pemString) return nil;
+
+    pemString = [pemString stringByReplacingOccurrencesOfString:@"-----BEGIN CERTIFICATE-----" withString:@""];
+    pemString = [pemString stringByReplacingOccurrencesOfString:@"-----END CERTIFICATE-----" withString:@""];
+    pemString = [pemString stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    pemString = [pemString stringByReplacingOccurrencesOfString:@"\r" withString:@""];
+    pemString = [pemString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+    return [[NSData alloc] initWithBase64EncodedString:pemString options:NSDataBase64DecodingIgnoreUnknownCharacters];
 }
 
 

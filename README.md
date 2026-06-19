@@ -999,6 +999,61 @@ ReactNativeBlobUtil.config({
         })
 ```
 
+
+### Custom CA Certificates
+
+If you need to connect to a server using a custom Certificate Authority (e.g., an internal CA, self-signed CA for IoT devices, or a private PKI), you can specify custom CA certificates per request without disabling all certificate validation like `trusty` does.
+
+This is more secure than `trusty: true` because it only trusts your specific CA rather than accepting any certificate.
+
+#### Setup with Expo
+
+If you use Expo managed workflow, the library ships a config plugin that bundles your certificates into both platforms automatically:
+
+```js
+// app.config.js
+module.exports = {
+  plugins: [
+    ['react-native-blob-util', {
+      customCACerts: [
+        { name: 'my_root_ca', path: './certs/my_root_ca.pem' }
+      ]
+    }]
+  ]
+};
+```
+
+#### Setup without Expo (bare React Native)
+
+- **iOS:** Add your certificate file to the Xcode project's "Copy Bundle Resources" build phase.
+- **Android:** Place the certificate in `android/app/src/main/res/raw/` (use underscores in filename, no extension for DER or keep `.cer`/`.pem`).
+
+#### Usage
+
+```js
+ReactNativeBlobUtil.config({
+    customCACerts: ['my_root_ca'],          // resource names without extension
+    pinnedHosts: ['10.10.10.10', 'gateway.local'],  // optional: only apply to these hosts
+    trustSystemCerts: false                 // optional: also trust system CAs (default: false)
+})
+.fetch('GET', 'https://10.10.10.10/api/data')
+.then((resp) => {
+    // ...
+})
+```
+
+#### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `customCACerts` | `string[]` | — | Array of certificate resource names (without extension). Supports `.cer`, `.der`, and `.pem` formats. |
+| `pinnedHosts` | `string[]` | — | When set, custom CA trust is only applied to these hosts. Other hosts use default system trust. |
+| `trustSystemCerts` | `boolean` | `false` | When true, system CAs are also trusted alongside custom CAs. When false, only custom CAs are trusted. |
+
+#### Alternative: Android Network Security Config
+
+For app-wide trust (affecting all HTTP clients, not just react-native-blob-util), consider using Android's [Network Security Configuration](https://developer.android.com/training/articles/security-config) instead. This is a declarative XML approach that applies to all network requests in your app.
+
 ### WiFi only requests
 
 If you wish to only route requests through the Wifi interface, set the below configuration. Note: On Android, the `ACCESS_NETWORK_STATE` permission must be set, and this flag will only work on API version 21 (Lollipop, Android 5.0) or above. APIs below 21 will ignore this flag.

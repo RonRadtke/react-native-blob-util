@@ -760,6 +760,30 @@ export interface ReactNativeBlobUtilConfig {
      * Fix IOS request timeout issue #368 by change default request setting to defaultSessionConfiguration, and make backgroundSessionConfigurationWithIdentifier optional
      */
     IOSBackgroundTask?: boolean;
+
+    /**
+     * An array of custom CA certificate resource names (without file extension) bundled
+     * in the app. These certificates will be used as trust anchors when evaluating the
+     * server's TLS certificate. Supports .cer, .der, and .pem files.
+     *
+     * On iOS, certificates are loaded from the main bundle.
+     * On Android, certificates are loaded from res/raw/.
+     */
+    customCACerts?: string[];
+
+    /**
+     * When set, custom CA trust evaluation is only applied to connections matching
+     * these hosts. Other hosts fall through to default system trust evaluation.
+     * If not set, custom CAs apply to all hosts.
+     */
+    pinnedHosts?: string[];
+
+    /**
+     * When true, the system's default trusted CAs are included alongside the custom
+     * CAs specified in customCACerts. When false (default), only the custom CAs are
+     * trusted as anchors.
+     */
+    trustSystemCerts?: boolean;
 }
 
 export interface AddAndroidDownloads {

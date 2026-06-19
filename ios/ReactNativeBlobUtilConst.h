@@ -38,6 +38,9 @@ extern NSString *const CONFIG_WIFI_ONLY;
 extern NSString *const CONFIG_INDICATOR;
 extern NSString *const CONFIG_KEY;
 extern NSString *const CONFIG_EXTRA_BLOB_CTYPE;
+extern NSString *const CONFIG_CUSTOM_CA_CERTS;
+extern NSString *const CONFIG_PINNED_HOSTS;
+extern NSString *const CONFIG_TRUST_SYSTEM_CERTS;
 
 // fs events
 extern NSString *const FS_EVENT_DATA;
