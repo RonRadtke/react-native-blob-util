@@ -13,8 +13,7 @@
         "e2e:all": "node tests/e2e/run-all.js"
     },
     "dependencies": {
-        "base-64": "1.0.0",
-        "glob": "13.0.6"
+        "base-64": "1.0.0"
     },
     "keywords": [
         "react-native",
@@ -50,7 +49,6 @@
     "devDependencies": {
         "@typescript-eslint/eslint-plugin": "^8.61.1",
         "@typescript-eslint/parser": "^8.61.1",
-        "appium-uiautomator2-driver": "^7.6.2",
         "eslint": "^8.57.1",
         "eslint-plugin-ft-flow": "^3.0.11",
         "eslint-plugin-import": "^2.32.0",
