@@ -123,6 +123,11 @@ public class ReactNativeBlobUtilFileResp extends ResponseBody {
                 bytesDownloaded += read > 0 ? read : 0;
                 if (read > 0) {
                     ofStream.write(bytes, 0, (int) read);
+                    // Forward bytes into the Okio sink too. Without this the buffer
+                    // stays empty and buffered consumers (byteStream()/source().read())
+                    // hit a false EOF after the first 8 KB segment, so any file larger
+                    // than one segment fails with "Download interrupted." (0.24.10 regression).
+                    sink.write(bytes, 0, (int) read);
                 } else if (contentLength() == -1 && read == -1) {
                     // End marker has been received for chunked download
                     isEndMarkerReceived = true;
