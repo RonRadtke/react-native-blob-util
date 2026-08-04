@@ -67,7 +67,7 @@ public class ReactNativeBlobUtilDefaultResp extends ResponseBody {
             bytesRead += read > 0 ? read : 0;
             ReactNativeBlobUtilProgressConfig reportConfig = ReactNativeBlobUtilReq.getReportProgress(mTaskId);
             long cLen = contentLength();
-            if (reportConfig != null && cLen != 0 && reportConfig.shouldReport(bytesRead / contentLength())) {
+            if (reportConfig != null && cLen != 0 && reportConfig.shouldReport(cLen > 0 ? (float) bytesRead / cLen : 0)) {
                 WritableMap args = Arguments.createMap();
                 args.putString("taskId", mTaskId);
                 args.putString("written", String.valueOf(bytesRead));

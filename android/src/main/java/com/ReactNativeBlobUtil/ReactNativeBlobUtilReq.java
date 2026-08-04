@@ -217,7 +217,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                             cursor.close();
 
                             ReactNativeBlobUtilProgressConfig reportConfig = getReportProgress(taskId);
-                            float progress = (total > 0) ? written / total : 0;
+                            float progress = (total > 0) ? (float) written / total : 0;
 
                             if (reportConfig != null && reportConfig.shouldReport(progress /* progress */)) {
                                 WritableMap args = Arguments.createMap();

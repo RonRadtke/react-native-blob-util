@@ -138,7 +138,7 @@ public class ReactNativeBlobUtilFileResp extends ResponseBody {
 
                     // For non-chunked download, progress is received / total
                     // For chunked download, progress can be either 0 (started) or 1 (ended)
-                    float progress = (contentLength() != -1) ? bytesDownloaded / contentLength() : ((isEndMarkerReceived) ? 1 : 0);
+                    float progress = (contentLength() != -1) ? (float) bytesDownloaded / contentLength() : ((isEndMarkerReceived) ? 1 : 0);
 
                     if (reportConfig != null && reportConfig.shouldReport(progress /* progress */)) {
                         if (contentLength() != -1) {
