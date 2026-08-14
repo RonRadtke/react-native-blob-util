@@ -645,17 +645,17 @@ export interface StatefulPromise<T> extends Promise<T> {
     /**
      * Add an event listener with custom configuration
      */
-    progress(config: { count?: number; interval?: number }, callback: (received: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
+    progress(config: { count?: number; interval?: number }, callback: (received: string, total: string) => void): StatefulPromise<FetchBlobResponse>;
 
     /**
      * Add an event listener with custom configuration.
      */
-    uploadProgress(callback: (sent: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
+    uploadProgress(callback: (sent: string, total: string) => void): StatefulPromise<FetchBlobResponse>;
 
     /**
      * Add an event listener with custom configuration
      */
-    uploadProgress(config: { count?: number; interval?: number }, callback: (sent: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
+    uploadProgress(config: { count?: number; interval?: number }, callback: (sent: string, total: string) => void): StatefulPromise<FetchBlobResponse>;
 
     /**
      * An IOS only API, when IOS app turns into background network tasks will be terminated after ~180 seconds,

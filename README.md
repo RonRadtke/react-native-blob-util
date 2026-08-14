@@ -481,11 +481,11 @@ In `version >= 0.4.2` it is possible to know the upload/download progress. After
 }, base64DataString)
         // listen to upload progress event
         .uploadProgress((written, total) => {
-            console.log('uploaded', written / total)
+            console.log('uploaded', Number(written) / Number(total))
         })
         // listen to download progress event
         .progress((received, total) => {
-            console.log('progress', received / total)
+            console.log('progress', Number(received) / Number(total))
         })
         .then((resp) => {
             // ...
@@ -504,11 +504,11 @@ In `0.9.6`, you can specify an object as the first argument which contains `coun
 }, base64DataString)
         // listen to upload progress event, emit every 250ms
         .uploadProgress({interval: 250}, (written, total) => {
-            console.log('uploaded', written / total)
+            console.log('uploaded', Number(written) / Number(total))
         })
         // listen to download progress event, every 10%
         .progress({count: 10}, (received, total) => {
-            console.log('progress', received / total)
+            console.log('progress', Number(received) / Number(total))
         })
         .then((resp) => {
             // ...
