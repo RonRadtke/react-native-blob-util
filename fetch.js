@@ -9,6 +9,18 @@ import ReactNativeBlobUtil from './codegenSpecs/NativeBlobUtils';
 
 const eventEmitter = new NativeEventEmitter(ReactNativeBlobUtil);
 
+// Native reports byte counts inconsistently: Android and iOS emit them as
+// strings (String.valueOf / stringWithFormat), Windows emits int64 numbers and
+// uses null when the content length is unknown. Normalise to a number so the
+// documented `number` type of the progress callbacks holds on every platform,
+// and -1 consistently means "unknown length", as Android and iOS already report
+// for chunked responses.
+function toByteCount(value) {
+    if (value === null || value === undefined || value === '') return -1;
+    const count = Number(value);
+    return Number.isNaN(count) ? -1 : count;
+}
+
 // register message channel event handler.
 eventEmitter.addListener('ReactNativeBlobUtilMessage', (e) => {
     if (typeof e === 'string') e = JSON.parse(e);
@@ -192,14 +204,14 @@ export function fetch(...args: any): Promise {
         subscription = eventEmitter.addListener('ReactNativeBlobUtilProgress', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onProgress) {
-                promise.onProgress(e.written, e.total, e.chunk);
+                promise.onProgress(toByteCount(e.written), toByteCount(e.total), e.chunk);
             }
         });
 
         subscriptionUpload = eventEmitter.addListener('ReactNativeBlobUtilProgress-upload', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onUploadProgress) {
-                promise.onUploadProgress(e.written, e.total);
+                promise.onUploadProgress(toByteCount(e.written), toByteCount(e.total));
             }
         });
 

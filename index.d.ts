@@ -640,7 +640,7 @@ export interface StatefulPromise<T> extends Promise<T> {
     /**
      * Add an event listener which triggers when data receiving from server.
      */
-    progress(callback: (received: string, total: string) => void): StatefulPromise<FetchBlobResponse>;
+    progress(callback: (received: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
 
     /**
      * Add an event listener with custom configuration
