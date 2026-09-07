@@ -4,7 +4,7 @@
     "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main": "index",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/unit/*.test.js\"",
         "e2e:server": "node tests/e2e/server.js",
         "e2e:android": "node tests/e2e/run-all.js --platforms android",
         "e2e:ios": "node tests/e2e/run-all.js --platforms ios",
