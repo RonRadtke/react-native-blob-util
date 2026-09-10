@@ -9,9 +9,22 @@
 import React, {useState} from 'react';
 import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 // import {Picker} from '@react-native-picker/picker'; Need to remove this package as it is not supported in Windows New Architecture
-import {Colors} from 'react-native/Libraries/NewAppScreen';
 
 import ReactNativeBlobUtil from 'react-native-blob-util';
+
+// Was imported from react-native/Libraries/NewAppScreen, a private path that
+// React Native removed after 0.79. Only these few values were ever used, so
+// carry them here rather than depend on core internals or pull in the
+// @react-native/new-app-screen package for a colour table.
+const Colors = {
+    primary: '#1292B4',
+    white: '#FFF',
+    lighter: '#F3F3F3',
+    light: '#DAE1E7',
+    dark: '#444',
+    darker: '#222',
+    black: '#000',
+};
 
 const DEFAULT_BASE_URL = Platform.select({
     android: 'http://10.0.2.2:19076',

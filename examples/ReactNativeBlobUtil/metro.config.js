@@ -1,57 +1,55 @@
-const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
-
 const fs = require('fs');
 const path = require('path');
-const exclusionList = require('metro-config/src/defaults/exclusionList');
+const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+
+const appDir = __dirname;
+const repoRoot = path.resolve(appDir, '..', '..');
 
 const rnwPath = fs.realpathSync(
-  path.resolve(require.resolve('react-native-windows/package.json'), '..'),
+    path.resolve(require.resolve('react-native-windows/package.json'), '..'),
 );
 
-//
-
 /**
- * Metro configuration
- * https://facebook.github.io/metro/docs/configuration
+ * Deliberately does not pin react or react-native to this app's node_modules.
+ * react-native-windows works by shipping .windows.js overrides at react-native's
+ * own module paths - ReactDevToolsSettingsManager is one, where core has only
+ * .android.js and .ios.js - and redirecting react-native/* requests defeats
+ * that, leaving the bundle unable to resolve.
  *
- * @type {import('metro-config').MetroConfig}
+ * The Windows build output is excluded instead: msbuild writes into windows/ and
+ * into react-native-windows' build and target folders while Metro is watching,
+ * which crashes the server with EBUSY on msbuild.ProjectImports.zip.
+ *
+ * blockList wants a single RegExp. metro-config used to export an exclusionList
+ * helper to combine several, but only from src/ internals that current versions
+ * no longer expose, so the patterns are joined here.
+ *
+ * @type {import('@react-native/metro-config').MetroConfig}
  */
+const blocked = [
+    new RegExp(`${path.resolve(appDir, 'windows').replace(/[/\\]/g, '[/\\\\]')}.*`),
+    new RegExp(`${rnwPath.replace(/[/\\]/g, '[/\\\\]')}[/\\\\](build|target)[/\\\\].*`),
+    /.*\.ProjectImports\.zip/,
+];
 
 const config = {
-  //
-  resolver: {
-    extraNodeModules: {
-      'react-native-blob-util': path.resolve(
-        __dirname,
-        '../../'
-      ),
+    // The library is consumed from the repository root, and react-native-windows
+    // is resolved from source, so both have to be watched.
+    watchFolders: [repoRoot, rnwPath],
+    resolver: {
+        blockList: new RegExp(`(${blocked.map(r => r.source).join('|')})`),
+        extraNodeModules: {
+            'react-native-blob-util': repoRoot,
+        },
     },
-    blockList: exclusionList([
-      // This stops "npx @react-native-community/cli run-windows" from causing the metro server to crash if its already running
-      new RegExp(
-        `${path.resolve(__dirname, 'windows').replace(/[/\\]/g, '/')}.*`,
-      ),
-      // This prevents "npx @react-native-community/cli run-windows" from hitting: EBUSY: resource busy or locked, open msbuild.ProjectImports.zip or other files produced by msbuild
-      new RegExp(`${rnwPath}/build/.*`),
-      new RegExp(`${rnwPath}/target/.*`),
-      /.*\.ProjectImports\.zip/,
-    ]),
-    //
-  },
-  watchFolders: [
-    // This allows us to use the local version of react-native-windows
-    rnwPath,
-    // This allows us to use the local version of react-native-blob-util
-    path.resolve(__dirname, '../../'),
-  ],
-  transformer: {
-    getTransformOptions: async () => ({
-      transform: {
-        experimentalImportSupport: false,
-        inlineRequires: true,
-      },
-    }),
-  },
+    transformer: {
+        getTransformOptions: async () => ({
+            transform: {
+                experimentalImportSupport: false,
+                inlineRequires: true,
+            },
+        }),
+    },
 };
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+module.exports = mergeConfig(getDefaultConfig(appDir), config);

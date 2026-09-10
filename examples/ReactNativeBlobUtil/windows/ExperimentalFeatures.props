@@ -22,6 +22,15 @@
     <UseExperimentalNuget>true</UseExperimentalNuget>
 
     <ReactExperimentalFeaturesSet>true</ReactExperimentalFeaturesSet>
+
+    <!--
+      Windows App SDK 1.8, which react-native-windows 0.84 pulls in, verifies that
+      every transitive WinAppSDK package is referenced directly and fails the build
+      when they are not. The reference set it looks for is supplied by the app, not
+      by a native module, so the check reports missing references that are not
+      actually missing. Its own error text names this property as the way out.
+    -->
+    <WindowsAppSDKVerifyTransitiveDependencies>false</WindowsAppSDKVerifyTransitiveDependencies>
   </PropertyGroup>
 
 </Project>

@@ -56,6 +56,11 @@ const buildWindowsCaps = () => {
         'appium:deviceName': process.env.DEVICE_NAME || defaultDeviceName('windows'),
         'appium:newCommandTimeout': 120,
         'appium:app': windowsApp,
+        // WinAppDriver starts the app and then hunts for its window. A debug React
+        // Native build has to pull its bundle from Metro first, which on a cold
+        // start takes longer than the default budget, and the session fails with
+        // "Failed to locate opened application window" even though the app is fine.
+        'appium:createSessionTimeout': Number(process.env.WINDOWS_SESSION_TIMEOUT || 120000),
     };
 };
 
