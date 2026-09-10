@@ -1,0 +1,9 @@
+node_modules/
+# Vendored third-party bundle, not ours to restyle
+lib/
+# Flow codegen spec - validated by RN's codegen, not parseable by the linter
+codegenSpecs/
+# Example and e2e apps carry their own tooling and build output
+examples/
+tests/e2e/android-app/
+**/build/

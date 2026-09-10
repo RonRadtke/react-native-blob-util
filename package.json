@@ -4,6 +4,7 @@
     "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main": "index",
     "scripts": {
+        "lint": "eslint \"*.js\" class utils polyfill components",
         "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/unit/*.test.js\"",
         "e2e:server": "node tests/e2e/server.js",
         "e2e:android": "node tests/e2e/run-all.js --platforms android",
@@ -47,6 +48,8 @@
         "wkh237 <xeiyan@gmail.com>"
     ],
     "devDependencies": {
+        "@react-native/babel-preset": "^0.84.1",
+        "@react-native/eslint-config": "^0.84.1",
         "@typescript-eslint/eslint-plugin": "^8.61.1",
         "@typescript-eslint/parser": "^8.61.1",
         "eslint": "^8.57.1",
@@ -54,6 +57,7 @@
         "eslint-plugin-import": "^2.32.0",
         "eslint-plugin-react": "^7.37.5",
         "eslint-plugin-react-native": "^5.0.0",
+        "prettier": "^3.9.6",
         "react": "19.2.3",
         "react-native": "0.84.1",
         "react-native-windows": "0.84.0",
