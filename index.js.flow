@@ -152,7 +152,7 @@ export type Encoding = "utf8" | "ascii" | "base64";
 export type FormField = { data: string, filename?: string, name: string, type?: string };
 export type HashAlgorithm = "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512";
 export type IosFsStat = { free: number, total: number };
-export type Methods = "POST" | "GET" | "DELETE" | "PUT" | "post" | "get" | "delete" | "put";
+export type Methods = "POST" | "GET" | "DELETE" | "PUT" | "PATCH" | "HEAD" | "post" | "get" | "delete" | "put" | "patch" | "head";
 export type ProgressCallback = (received: number, total: number) => void;
 export type ReactNativeBlobUtilConfig = {
     Progress?: { count?: number, interval?: number },
