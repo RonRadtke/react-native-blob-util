@@ -11,7 +11,6 @@ const npmCmd = 'npm';
 const nodeCmd = process.execPath;
 const npxEnv = {...process.env, npm_config_yes: 'true'};
 const cmdExe = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe';
-const gradleCmd = isWin ? 'gradlew.bat' : './gradlew';
 const androidE2eAppDir = path.join(rootDir, 'tests', 'e2e', 'android-app');
 const androidE2eProjectDir = path.join(androidE2eAppDir, 'android');
 const androidE2eApkPath = path.join(androidE2eProjectDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
@@ -247,7 +246,10 @@ const buildAndroidE2eApk = async () => {
 
     await ensureAndroidAppDependencies();
     log('Building Android E2E app debug APK.');
-    await runCommand(gradleCmd, ['assembleDebug'], {cwd: androidE2eProjectDir});
+    // Absolute path, not gradleCmd: cmd.exe does not resolve a bare `gradlew.bat`
+    // against the child's working directory, so the Windows branch failed with
+    // "'gradlew.bat' is not recognized" while the POSIX './gradlew' worked.
+    await runCommand(gradleWrapper, ['assembleDebug'], {cwd: androidE2eProjectDir});
 
     if (!fileExists(androidE2eApkPath)) {
         throw new Error(`Expected APK not found: ${androidE2eApkPath}`);
