@@ -3,6 +3,8 @@ package com.ReactNativeBlobUtil;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 class ReactNativeBlobUtilConfig {
@@ -23,6 +25,9 @@ class ReactNativeBlobUtilConfig {
     public Boolean increment = false;
     public Boolean followRedirect = true;
     public ReadableArray binaryContentTypes = null;
+    public List<String> customCACerts = null;
+    public List<String> pinnedHosts = null;
+    public Boolean trustSystemCerts = false;
 
     ReactNativeBlobUtilConfig(ReadableMap options) {
         if (options == null)
@@ -53,6 +58,27 @@ class ReactNativeBlobUtilConfig {
         this.auto = options.hasKey("auto") && options.getBoolean("auto");
         if (options.hasKey("timeout")) {
             this.timeout = options.getInt("timeout");
+        }
+        if (options.hasKey("customCACerts")) {
+            ReadableArray certsArray = options.getArray("customCACerts");
+            if (certsArray != null && certsArray.size() > 0) {
+                this.customCACerts = new ArrayList<>();
+                for (int i = 0; i < certsArray.size(); i++) {
+                    this.customCACerts.add(certsArray.getString(i));
+                }
+            }
+        }
+        if (options.hasKey("pinnedHosts")) {
+            ReadableArray hostsArray = options.getArray("pinnedHosts");
+            if (hostsArray != null && hostsArray.size() > 0) {
+                this.pinnedHosts = new ArrayList<>();
+                for (int i = 0; i < hostsArray.size(); i++) {
+                    this.pinnedHosts.add(hostsArray.getString(i));
+                }
+            }
+        }
+        if (options.hasKey("trustSystemCerts")) {
+            this.trustSystemCerts = options.getBoolean("trustSystemCerts");
         }
     }
 

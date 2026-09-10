@@ -19,6 +19,12 @@ const DEFAULT_BASE_URL = Platform.select({
     default: 'http://127.0.0.1:19076',
 });
 
+const HTTPS_BASE_URL = Platform.select({
+    android: 'https://10.0.2.2:19077',
+    ios: 'https://127.0.0.1:19077',
+    default: 'https://127.0.0.1:19077',
+});
+
 const MAX_LOG_ENTRIES = 200;
 
 const e2eId = (id) => ({testID: id, nativeID: id, accessibilityLabel: id, accessible: true});
@@ -719,6 +725,84 @@ const App: () => React$Node = () => {
             });
     };
 
+
+    const tlsCustomCACall = () => {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: [host],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-custom-ca', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-custom-ca', 'ERROR: ' + err.message);
+            });
+    };
+
+    const tlsNoCACall = () => {
+        ReactNativeBlobUtil.config({
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-no-ca', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-no-ca', 'PASS: ' + err.message);
+            });
+    };
+
+    const tlsWrongPinnedHostCall = () => {
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: ['wrong.example.com'],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-wrong-pin', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-wrong-pin', 'PASS: ' + err.message);
+            });
+    };
+
+    const tlsTrustSystemCertsCall = () => {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: [host],
+            trustSystemCerts: true,
+            trusty: false,
+        })
+            .fetch('GET', 'https://httpbin.org/get')
+            .then((res) => {
+                const status = res.info().status;
+                notify('tls-system-certs', status === 200 ? 'PASS' : 'FAIL: status ' + status);
+            })
+            .catch((err) => {
+                notify('tls-system-certs', 'ERROR: ' + err.message);
+            });
+    };
+
+    const tlsTrustyRegressionCall = () => {
+        ReactNativeBlobUtil.config({
+            trusty: true,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-trusty', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-trusty', 'ERROR: ' + err.message);
+            });
+    };
+
     return (
         <View style={styles.body}>
             <View style={styles.e2eContainer}>
@@ -739,6 +823,7 @@ const App: () => React$Node = () => {
                         ['writeStream', 'WStream'],
                         ['readStream', 'RStream'],
                         ['network', 'Net'],
+                        ['tls', 'TLS'],
                     ].map(([panel, title]) => (
                         <E2EPanelTab
                             key={panel}
@@ -901,6 +986,16 @@ const App: () => React$Node = () => {
                         <E2EButton id="upload-text-button" title="Upload Text" color="#9a73ef" onPress={uploadTextFromCall} />
                         <E2EButton id="multipart-button" title="Multipart" color="#9a73ef" onPress={MultipartFileAndData} />
                         <E2EButton id="progress-button" title="Progress" color="#9a73ef" onPress={MakeRequestWithProgress} />
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'tls' ? (
+                    <View style={styles.buttonGroup}>
+                        <E2EButton id="tls-custom-ca-button" title="Custom CA" color="#2ecc71" onPress={tlsCustomCACall} />
+                        <E2EButton id="tls-no-ca-button" title="No CA (fail)" color="#e74c3c" onPress={tlsNoCACall} />
+                        <E2EButton id="tls-wrong-pin-button" title="Wrong Pin (fail)" color="#e74c3c" onPress={tlsWrongPinnedHostCall} />
+                        <E2EButton id="tls-system-certs-button" title="System Certs" color="#3498db" onPress={tlsTrustSystemCertsCall} />
+                        <E2EButton id="tls-trusty-button" title="Trusty (regression)" color="#f39c12" onPress={tlsTrustyRegressionCall} />
                     </View>
                 ) : null}
 

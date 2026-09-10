@@ -387,6 +387,14 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
             // use trusty SSL socket
             if (this.options.trusty) {
                 clientBuilder = ReactNativeBlobUtilUtils.getUnsafeOkHttpClient(client);
+            } else if (this.options.customCACerts != null && !this.options.customCACerts.isEmpty()) {
+                clientBuilder = ReactNativeBlobUtilUtils.getCustomCACertOkHttpClient(
+                    client,
+                    ReactNativeBlobUtilImpl.RCTContext,
+                    this.options.customCACerts,
+                    this.options.pinnedHosts,
+                    this.options.trustSystemCerts
+                );
             } else {
                 clientBuilder = client.newBuilder();
             }

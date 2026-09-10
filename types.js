@@ -11,7 +11,10 @@ export type ReactNativeBlobUtilConfig = {
   indicator : boolean,
   followRedirect : boolean,
   trusty : boolean,
-  wifiOnly : boolean
+  wifiOnly : boolean,
+  customCACerts : Array<string>,
+  pinnedHosts : Array<string>,
+  trustSystemCerts : boolean
 };
 
 export type ReactNativeBlobUtilNative = {
