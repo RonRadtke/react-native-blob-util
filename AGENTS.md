@@ -49,6 +49,52 @@ coverage you do not have, and describe what you verified statically instead.
 CI does not run the unit tests yet; the e2e workflow pins Node 20. Do not treat
 a green CI run as evidence that `npm test` passes.
 
+## Linting and style
+
+**`npx eslint` currently fails repo-wide.** `.eslintrc.json` extends
+`@react-native`, and `@react-native/eslint-config` is not in
+`devDependencies`, so ESLint aborts before checking anything. There is no
+`lint` script either. Installing that one package would revive the config —
+worth doing, but until then nothing style-checks the JS and you cannot lint
+your own work.
+
+The rules in `.eslintrc.json` still describe the intended style, so follow them
+by hand. The ones that are errors rather than warnings:
+
+- `eqeqeq` — always `===` / `!==`
+- `semi`, `semi-spacing`, `no-extra-semi` — semicolons required
+- `no-cond-assign`, `no-irregular-whitespace`
+
+`no-console` and `no-extra-parens` are warnings; `import/order` wants external
+imports before internal ones. Beyond that, match the file you are editing:
+4-space indent, single quotes.
+
+## Line endings
+
+There is no `.gitattributes` and no `.editorconfig`, and the tree is genuinely
+mixed — `index.js` and `android.js` are CRLF, `fetch.js` and `fs.js` are LF.
+
+Never let an editor or script normalise line endings across a file. Rewriting a
+whole file to change one line produces a diff nobody can review and buries the
+actual change. After editing, check that `git diff --stat` reports roughly the
+number of lines you meant to touch; if it reports the whole file, you have
+reformatted it and should redo the edit in place.
+
+## Commit messages
+
+Conventional commits with a scope, matching the existing history:
+
+```
+fix(android): use float division for download progress ratio
+fix(types): allow HEAD in the Methods union
+test(progress): cover byte-count normalisation across native payload shapes
+chore(release): 0.24.11
+```
+
+Explain *why* in the body, not just what — the mechanism of the bug, and why
+this fix rather than an obvious alternative. Reference the issue or PR it came
+from. These messages are the only changelog this project has.
+
 ## Native module access
 
 JS reaches native through `utils/nativeModule.js`, never by importing
@@ -59,6 +105,17 @@ possibly-null module for the lifetime of the process.
 Nothing may touch native at module scope. A `new NativeEventEmitter(...)` or a
 `getConstants()` call at import time crashes a New Architecture cold start
 before the app can boot.
+
+## Three platforms
+
+`android/`, `ios/` and `windows/` all implement the same API, and they do not
+always agree. A bug at the JS boundary is often a cross-platform inconsistency
+rather than a single-platform defect: progress byte counts arrived as strings
+from Android and iOS but as int64 (and `null`) from Windows, so the declared
+`number` type was wrong everywhere, differently.
+
+Before fixing native code on the platform you can test, check what the other
+two do. Windows is the one that gets forgotten.
 
 ## Codegen
 
@@ -71,6 +128,19 @@ anything in that directory, diff the generated schema before and after:
 node node_modules/@react-native/codegen/lib/cli/combine/combine-js-to-schema-cli.js \
   --platform ios /tmp/schema.json codegenSpecs
 ```
+
+## Dependencies
+
+Do not add one without a strong reason. The unit tests deliberately use Node's
+built-in runner to avoid a test framework, and an unused `glob` dependency was
+removed in #480. If a change seems to need a package, say why and let the
+maintainer decide.
+
+## Types
+
+`index.d.ts` and `index.js.flow` declare the same public API twice and drift
+apart — the Flow copy was missing both `PATCH` and `HEAD` long after the
+TypeScript one had `PATCH`. Change both, and check they still agree.
 
 ## Releases
 
@@ -87,11 +157,3 @@ Fixes sitting unreleased on `master` are worse than no fix: users install from
 npm, hit the bug, and file duplicates. A single unreleased Android fix produced
 five separate reports of the same crash. Release promptly, and keep an issue
 open until the release that fixes it is actually published.
-
-## Known rough edges
-
-- `.eslintrc.json` extends `@react-native`, which is not installed, so `npx
-  eslint` fails repo-wide. Nothing style-checks the JS right now. Match the
-  surrounding file instead: 4-space indent, single quotes, semicolons.
-- `index.d.ts` and `index.js.flow` declare the same public API twice and drift
-  apart. Change both, and check they still agree.
