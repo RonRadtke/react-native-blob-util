@@ -271,7 +271,7 @@ namespace
 
                 try
                 {
-                    auto file = StorageFile::GetFileFromPathAsync(winrt::to_hstring(candidate.wstring())).get();
+                    auto file = StorageFile::GetFileFromPathAsync(winrt::hstring{ candidate.wstring() }).get();
                     winrt::Windows::Storage::Streams::IBuffer buffer{ nullptr };
 
                     if (std::string_view{ ext } == ".pem")
@@ -301,9 +301,10 @@ namespace
 
     // Installs custom-CA trust evaluation on the filter for this request.
     //
-    // NOTE: unverified against a real build - there is no Windows toolchain in the
-    // environment this was written in. The API surface was checked against the
-    // 10.0.26100 SDK headers, but it has not been compiled or run.
+    // Compiles clean against the 10.0.26100 SDK (cl /std:c++20 /await:strict
+    // /permissive- /W3), so the WinRT API use here is checked. It has not been built
+    // inside the project - that needs a NuGet restore of the WinUI packages - and it
+    // has not been run, so the handshake behaviour still wants a device test.
     void ConfigureCustomCATrust(
         winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter const& filter,
         const ReactNativeBlobUtilConfig& config,
