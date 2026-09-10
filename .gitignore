@@ -57,3 +57,7 @@ android/keystores/debug.keystore
 /ios/ReactNativeBlobUtil.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 
 **/msbuild.binlog
+
+# Generated e2e CA copies (tests/e2e/certs/generate.js)
+tests/e2e/android-app/android/app/src/main/res/raw/test_ca
+tests/e2e/android-app/ios/ReactNativeBlobUtilE2E/test_ca.pem

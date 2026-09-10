@@ -108,6 +108,9 @@ const certsDir = path.join(__dirname, "certs");
 const keyPath = path.join(certsDir, "server.key");
 const certPath = path.join(certsDir, "server.crt");
 
+// Certificates are generated rather than committed - see certs/generate.js.
+require("./certs/generate").ensureCerts({quiet: true});
+
 if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
     const httpsOptions = {
         key: fs.readFileSync(keyPath),
