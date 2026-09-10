@@ -11,9 +11,11 @@ const npmCmd = 'npm';
 const nodeCmd = process.execPath;
 const npxEnv = {...process.env, npm_config_yes: 'true'};
 const cmdExe = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe';
-const androidE2eAppDir = path.join(rootDir, 'tests', 'e2e', 'android-app');
-const androidE2eProjectDir = path.join(androidE2eAppDir, 'android');
-const androidE2eApkPath = path.join(androidE2eProjectDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+// One app serves every platform: Android and iOS build from its android/ and ios/
+// projects, Windows from its windows/ solution.
+const appDir = path.join(rootDir, 'examples', 'ReactNativeBlobUtil');
+const androidProjectDir = path.join(appDir, 'android');
+const androidApkPath = path.join(androidProjectDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
 
 const appiumHost = process.env.APPIUM_HOST || '127.0.0.1';
 const appiumPort = Number(process.env.APPIUM_PORT || 4723);
@@ -227,32 +229,32 @@ const ensureDrivers = async (platforms) => {
     }
 };
 
-const ensureAndroidAppDependencies = async () => {
-    const nodeModulesDir = path.join(androidE2eAppDir, 'node_modules');
+const ensureAppDependencies = async () => {
+    const nodeModulesDir = path.join(appDir, 'node_modules');
     const hasReactNative = fileExists(path.join(nodeModulesDir, 'react-native'));
     const hasBlobUtil = fileExists(path.join(nodeModulesDir, 'react-native-blob-util'));
     if (fileExists(nodeModulesDir) && hasReactNative && hasBlobUtil) {
         return;
     }
     log('Installing Android E2E app dependencies.');
-    await runCommand(npmCmd, ['install'], {cwd: androidE2eAppDir});
+    await runCommand(npmCmd, ['install'], {cwd: appDir});
 };
 
 const buildAndroidE2eApk = async () => {
-    const gradleWrapper = path.join(androidE2eProjectDir, isWin ? 'gradlew.bat' : 'gradlew');
+    const gradleWrapper = path.join(androidProjectDir, isWin ? 'gradlew.bat' : 'gradlew');
     if (!fileExists(gradleWrapper)) {
-        throw new Error(`Android E2E app is missing: ${androidE2eProjectDir}`);
+        throw new Error(`Android E2E app is missing: ${androidProjectDir}`);
     }
 
-    await ensureAndroidAppDependencies();
+    await ensureAppDependencies();
     log('Building Android E2E app debug APK.');
     // Absolute path, not gradleCmd: cmd.exe does not resolve a bare `gradlew.bat`
     // against the child's working directory, so the Windows branch failed with
     // "'gradlew.bat' is not recognized" while the POSIX './gradlew' worked.
-    await runCommand(gradleWrapper, ['assembleDebug'], {cwd: androidE2eProjectDir});
+    await runCommand(gradleWrapper, ['assembleDebug'], {cwd: androidProjectDir});
 
-    if (!fileExists(androidE2eApkPath)) {
-        throw new Error(`Expected APK not found: ${androidE2eApkPath}`);
+    if (!fileExists(androidApkPath)) {
+        throw new Error(`Expected APK not found: ${androidApkPath}`);
     }
 };
 
@@ -266,15 +268,15 @@ const ensureAndroidAppTarget = async (platforms) => {
     }
 
     const forceBuild = isTruthy(process.env.E2E_REBUILD_ANDROID_APP);
-    if (!forceBuild && fileExists(androidE2eApkPath)) {
-        process.env.E2E_APP_PATH_ANDROID = androidE2eApkPath;
-        log(`Using existing Android E2E APK: ${androidE2eApkPath}`);
+    if (!forceBuild && fileExists(androidApkPath)) {
+        process.env.E2E_APP_PATH_ANDROID = androidApkPath;
+        log(`Using existing Android E2E APK: ${androidApkPath}`);
         return;
     }
 
     await buildAndroidE2eApk();
-    process.env.E2E_APP_PATH_ANDROID = androidE2eApkPath;
-    log(`Using Android E2E APK: ${androidE2eApkPath}`);
+    process.env.E2E_APP_PATH_ANDROID = androidApkPath;
+    log(`Using Android E2E APK: ${androidApkPath}`);
 };
 
 const startAppium = async () => {
@@ -317,35 +319,10 @@ const startServer = async () => {
     return child;
 };
 
-// The platforms are served by different apps: Android and iOS run the app under
-// tests/e2e/android-app, Windows runs the example app, which carries the same
-// testIDs. Metro has to serve whichever one is under test.
-const metroTargets = (platforms) => {
-    const targets = [];
-    if (platforms.includes('android') || platforms.includes('ios')) {
-        targets.push({dir: androidE2eAppDir, label: 'Android/iOS E2E app'});
-    }
-    if (platforms.includes('windows')) {
-        targets.push({dir: path.join(rootDir, 'examples', 'ReactNativeBlobUtil'), label: 'Windows example app'});
-    }
-    return targets;
-};
-
 const startMetro = async (platforms) => {
-    const targets = metroTargets(platforms);
-    if (targets.length === 0) {
+    if (platforms.length === 0) {
         return null;
     }
-
-    if (targets.length > 1) {
-        // One Metro serves one bundle, so Android and Windows in a single invocation
-        // would need two servers on two ports.
-        throw new Error('Windows uses a different app than Android/iOS, so they cannot share one Metro. ' +
-            'Run them as separate invocations, e.g. --platforms windows.');
-    }
-
-    const target = targets[0];
-
     const statusUrl = `http://${metroHost}:${metroPort}/status`;
     if (await checkUrl(statusUrl)) {
         log('Using existing Metro server.');
@@ -355,13 +332,11 @@ const startMetro = async (platforms) => {
         throw new Error(`Metro is not reachable at ${statusUrl}. Start it manually or omit --no-metro.`);
     }
 
-    if (target.dir === androidE2eAppDir) {
-        await ensureAndroidAppDependencies();
-    }
+    await ensureAppDependencies();
 
-    log(`Starting Metro server for ${target.label}.`);
+    log('Starting Metro server for the example app.');
     const child = spawnCommand(npxCmd, ['react-native', 'start', '--port', String(metroPort)], {
-        cwd: target.dir,
+        cwd: appDir,
         stdio: 'inherit',
         env: {...npxEnv, RCT_METRO_PORT: String(metroPort)},
     });

@@ -34,16 +34,16 @@ The runner will:
 2. Start Metro for Android if not running.
 3. Start Appium if not running.
 4. Install missing Appium drivers for selected platforms.
-5. For Android, auto-build `tests/e2e/android-app` if no APK/package target is provided and no APK already exists.
+5. For Android, auto-build `examples/ReactNativeBlobUtil` if no APK/package target is provided and no APK already exists.
 6. Execute the scenario suite.
 
 ## Required app config
 
 ### Android
 
-By default, Android tests use the included app at `tests/e2e/android-app`:
+By default, Android tests use the included app at `examples/ReactNativeBlobUtil`:
 
-- Existing APK: `tests/e2e/android-app/android/app/build/outputs/apk/debug/app-debug.apk`
+- Existing APK: `examples/ReactNativeBlobUtil/android/app/build/outputs/apk/debug/app-debug.apk`
 - If missing, the runner installs app dependencies and builds it automatically.
 
 You can still override by setting one of:
@@ -66,9 +66,8 @@ Set one of:
 
 ### Windows
 
-The Windows target is the example app in `examples/ReactNativeBlobUtil/windows`,
-not the app under `tests/e2e/android-app` - it carries the same testIDs. Build and
-deploy it, then set one of:
+Same app as Android and iOS - `examples/ReactNativeBlobUtil` - built from its
+`windows/` solution. Build and deploy it, then set one of:
 
 - `WINDOWS_APP_ID` (or `E2E_WINDOWS_APP_ID`) for a deployed package
 - `WINDOWS_APP_PATH` (or `E2E_WINDOWS_APP_PATH`) for an executable

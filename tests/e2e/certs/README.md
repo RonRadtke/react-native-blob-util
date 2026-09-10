@@ -36,11 +36,12 @@ server falls back to plain HTTP — the non-TLS e2e tests still run, the
 |---|---|
 | `ca.key`, `ca.pem` | the test CA |
 | `server.key`, `server.crt`, `server.csr` | server certificate signed by that CA |
-| `../android-app/android/app/src/main/res/raw/test_ca` | CA in DER, where Android reads it |
-| `../android-app/ios/ReactNativeBlobUtilE2E/test_ca.pem` | CA in PEM, bundled into the iOS app |
+| `../../../examples/ReactNativeBlobUtil/android/app/src/main/res/raw/test_ca` | CA in DER, where Android reads it |
+| `../../../examples/ReactNativeBlobUtil/ios/ReactNativeBlobUtilE2E/test_ca.pem` | CA in PEM, bundled into the iOS app |
+| `../../../examples/ReactNativeBlobUtil/windows/ReactNativeBlobUtilWin/test_ca.pem` | CA in PEM, shipped at the Windows package root |
 
 The server certificate carries `IP:127.0.0.1`, `IP:10.0.2.2` and
 `DNS:localhost` as subject alternative names. The emulator reaches the host as
-`10.0.2.2`, and hostname verification is enforced on both platforms, so a
+`10.0.2.2`, and hostname verification is enforced on every platform, so a
 certificate without those SANs fails in a way that looks like a trust problem
 rather than a naming one.

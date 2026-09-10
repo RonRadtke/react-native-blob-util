@@ -19,7 +19,8 @@ const path = require('path');
 const os = require('os');
 
 const certsDir = __dirname;
-const appDir = path.join(certsDir, '..', 'android-app');
+// One app for every platform - see examples/ReactNativeBlobUtil.
+const appDir = path.join(certsDir, '..', '..', '..', 'examples', 'ReactNativeBlobUtil');
 
 const CA_KEY = path.join(certsDir, 'ca.key');
 const CA_PEM = path.join(certsDir, 'ca.pem');
@@ -29,10 +30,9 @@ const SERVER_CSR = path.join(certsDir, 'server.csr');
 
 const ANDROID_CA = path.join(appDir, 'android', 'app', 'src', 'main', 'res', 'raw', 'test_ca');
 const IOS_CA = path.join(appDir, 'ios', 'ReactNativeBlobUtilE2E', 'test_ca.pem');
-// The Windows e2e target is the example app; the module resolves customCACerts
-// from the package root, so the CA ships beside the executable.
-const WINDOWS_CA = path.join(certsDir, '..', '..', '..', 'examples', 'ReactNativeBlobUtil',
-    'windows', 'ReactNativeBlobUtilWin', 'test_ca.pem');
+// Windows resolves customCACerts from the package root, so the CA ships beside
+// the executable rather than under a platform folder.
+const WINDOWS_CA = path.join(appDir, 'windows', 'ReactNativeBlobUtilWin', 'test_ca.pem');
 
 const DAYS = 365;
 

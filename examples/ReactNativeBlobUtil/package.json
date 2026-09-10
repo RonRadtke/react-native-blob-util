@@ -1,15 +1,14 @@
 {
-  "name": "ReactNativeBlobUtilWin",
+  "name": "react-native-blob-util-example",
   "version": "0.1.2",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "windows": "npx @react-native-community/cli run-windows",
     "start": "react-native start",
-    "test": "jest",
     "lint": "eslint .",
-    "windows": "npx @react-native-community/cli run-windows --release",
-    "test:windows": "jest --config jest.config.windows.js"
+    "test": "jest"
   },
   "dependencies": {
     "react": "19.2.3",
@@ -47,5 +46,6 @@
       "namespace": "ReactNativeBlobUtilWin",
       "template": "cpp-app"
     }
-  }
+  },
+  "description": "Example app for react-native-blob-util, and the target for the e2e suite on Android, iOS and Windows."
 }

@@ -60,3 +60,7 @@ buck-out/
 
 # packages
 windows/packages/
+
+# Android native build output (CMake/ninja); regenerated per build and full of
+# absolute paths, so it must never be committed.
+.cxx/

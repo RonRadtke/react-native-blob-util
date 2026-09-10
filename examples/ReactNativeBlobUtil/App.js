@@ -7,9 +7,8 @@
  */
 
 import React, {useState} from 'react';
-import {Alert, Button, Platform, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 // import {Picker} from '@react-native-picker/picker'; Need to remove this package as it is not supported in Windows New Architecture
-
 
 import ReactNativeBlobUtil from 'react-native-blob-util';
 
@@ -33,9 +32,6 @@ const DEFAULT_BASE_URL = Platform.select({
     default: 'http://127.0.0.1:19076',
 });
 
-// The e2e HTTPS server (tests/e2e/server.js). Its certificate is signed by the
-// throwaway CA that tests/e2e/certs/generate.js produces; the same CA is bundled
-// into this app so the customCACerts tests have an anchor to evaluate against.
 const HTTPS_BASE_URL = Platform.select({
     android: 'https://10.0.2.2:19077',
     ios: 'https://127.0.0.1:19077',
@@ -44,13 +40,41 @@ const HTTPS_BASE_URL = Platform.select({
 
 const MAX_LOG_ENTRIES = 200;
 
+const e2eId = (id) => ({testID: id, nativeID: id, accessibilityLabel: id, accessible: true});
+const e2eTestId = (id) => ({testID: id, nativeID: id, accessibilityLabel: id, accessible: true});
+
 const normalizeBaseUrl = (value) => (value || '').trim().replace(/\/+$/, '');
 
+const E2EButton = ({id, title, onPress, color}) => (
+    <Pressable
+        onPress={onPress}
+        testID={id}
+        nativeID={id}
+        accessibilityLabel={id}
+        accessibilityRole="button"
+        accessible={true}
+        style={[styles.e2eButton, color ? {backgroundColor: color} : null]}>
+        <Text style={styles.e2eButtonText}>{title}</Text>
+    </Pressable>
+);
+const E2EPanelTab = ({id, title, active, onPress}) => (
+    <Pressable
+        onPress={onPress}
+        testID={id}
+        nativeID={id}
+        accessibilityLabel={id}
+        accessibilityRole="button"
+        accessible={true}
+        style={[styles.e2eTab, active ? styles.e2eTabActive : null]}>
+        <Text style={styles.e2eTabText}>{title}</Text>
+    </Pressable>
+);
+
 const App: () => React$Node = () => {
-    // Variables ******************************************************************
     const [e2eEnabled, setE2eEnabled] = useState(false);
     const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
     const [logEntries, setLogEntries] = useState([]);
+    const [lastLogEntry, setLastLogEntry] = useState('');
 
     const [existsParam, setExistsParam] = useState('');
     const [lsParam, setLSParam] = useState('');
@@ -80,6 +104,8 @@ const App: () => React$Node = () => {
     const [readStreamParam, setReadStreamParam] = useState('');
     const [readEncodeStreamParam, setReadStreamEncodeParam] = useState('utf8');
 
+    const [activeE2ePanel, setActiveE2ePanel] = useState('base');
+
     const e2eRoot = ReactNativeBlobUtil.fs.dirs.DocumentDir + '/e2e';
     const imageToUploadPath = ReactNativeBlobUtil.fs.dirs.DocumentDir + '/ImageToUpload.jpg';
 
@@ -88,6 +114,19 @@ const App: () => React$Node = () => {
         if (!e2eEnabled) {
             return;
         }
+        setLastLogEntry(message);
+        setLogEntries((prev) => {
+            const next = [...prev, message];
+            if (next.length > MAX_LOG_ENTRIES) {
+                next.splice(0, next.length - MAX_LOG_ENTRIES);
+            }
+            return next;
+        });
+    };
+
+    const appendE2eLog = (message) => {
+        console.log(message);
+        setLastLogEntry(message);
         setLogEntries((prev) => {
             const next = [...prev, message];
             if (next.length > MAX_LOG_ENTRIES) {
@@ -105,7 +144,8 @@ const App: () => React$Node = () => {
         }
         if (message !== undefined) {
             Alert.alert(title, message);
-        } else {
+        }
+        else {
             Alert.alert(title);
         }
     };
@@ -160,14 +200,13 @@ const App: () => React$Node = () => {
             }
             await fs.createFile(imageToUploadPath, 'ZmFrZSBqcGc=', 'base64');
 
-            notify('E2E', 'Fixtures ready');
+            setE2eEnabled(true);
+            appendE2eLog('E2E: Fixtures ready');
         } catch (err) {
             notifyError(err);
         }
     };
 
-    // Methods ********************************************************************
-    // exists()
     const existsCall = () => {
         ReactNativeBlobUtil.fs
             .exists(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + existsParam)
@@ -186,7 +225,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // df()
     const dfCall = () => {
         ReactNativeBlobUtil.fs
             .df()
@@ -196,7 +234,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // ls()
     const lsCall = () => {
         ReactNativeBlobUtil.fs
             .ls(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + lsParam)
@@ -207,7 +244,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // cp()
     const cpCall = () => {
         ReactNativeBlobUtil.fs
             .cp(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + cpSourceParam, ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + cpDestParam)
@@ -215,7 +251,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // mv()
     const mvCall = () => {
         ReactNativeBlobUtil.fs
             .mv(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + cpSourceParam, ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + cpDestParam)
@@ -223,7 +258,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // unlink()
     const unlinkCall = () => {
         ReactNativeBlobUtil.fs
             .unlink(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + unlinkParam)
@@ -231,7 +265,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // stat(), lstat()
     const statCall = () => {
         ReactNativeBlobUtil.fs
             .stat(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + statParam)
@@ -252,7 +285,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // mkdir()
     const mkdirCall = () => {
         if (mkdirParam.length > 0) {
             ReactNativeBlobUtil.fs
@@ -261,12 +293,12 @@ const App: () => React$Node = () => {
                     notify('mkdir', ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + mkdirParam);
                 })
                 .catch(notifyError);
-        } else {
+        }
+        else {
             notify('mkdir', 'Cannot make file with no name provided');
         }
     };
 
-    // createFile()
     const createFileUTF8Call = () => {
         ReactNativeBlobUtil.fs
             .createFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + mkdirParam, 'foo', 'utf8')
@@ -295,7 +327,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // readFile()
     const readFileUTF8Call = () => {
         ReactNativeBlobUtil.fs
             .readFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + readParam, 'utf8')
@@ -323,7 +354,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // hash()
     const hashCall = () => {
         ReactNativeBlobUtil.fs
             .hash(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + hashPathParam, hashAlgValue)
@@ -333,7 +363,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // writeFile()
     const writeFileCall = () => {
         if (writeParam.length > 0) {
             if (writeEncodeParam === 'uri') {
@@ -342,15 +371,18 @@ const App: () => React$Node = () => {
                         .writeFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeURIParam, writeEncodeParam)
                         .then(() => notify('writeFile', 'uri'))
                         .catch(notifyError);
-                } else {
+                }
+                else {
                     notify('writeFile', 'uri path undefined');
                 }
-            } else if (writeEncodeParam === 'ascii') {
+            }
+            else if (writeEncodeParam === 'ascii') {
                 ReactNativeBlobUtil.fs
                     .writeFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, [102, 111, 111], writeEncodeParam)
                     .then(() => notify('writeFile', 'ascii'))
                     .catch(notifyError);
-            } else {
+            }
+            else {
                 ReactNativeBlobUtil.fs
                     .writeFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, 'foo', writeEncodeParam)
                     .then(() => notify('writeFile', writeEncodeParam))
@@ -359,7 +391,6 @@ const App: () => React$Node = () => {
         }
     };
 
-    // appendFile()
     const appendFileCall = () => {
         if (writeParam.length > 0) {
             if (writeEncodeParam === 'uri') {
@@ -368,15 +399,18 @@ const App: () => React$Node = () => {
                         .appendFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeURIParam, writeEncodeParam)
                         .then(() => notify('appendFile', 'uri'))
                         .catch(notifyError);
-                } else {
+                }
+                else {
                     notify('appendFile', 'uri path undefined');
                 }
-            } else if (writeEncodeParam === 'ascii') {
+            }
+            else if (writeEncodeParam === 'ascii') {
                 ReactNativeBlobUtil.fs
                     .appendFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, [102, 111, 111], writeEncodeParam)
                     .then(() => notify('appendFile', 'ascii'))
                     .catch(notifyError);
-            } else {
+            }
+            else {
                 ReactNativeBlobUtil.fs
                     .appendFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, 'foo', writeEncodeParam)
                     .then(() => notify('appendFile', writeEncodeParam))
@@ -397,7 +431,8 @@ const App: () => React$Node = () => {
                     })
                     .then(() => notify('writeStream', 'base64'))
                     .catch(notifyError);
-            } else if (writeEncodeStreamParam === 'ascii') {
+            }
+            else if (writeEncodeStreamParam === 'ascii') {
                 ReactNativeBlobUtil.fs
                     .writeStream(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeStreamParam, writeEncodeStreamParam, false)
                     .then((stream) => {
@@ -407,7 +442,8 @@ const App: () => React$Node = () => {
                     })
                     .then(() => notify('writeStream', 'ascii'))
                     .catch(notifyError);
-            } else {
+            }
+            else {
                 ReactNativeBlobUtil.fs
                     .writeStream(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeStreamParam, writeEncodeStreamParam, false)
                     .then((stream) => {
@@ -433,7 +469,8 @@ const App: () => React$Node = () => {
                     })
                     .then(() => notify('appendStream', 'base64'))
                     .catch(notifyError);
-            } else if (writeEncodeStreamParam === 'ascii') {
+            }
+            else if (writeEncodeStreamParam === 'ascii') {
                 ReactNativeBlobUtil.fs
                     .writeStream(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeStreamParam, writeEncodeStreamParam, true)
                     .then((stream) => {
@@ -443,7 +480,8 @@ const App: () => React$Node = () => {
                     })
                     .then(() => notify('appendStream', 'ascii'))
                     .catch(notifyError);
-            } else {
+            }
+            else {
                 ReactNativeBlobUtil.fs
                     .writeStream(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeStreamParam, writeEncodeStreamParam, true)
                     .then((stream) => {
@@ -457,49 +495,93 @@ const App: () => React$Node = () => {
         }
     };
 
-    // readStream
+    const writeStreamNestedCachePathCall = async () => {
+        const dir = ReactNativeBlobUtil.fs.dirs.CacheDir + '/issue-333';
+        const path = dir + '/stream.tmp';
+
+        try {
+            await ReactNativeBlobUtil.fs.unlink(dir).catch(() => {});
+            const stream = await ReactNativeBlobUtil.fs.writeStream(path, 'utf8', true);
+            await stream.write('foo');
+            await stream.close();
+            const exists = await ReactNativeBlobUtil.fs.exists(path);
+            notify('writeStream nested cache path', 'exists=' + exists);
+        }
+        catch (err) {
+            notifyError(err);
+        }
+    };
+
     const readStreamCall = () => {
+        appendLog(`readStream start: ${readStreamParam} ${readEncodeStreamParam}`);
+        let sawData = false;
+        let totalLength = 0;
+
         ReactNativeBlobUtil.fs
-            .readStream(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + readStreamParam, readEncodeStreamParam, 4000, 200)
+            .readStream(
+                ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + readStreamParam,
+                readEncodeStreamParam,
+                4000,
+                200,
+            )
             .then((stream) => {
-                let data = '';
-                stream.open();
                 stream.onData((chunk) => {
-                    data += chunk;
+                    sawData = true;
+                    totalLength += String(chunk).length;
+                    appendLog('readStream data: ' + chunk);
                 });
+
+                stream.onError((err) => {
+                    notifyError(err);
+                });
+
                 stream.onEnd(() => {
-                    appendLog('readStream data: ' + data);
-                    notify('readStream', 'length: ' + data.length);
+                    if (sawData) {
+                        notify('readStream', `length: ${totalLength}`);
+                    }
+                    else {
+                        notify('readStream', 'no data emitted');
+                    }
+                    appendLog('readStream end');
                 });
+
+                stream.open();
             })
             .catch(notifyError);
     };
 
-    // fetchCall
     const fetchCall = () => {
         ReactNativeBlobUtil.config({
-            // add this option that makes response data to be stored as a file,
-            // this is much more performant.
             fileCache: true,
         })
             .fetch('GET', buildUrl('/image.png'))
             .then((res) => {
-                // the temp file path
                 notify('fetch', res.path());
             })
             .catch(notifyError);
     };
 
-    // Android mediastorage store
+    const fetchNestedCachePathCall = async () => {
+        const dir = ReactNativeBlobUtil.fs.dirs.CacheDir + '/issue-453';
+        const path = dir + '/download.tmp';
+
+        try {
+            await ReactNativeBlobUtil.fs.unlink(dir).catch(() => {});
+            await ReactNativeBlobUtil.config({path}).fetch('GET', buildUrl('/image.png'));
+            const exists = await ReactNativeBlobUtil.fs.exists(path);
+            notify('fetch nested cache path', 'exists=' + exists);
+        }
+        catch (err) {
+            notifyError(err);
+        }
+    };
+
     const androidmediastore = () => {
         ReactNativeBlobUtil.config({
-            // add this option that makes response data to be stored as a file,
-            // this is much more performant.
             fileCache: true,
         })
             .fetch('GET', buildUrl('/image.png'))
             .then((res) => {
-                // the temp file path
                 ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
                     {
                         name: 'test.png',
@@ -510,7 +592,9 @@ const App: () => React$Node = () => {
                     res.path(),
                 )
                     .then((dest) => {
-                        ReactNativeBlobUtil.android.actionViewIntent(dest, 'image/png');
+                        if (!e2eEnabled) {
+                            ReactNativeBlobUtil.android.actionViewIntent(dest, 'image/png');
+                        }
                         notify('MediaStore', dest);
                     })
                     .catch(notifyError);
@@ -518,7 +602,6 @@ const App: () => React$Node = () => {
             .catch(notifyError);
     };
 
-    // uploadFileFromStorage
     const uploadFromStorageCall = () => {
         ReactNativeBlobUtil.fetch(
             'POST',
@@ -532,9 +615,6 @@ const App: () => React$Node = () => {
                     mute: false,
                 }),
                 'Content-Type': 'application/octet-stream',
-                // here's the body you're going to send, should be a BASE64 encoded string
-                // (you can use "base64"(refer to the library 'mathiasbynens/base64') APIs to make one).
-                // The data will be converted to "byte array"(say, blob) before request sent.
             },
             ReactNativeBlobUtil.wrap(imageToUploadPath),
         )
@@ -546,7 +626,6 @@ const App: () => React$Node = () => {
             });
     };
 
-    // uploadTextFromStorage
     const uploadTextFromCall = () => {
         ReactNativeBlobUtil.fetch(
             'POST',
@@ -560,9 +639,6 @@ const App: () => React$Node = () => {
                     mute: false,
                 }),
                 'Content-Type': 'application/octet-stream',
-                // here's the body you're going to send, should be a BASE64 encoded string
-                // (you can use "base64"(refer to the library 'mathiasbynens/base64') APIs to make one).
-                // The data will be converted to "byte array"(say, blob) before request sent.
             },
             'Waka Flacka Flame goes very well with Thomas the Tank Engine.',
         )
@@ -574,7 +650,6 @@ const App: () => React$Node = () => {
             });
     };
 
-    // MultipartFileAndData
     const MultipartFileAndData = () => {
         ReactNativeBlobUtil.fetch(
             'POST',
@@ -588,9 +663,6 @@ const App: () => React$Node = () => {
                     mute: false,
                 }),
                 'Content-Type': 'application/octet-stream',
-                // here's the body you're going to send, should be a BASE64 encoded string
-                // (you can use "base64"(refer to the library 'mathiasbynens/base64') APIs to make one).
-                // The data will be converted to "byte array"(say, blob) before request sent.
             },
             'Waka Flacka Flame goes very well with Thomas the Tank Engine.',
         )
@@ -612,101 +684,8 @@ const App: () => React$Node = () => {
             });
     };
 
-    //
-    // Custom CA trust evaluation. Mirrors the cases in tests/e2e/android-app/App.js
-    // under the same testIDs, so tests/e2e/appium/scenarios/tls.js drives either app.
-    const tlsHost = () => (Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1');
-
-    const tlsCustomCACall = () => {
-        ReactNativeBlobUtil.config({
-            customCACerts: ['test_ca'],
-            pinnedHosts: [tlsHost()],
-            trusty: false,
-        })
-            .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                const data = res.json();
-                notify('tls-custom-ca', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
-            })
-            .catch((err) => {
-                notify('tls-custom-ca', 'ERROR: ' + err.message);
-            });
-    };
-
-    const tlsNoCACall = () => {
-        ReactNativeBlobUtil.config({trusty: false})
-            .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                notify('tls-no-ca', 'FAIL: should have rejected but got ' + res.text());
-            })
-            .catch((err) => {
-                notify('tls-no-ca', 'PASS: ' + err.message);
-            });
-    };
-
-    const tlsWrongPinnedHostCall = () => {
-        ReactNativeBlobUtil.config({
-            customCACerts: ['test_ca'],
-            pinnedHosts: ['wrong.example.com'],
-            trusty: false,
-        })
-            .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                notify('tls-wrong-pin', 'FAIL: should have rejected but got ' + res.text());
-            })
-            .catch((err) => {
-                notify('tls-wrong-pin', 'PASS: ' + err.message);
-            });
-    };
-
-    const tlsBogusCertNameCall = () => {
-        ReactNativeBlobUtil.config({
-            customCACerts: ['no_such_ca_exists'],
-            pinnedHosts: [tlsHost()],
-            trusty: false,
-        })
-            .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                notify('tls-bogus-cert', 'FAIL: should have rejected but got ' + res.text());
-            })
-            .catch((err) => {
-                notify('tls-bogus-cert', 'PASS: ' + err.message);
-            });
-    };
-
-    const tlsTrustSystemCertsCall = () => {
-        ReactNativeBlobUtil.config({
-            customCACerts: ['test_ca'],
-            pinnedHosts: [tlsHost()],
-            trustSystemCerts: true,
-            trusty: false,
-        })
-            .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                const data = res.json();
-                notify('tls-system-certs', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
-            })
-            .catch((err) => {
-                notify('tls-system-certs', 'ERROR: ' + err.message);
-            });
-    };
-
-    const tlsTrustyRegressionCall = () => {
-        ReactNativeBlobUtil.config({trusty: true})
-            .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                const data = res.json();
-                notify('tls-trusty', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
-            })
-            .catch((err) => {
-                notify('tls-trusty', 'ERROR: ' + err.message);
-            });
-    };
-
     const MakeRequestWithProgress = () => {
         ReactNativeBlobUtil.config({
-            // add this option that makes response data to be stored as a file,
-            // this is much more performant.
             fileCache: true,
         })
             .fetch(
@@ -718,23 +697,19 @@ const App: () => React$Node = () => {
                     'Content-Type': 'multipart/form-data',
                 },
                 [
-                    // element with property `filename` will be transformed into `file` in form data
                     {name: 'avatar', filename: 'avatar.png', data: 'Kentucky Fried Seth'},
-                    // custom content type
                     {
                         name: 'avatar-png',
                         filename: 'avatar-png.png',
                         type: 'image/png',
                         data: 'whaddup my pickles',
                     },
-                    // part file from storage
                     {
                         name: 'avatar-foo',
                         filename: 'avatar-foo.png',
                         type: 'image/foo',
                         data: ReactNativeBlobUtil.wrap(imageToUploadPath),
                     },
-                    // elements without property `filename` will be sent as plain text
                     {name: 'name', data: 'user'},
                     {
                         name: 'info',
@@ -763,352 +738,350 @@ const App: () => React$Node = () => {
             });
     };
 
-    // App ************************************************************************
+
+    const tlsCustomCACall = () => {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: [host],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-custom-ca', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-custom-ca', 'ERROR: ' + err.message);
+            });
+    };
+
+    const tlsNoCACall = () => {
+        ReactNativeBlobUtil.config({
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-no-ca', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-no-ca', 'PASS: ' + err.message);
+            });
+    };
+
+    const tlsWrongPinnedHostCall = () => {
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: ['wrong.example.com'],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-wrong-pin', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-wrong-pin', 'PASS: ' + err.message);
+            });
+    };
+
+    // trustSystemCerts adds the system anchors alongside the custom CA, so the
+    // local server - signed by the custom CA, unknown to the system store - must
+    // still be accepted. This used to fetch httpbin.org, which needed the public
+    // internet and, because that host is not in pinnedHosts, never exercised the
+    // flag at all: it only measured the fall-through to system trust, which
+    // tls-wrong-pin already covers.
+    const tlsTrustSystemCertsCall = () => {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: [host],
+            trustSystemCerts: true,
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-system-certs', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-system-certs', 'ERROR: ' + err.message);
+            });
+    };
+
+    const tlsTrustyRegressionCall = () => {
+        ReactNativeBlobUtil.config({
+            trusty: true,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-trusty', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-trusty', 'ERROR: ' + err.message);
+            });
+    };
+
+    // Regression test: a customCACerts name that resolves to nothing must fail the
+    // request. iOS used to fall back to NSURLSessionAuthChallengePerformDefaultHandling
+    // here, so a typo silently swapped the caller's pinning for the system trust store.
+    const tlsBogusCertNameCall = () => {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+        ReactNativeBlobUtil.config({
+            customCACerts: ['no_such_ca_exists'],
+            pinnedHosts: [host],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-bogus-cert', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-bogus-cert', 'PASS: ' + err.message);
+            });
+    };
     return (
-        <>
-            <View>
-                <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.scrollView} testID="main-scroll-view">
-                    {global.HermesInternal == null ? null : (
-                        <View style={styles.engine}>
-                            <Text style={styles.footer}>Engine: Hermes</Text>
-                        </View>
-                    )}
-                    <Text style={styles.sectionTitle}>{'React Native Fetch Blob Windows Demo App'}</Text>
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <View style={styles.sectionDescription}>
-                                <Text>
-                                    {'DocumentDir: ' + ReactNativeBlobUtil.fs.dirs.DocumentDir + '\n'}
-                                    {'CacheDir: ' + ReactNativeBlobUtil.fs.dirs.CacheDir + '\n'}
-                                    {'PictureDir: ' + ReactNativeBlobUtil.fs.dirs.PictureDir + '\n'}
-                                    {'MusicDir: ' + ReactNativeBlobUtil.fs.dirs.MusicDir + '\n'}
-                                    {'DownloadDir: ' + ReactNativeBlobUtil.fs.dirs.DownloadDir + '\n'}
-                                    {'DCIMDir: ' + ReactNativeBlobUtil.fs.dirs.DCIMDir + '\n'}
-                                    {'SDCardDir: ' + ReactNativeBlobUtil.fs.dirs.SDCardDir + '\n'}
-                                    {'SDCardApplicationDir: ' + ReactNativeBlobUtil.fs.dirs.SDCardApplicationDir + '\n'}
-                                    {'MainBundleDir: ' + ReactNativeBlobUtil.fs.dirs.MainBundleDir + '\n'}
-                                    {'LibraryDir: ' + ReactNativeBlobUtil.fs.dirs.LibraryDir + '\n'}
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
+        <View style={styles.body}>
+            <View style={styles.e2eContainer}>
+                <Text style={styles.sectionTitle}>{'E2E Controls'}</Text>
 
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'E2E Controls'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Base URL"
-                                    value={baseUrl}
-                                    onChangeText={setBaseUrl}
-                                    placeholderTextColor="#9a73ef"
-                                    autoCapitalize="none"
-                                    testID="e2e-base-url-input"
-                                />
-                            </View>
-                            <View style={styles.buttonGroup}>
-                                <Button title={e2eEnabled ? 'Disable E2E Mode' : 'Enable E2E Mode'} color="#9a73ef" onPress={toggleE2eMode} testID="e2e-toggle-button" />
-                                <Button title="Reset E2E Fixtures" color="#9a73ef" onPress={resetE2eFixtures} testID="e2e-reset-fixtures-button" />
-                                <Button title="Clear E2E Log" color="#9a73ef" onPress={clearLog} testID="e2e-clear-log-button" />
-                            </View>
-                            {e2eEnabled ? (
-                                <View style={styles.e2eLog} testID="e2e-log">
-                                    <Text style={styles.e2eLogText} testID="e2e-log-output">
-                                        {logEntries.length === 0 ? 'No log entries' : logEntries.join('\n')}
-                                    </Text>
-                                </View>
-                            ) : null}
-                        </View>
-                    </View>
+                <View style={styles.e2eTabs}>
+                    {[
+                        ['base', 'Base'],
+                        ['exists', 'Exists'],
+                        ['ls', 'LS'],
+                        ['copy', 'Copy'],
+                        ['unlink', 'Unlink'],
+                        ['stat', 'Stat'],
+                        ['create', 'Create'],
+                        ['read', 'Read'],
+                        ['hash', 'Hash'],
+                        ['write', 'Write'],
+                        ['writeStream', 'WStream'],
+                        ['readStream', 'RStream'],
+                        ['network', 'Net'],
+                        ['tls', 'TLS'],
+                    ].map(([panel, title]) => (
+                        <E2EPanelTab
+                            key={panel}
+                            id={`e2e-panel-${panel}`}
+                            title={title}
+                            active={activeE2ePanel === panel}
+                            onPress={() => setActiveE2ePanel(panel)}
+                        />
+                    ))}
+                </View>
 
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'exists - exists(), isDir()'}</Text>
-                            <TextInput style={styles.input} placeholder="Path" onChangeText={(existsParam) => setExistsParam(existsParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="exists-path-input" />
-                            <Button title="Check if exists" color="#9a73ef" onPress={existsCall} testID="exists-button" />
-                            <Button title="Check if is dir" color="#9a73ef" onPress={isDirCall} testID="isdir-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'df - df()'}</Text>
-                            <Button title="Get free/total disk space" color="#9a73ef" onPress={dfCall} testID="df-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'ls - ls()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Directory Path" onChangeText={(lsParam) => setLSParam(lsParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="ls-path-input" />
-                            </View>
-                            <Button title="Get specified directory info" color="#9a73ef" onPress={lsCall} testID="ls-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'cp and mv - cp() and mv()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source File Path" onChangeText={(cpSourceParam) => setCPSourceParam(cpSourceParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="cp-source-input" />
-                                <TextInput style={styles.input} placeholder="Destintation File Path" onChangeText={(cpDestParam) => setCPDestParam(cpDestParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="cp-dest-input" />
-                            </View>
-                            <Button title="Copy File to Destination" color="#9a73ef" onPress={cpCall} testID="cp-button" />
-                            <Button title="Move File to Destination" color="#9a73ef" onPress={mvCall} testID="mv-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'unlink - unlink()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="File Path" onChangeText={(unlinkParam) => setUnlinkParam(unlinkParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="unlink-path-input" />
-                            </View>
-                            <Button title="Copy File to Destination" color="#9a73ef" onPress={unlinkCall} testID="unlink-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'stat - stat(), lstat()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(statParam) => setStatParam(statParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="stat-path-input" />
-                            </View>
-                            <Button title="stat Call" color="#9a73ef" onPress={statCall} testID="stat-button" />
-                            <Button title="lstat Call" color="#9a73ef" onPress={lstatCall} testID="lstat-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'mkdir - mkdir(), createFile()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(mkdirParam) => setMkdirParam(mkdirParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="mkdir-path-input" />
-                                <TextInput style={styles.input} placeholder="URI source path" onChangeText={(mkdirURIParam) => setMkdirURIParam(mkdirURIParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="mkdir-uri-input" />
-                            </View>
-                            <Button title="mkdir" color="#9a73ef" onPress={mkdirCall} testID="mkdir-button" />
-                            <Button title="Create UTF8 file" color="#9a73ef" onPress={createFileUTF8Call} testID="create-utf8-button" />
-                            <Button title="Create ASCII file" color="#9a73ef" onPress={createFileASCIICall} testID="create-ascii-button" />
-                            <Button title="Create base64 file" color="#9a73ef" onPress={createFileBase64Call} testID="create-base64-button" />
-                            <Button title="Create file from URI" color="#9a73ef" onPress={createFileURICall} testID="create-uri-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'readFile - readFile()'}</Text>
-                            <View style={styles.sectionDescription}>
-                                <TextInput style={styles.input} placeholder="Source path" onChangeText={(readParam) => setReadParam(readParam)} placeholderTextColor="#9a73ef" autoCapitalize="none" testID="read-path-input" />
-                            </View>
-                            <Button title="Read UTF8 file" color="#9a73ef" onPress={readFileUTF8Call} testID="read-utf8-button" />
-                            <Button title="Read ASCII file" color="#9a73ef" onPress={readFileASCIICall} testID="read-ascii-button" />
-                            <Button title="Read base64 file" color="#9a73ef" onPress={readFileBase64Call} testID="read-base64-button" />
-                        </View>
-                    </View>
-
-                    <View style={styles.body}>
-                    <View style={styles.sectionContainer}>
-                        <Text style={styles.sectionTitle}>{'Hash - hash()'}</Text>
-                        <View style={styles.sectionDescription}>
+                {activeE2ePanel === 'base' ? (
+                    <View>
                         <TextInput
                             style={styles.input}
-                            placeholder="Source path"
-                            onChangeText={setHashPathParam}
+                            placeholder="Base URL"
+                            value={baseUrl}
+                            onChangeText={setBaseUrl}
                             placeholderTextColor="#9a73ef"
                             autoCapitalize="none"
-                            testID="hash-path-input"
+                            {...e2eId('e2e-base-url-input')}
                         />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="e2e-toggle-button" title={e2eEnabled ? 'Disable E2E Mode' : 'Enable E2E Mode'} color="#9a73ef" onPress={toggleE2eMode} />
+                            <E2EButton id="e2e-reset-fixtures-button" title="Reset E2E Fixtures" color="#9a73ef" onPress={resetE2eFixtures} />
+                            <E2EButton id="e2e-clear-log-button" title="Clear E2E Log" color="#9a73ef" onPress={clearLog} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'exists' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Path" onChangeText={setExistsParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('exists-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="exists-button" title="Exists" color="#9a73ef" onPress={existsCall} />
+                            <E2EButton id="isdir-button" title="Is Dir" color="#9a73ef" onPress={isDirCall} />
+                            <E2EButton id="df-button" title="DF" color="#9a73ef" onPress={dfCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'ls' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Directory Path" onChangeText={setLSParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('ls-path-input')} />
+                        <E2EButton id="ls-button" title="LS" color="#9a73ef" onPress={lsCall} />
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'copy' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source File Path" onChangeText={setCPSourceParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('cp-source-input')} />
+                        <TextInput style={styles.input} placeholder="Destination File Path" onChangeText={setCPDestParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('cp-dest-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="cp-button" title="Copy" color="#9a73ef" onPress={cpCall} />
+                            <E2EButton id="mv-button" title="Move" color="#9a73ef" onPress={mvCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'unlink' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="File Path" onChangeText={setUnlinkParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('unlink-path-input')} />
+                        <E2EButton id="unlink-button" title="Unlink" color="#9a73ef" onPress={unlinkCall} />
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'stat' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setStatParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('stat-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="stat-button" title="Stat" color="#9a73ef" onPress={statCall} />
+                            <E2EButton id="lstat-button" title="LStat" color="#9a73ef" onPress={lstatCall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'create' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setMkdirParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('mkdir-path-input')} />
+                        <TextInput style={styles.input} placeholder="URI source path" onChangeText={setMkdirURIParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('mkdir-uri-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="mkdir-button" title="mkdir" color="#9a73ef" onPress={mkdirCall} />
+                            <E2EButton id="create-utf8-button" title="UTF8" color="#9a73ef" onPress={createFileUTF8Call} />
+                            <E2EButton id="create-ascii-button" title="ASCII" color="#9a73ef" onPress={createFileASCIICall} />
+                            <E2EButton id="create-base64-button" title="Base64" color="#9a73ef" onPress={createFileBase64Call} />
+                            <E2EButton id="create-uri-button" title="URI" color="#9a73ef" onPress={createFileURICall} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'read' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setReadParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('read-path-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="read-utf8-button" title="UTF8" color="#9a73ef" onPress={readFileUTF8Call} />
+                            <E2EButton id="read-ascii-button" title="ASCII" color="#9a73ef" onPress={readFileASCIICall} />
+                            <E2EButton id="read-base64-button" title="Base64" color="#9a73ef" onPress={readFileBase64Call} />
+                        </View>
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'hash' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setHashPathParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('hash-path-input')} />
                         <View style={styles.buttonGroup}>
                             {['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'].map((alg) => (
-                            <Button
-                                key={alg}
-                                title={alg.toUpperCase()}
-                                color={hashAlgValue === alg ? '#7a42f4' : '#ccc'}
-                                onPress={() => setHashAlgValue(alg)}
-                                testID={`hash-${alg}-button`}
-                            />
+                                <E2EButton key={alg} id={`hash-${alg}-button`} title={alg.toUpperCase()} color={hashAlgValue === alg ? '#7a42f4' : '#777'} onPress={() => setHashAlgValue(alg)} />
                             ))}
+                            <E2EButton id="hash-button" title="Hash" color="#9a73ef" onPress={hashCall} />
                         </View>
-                        </View>
-                        <Button title="Hash File" color="#9a73ef" onPress={hashCall} testID="hash-button" />
                     </View>
-                    </View>
+                ) : null}
 
-                    <View style={styles.body}>
-                    <View style={styles.sectionContainer}>
-                        <Text style={styles.sectionTitle}>{'write - writeFile(), appendFile()'}</Text>
-                        <View style={styles.sectionDescription}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Source path"
-                            onChangeText={setWriteParam}
-                            placeholderTextColor="#9a73ef"
-                            autoCapitalize="none"
-                            testID="write-path-input"
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Destination path"
-                            onChangeText={setWriteURIParam}
-                            placeholderTextColor="#9a73ef"
-                            autoCapitalize="none"
-                            testID="write-uri-input"
-                        />
+                {activeE2ePanel === 'write' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setWriteParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('write-path-input')} />
+                        <TextInput style={styles.input} placeholder="Destination path" onChangeText={setWriteURIParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('write-uri-input')} />
                         <View style={styles.buttonGroup}>
                             {['utf8', 'base64', 'ascii', 'uri'].map((enc) => (
-                            <Button
-                                key={enc}
-                                title={enc.toUpperCase()}
-                                color={writeEncodeParam === enc ? '#7a42f4' : '#ccc'}
-                                onPress={() => setWriteEncodeParam(enc)}
-                                testID={`write-enc-${enc}-button`}
-                            />
+                                <E2EButton key={enc} id={`write-enc-${enc}-button`} title={enc.toUpperCase()} color={writeEncodeParam === enc ? '#7a42f4' : '#777'} onPress={() => setWriteEncodeParam(enc)} />
                             ))}
+                            <E2EButton id="write-button" title="Write" color="#9a73ef" onPress={writeFileCall} />
+                            <E2EButton id="append-button" title="Append" color="#9a73ef" onPress={appendFileCall} />
                         </View>
-                        </View>
-                        <Button title="Write" color="#9a73ef" onPress={writeFileCall} testID="write-button" />
-                        <Button title="Append" color="#9a73ef" onPress={appendFileCall} testID="append-button" />
                     </View>
-                    </View>
+                ) : null}
 
-                    <View style={styles.body}>
-                    <View style={styles.sectionContainer}>
-                        <Text style={styles.sectionTitle}>{'WriteStream - writeStream()'}</Text>
-                        <View style={styles.sectionDescription}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Source path"
-                            onChangeText={setWriteStreamParam}
-                            placeholderTextColor="#9a73ef"
-                            autoCapitalize="none"
-                            testID="write-stream-path-input"
-                        />
+                {activeE2ePanel === 'writeStream' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setWriteStreamParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('write-stream-path-input')} />
                         <View style={styles.buttonGroup}>
                             {['utf8', 'base64', 'ascii'].map((enc) => (
-                            <Button
-                                key={enc}
-                                title={enc.toUpperCase()}
-                                color={writeEncodeStreamParam === enc ? '#7a42f4' : '#ccc'}
-                                onPress={() => setWriteStreamEncodeParam(enc)}
-                                testID={`write-stream-enc-${enc}-button`}
-                            />
+                                <E2EButton key={enc} id={`write-stream-enc-${enc}-button`} title={enc.toUpperCase()} color={writeEncodeStreamParam === enc ? '#7a42f4' : '#777'} onPress={() => setWriteStreamEncodeParam(enc)} />
                             ))}
+                            <E2EButton id="write-stream-button" title="Write" color="#9a73ef" onPress={writeStreamCall} />
+                            <E2EButton id="append-stream-button" title="Append" color="#9a73ef" onPress={appendStreamCall} />
+                            <E2EButton id="write-stream-nested-cache-button" title="Cache" color="#9a73ef" onPress={writeStreamNestedCachePathCall} />
                         </View>
-                        </View>
-                        <Button title="Write" color="#9a73ef" onPress={writeStreamCall} testID="write-stream-button" />
-                        <Button title="Append" color="#9a73ef" onPress={appendStreamCall} testID="append-stream-button" />
                     </View>
-                    </View>
+                ) : null}
 
-                    <View style={styles.body}>
-                    <View style={styles.sectionContainer}>
-                        <Text style={styles.sectionTitle}>{'ReadStream - readStream()'}</Text>
-                        <View style={styles.sectionDescription}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Source path"
-                            onChangeText={setReadStreamParam}
-                            placeholderTextColor="#9a73ef"
-                            autoCapitalize="none"
-                            testID="read-stream-path-input"
-                        />
+                {activeE2ePanel === 'readStream' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Source path" onChangeText={setReadStreamParam} placeholderTextColor="#9a73ef" autoCapitalize="none" {...e2eId('read-stream-path-input')} />
                         <View style={styles.buttonGroup}>
                             {['utf8', 'base64', 'ascii'].map((enc) => (
-                            <Button
-                                key={enc}
-                                title={enc.toUpperCase()}
-                                color={readEncodeStreamParam === enc ? '#7a42f4' : '#ccc'}
-                                onPress={() => setReadStreamEncodeParam(enc)}
-                                testID={`read-stream-enc-${enc}-button`}
-                            />
+                                <E2EButton key={enc} id={`read-stream-enc-${enc}-button`} title={enc.toUpperCase()} color={readEncodeStreamParam === enc ? '#7a42f4' : '#777'} onPress={() => setReadStreamEncodeParam(enc)} />
                             ))}
+                            <E2EButton id="read-stream-button" title="Read" color="#9a73ef" onPress={readStreamCall} />
                         </View>
-                        </View>
-                        <Button title="Read" color="#9a73ef" onPress={readStreamCall} testID="read-stream-button" />
                     </View>
-                    </View>
+                ) : null}
 
-                    <View style={styles.body}>
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>{'FetchBlobTest'}</Text>
-                            <View style={styles.sectionDescription} />
-                            <Button title="Attempt Fetch" color="#9a73ef" onPress={fetchCall} testID="fetch-button" />
-                            <Button title="Attempt Android Media Storage" color="#9a73ef" onPress={androidmediastore} testID="media-store-button" />
-                            <Button title="Upload File from Storage" color="#9a73ef" onPress={uploadFromStorageCall} testID="upload-file-button" />
-                            <Button title="Upload Text From Storage" color="#9a73ef" onPress={uploadTextFromCall} testID="upload-text-button" />
-                            <Button title="Multipart Call" color="#9a73ef" onPress={MultipartFileAndData} testID="multipart-button" />
-                            <Button title="Progress Call" color="#9a73ef" onPress={MakeRequestWithProgress} testID="progress-button" />
-                            <Button title="TLS Custom CA" color="#2ecc71" onPress={tlsCustomCACall} testID="tls-custom-ca-button" />
-                            <Button title="TLS No CA (fail)" color="#e74c3c" onPress={tlsNoCACall} testID="tls-no-ca-button" />
-                            <Button title="TLS Wrong Pin (fail)" color="#e74c3c" onPress={tlsWrongPinnedHostCall} testID="tls-wrong-pin-button" />
-                            <Button title="TLS Bogus CA (fail)" color="#e74c3c" onPress={tlsBogusCertNameCall} testID="tls-bogus-cert-button" />
-                            <Button title="TLS System Certs" color="#3498db" onPress={tlsTrustSystemCertsCall} testID="tls-system-certs-button" />
-                            <Button title="TLS Trusty" color="#f39c12" onPress={tlsTrustyRegressionCall} testID="tls-trusty-button" />
-                        </View>
+                {activeE2ePanel === 'network' ? (
+                    <View style={styles.buttonGroup}>
+                        <E2EButton id="fetch-button" title="Fetch" color="#9a73ef" onPress={fetchCall} />
+                        <E2EButton id="fetch-nested-cache-path-button" title="Fetch Cache" color="#9a73ef" onPress={fetchNestedCachePathCall} />
+                        <E2EButton id="media-store-button" title="Media" color="#9a73ef" onPress={androidmediastore} />
+                        <E2EButton id="upload-file-button" title="Upload File" color="#9a73ef" onPress={uploadFromStorageCall} />
+                        <E2EButton id="upload-text-button" title="Upload Text" color="#9a73ef" onPress={uploadTextFromCall} />
+                        <E2EButton id="multipart-button" title="Multipart" color="#9a73ef" onPress={MultipartFileAndData} />
+                        <E2EButton id="progress-button" title="Progress" color="#9a73ef" onPress={MakeRequestWithProgress} />
                     </View>
-                </ScrollView>
+                ) : null}
+
+                {activeE2ePanel === 'tls' ? (
+                    <View style={styles.buttonGroup}>
+                        <E2EButton id="tls-custom-ca-button" title="Custom CA" color="#2ecc71" onPress={tlsCustomCACall} />
+                        <E2EButton id="tls-no-ca-button" title="No CA (fail)" color="#e74c3c" onPress={tlsNoCACall} />
+                        <E2EButton id="tls-wrong-pin-button" title="Wrong Pin (fail)" color="#e74c3c" onPress={tlsWrongPinnedHostCall} />
+                        <E2EButton id="tls-system-certs-button" title="System Certs" color="#3498db" onPress={tlsTrustSystemCertsCall} />
+                        <E2EButton id="tls-trusty-button" title="Trusty (regression)" color="#f39c12" onPress={tlsTrustyRegressionCall} />
+                        <E2EButton id="tls-bogus-cert-button" title="Bogus CA (fail)" color="#e74c3c" onPress={tlsBogusCertNameCall} />
+                    </View>
+                ) : null}
+
+                {e2eEnabled ? (
+                    <View style={styles.e2eLog} {...e2eId('e2e-log')}>
+                        <Text style={styles.e2eLogText} {...e2eId(`e2e-last-log-output:${lastLogEntry}`)}>
+                            {lastLogEntry || 'No last log entry'}
+                        </Text>
+                        <Text style={styles.e2eLogText} {...e2eTestId('e2e-log-output')}>
+                            {logEntries.length === 0 ? 'No log entries' : logEntries.join('\n')}
+                        </Text>
+                    </View>
+                ) : null}
             </View>
-        </>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    scrollView: {
-        backgroundColor: Colors.black,
-    },
-    engine: {
-        position: 'absolute',
-        right: 0,
-    },
-    body: {
+    e2eContainer: {
+        paddingHorizontal: 12,
+        paddingTop: 12,
+        paddingBottom: 8,
         backgroundColor: Colors.dark,
     },
-    sectionContainer: {
-        marginTop: 32,
-        paddingHorizontal: 24,
-    },
-    sectionTitle: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: Colors.white,
-    },
-    sectionDescription: {
-        marginTop: 8,
-        fontSize: 18,
-        fontWeight: '400',
-        color: Colors.dark,
-    },
-    highlight: {
-        fontWeight: '700',
-    },
-    footer: {
-        color: Colors.dark,
-        fontSize: 12,
-        fontWeight: '600',
-        padding: 4,
-        paddingRight: 12,
-        textAlign: 'right',
-    },
-    buttonGroup: {
+
+    e2eTabs: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 4,
         marginVertical: 8,
-      },
-    e2eLog: {
-        marginTop: 8,
-        padding: 8,
-        borderWidth: 1,
-        borderColor: Colors.dark,
-        backgroundColor: Colors.black,
-        maxHeight: 200,
     },
-    e2eLogText: {
+
+    e2eTab: {
+        paddingVertical: 6,
+        paddingHorizontal: 8,
+        backgroundColor: '#444',
+        borderRadius: 4,
+    },
+
+    e2eTabActive: {
+        backgroundColor: '#7a42f4',
+    },
+
+    e2eTabText: {
         color: Colors.white,
         fontSize: 12,
-        marginBottom: 4,
+        fontWeight: '600',
     },
 });
 
