@@ -294,7 +294,10 @@ const startAppium = async () => {
         appiumArgs.push('--base-path', appiumBasePath);
     }
     const child = spawnCommand(npxCmd, appiumArgs, {cwd: rootDir, stdio: 'inherit', env: npxEnv});
-    await waitForUrl(statusUrl, 30000, 'Appium');
+    // Appium loads every installed driver before it answers /status, and that is
+    // slow: windows and uiautomator2 together took ~46s on a cold start, so the old
+    // 30s budget failed the run while the server was still coming up.
+    await waitForUrl(statusUrl, 180000, 'Appium');
     return child;
 };
 
@@ -314,10 +317,34 @@ const startServer = async () => {
     return child;
 };
 
+// The platforms are served by different apps: Android and iOS run the app under
+// tests/e2e/android-app, Windows runs the example app, which carries the same
+// testIDs. Metro has to serve whichever one is under test.
+const metroTargets = (platforms) => {
+    const targets = [];
+    if (platforms.includes('android') || platforms.includes('ios')) {
+        targets.push({dir: androidE2eAppDir, label: 'Android/iOS E2E app'});
+    }
+    if (platforms.includes('windows')) {
+        targets.push({dir: path.join(rootDir, 'examples', 'ReactNativeBlobUtil'), label: 'Windows example app'});
+    }
+    return targets;
+};
+
 const startMetro = async (platforms) => {
-    if (!platforms.includes('android')) {
+    const targets = metroTargets(platforms);
+    if (targets.length === 0) {
         return null;
     }
+
+    if (targets.length > 1) {
+        // One Metro serves one bundle, so Android and Windows in a single invocation
+        // would need two servers on two ports.
+        throw new Error('Windows uses a different app than Android/iOS, so they cannot share one Metro. ' +
+            'Run them as separate invocations, e.g. --platforms windows.');
+    }
+
+    const target = targets[0];
 
     const statusUrl = `http://${metroHost}:${metroPort}/status`;
     if (await checkUrl(statusUrl)) {
@@ -328,10 +355,13 @@ const startMetro = async (platforms) => {
         throw new Error(`Metro is not reachable at ${statusUrl}. Start it manually or omit --no-metro.`);
     }
 
-    await ensureAndroidAppDependencies();
-    log('Starting Metro server for Android E2E app.');
+    if (target.dir === androidE2eAppDir) {
+        await ensureAndroidAppDependencies();
+    }
+
+    log(`Starting Metro server for ${target.label}.`);
     const child = spawnCommand(npxCmd, ['react-native', 'start', '--port', String(metroPort)], {
-        cwd: androidE2eAppDir,
+        cwd: target.dir,
         stdio: 'inherit',
         env: {...npxEnv, RCT_METRO_PORT: String(metroPort)},
     });

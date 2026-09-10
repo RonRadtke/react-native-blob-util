@@ -119,15 +119,15 @@
     <Image Include="ReactNativeBlobUtilWin.ico" />
     <Image Include="small.ico" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- Throwaway CA for the customCACerts e2e tests, produced by
-         tests/e2e/certs/generate.js. Ships in the package root, which is where
-         the module resolves customCACerts from (Package::Current().InstalledLocation).
-         Not tracked in git; the build skips it when it has not been generated. -->
-    <Content Include="test_ca.pem" Condition="Exists('test_ca.pem')">
-      <DeploymentContent>true</DeploymentContent>
-    </Content>
-  </ItemGroup>
+  <!-- Throwaway CA for the customCACerts e2e tests, produced by
+       tests/e2e/certs/generate.js. It has to sit next to the executable: that is
+       the package root the module resolves customCACerts from, and it is what the
+       packaging project picks up. A Content item with DeploymentContent is a UWP
+       concept and copies nothing from a C++ desktop project, so copy it here.
+       Not tracked in git - skipped when it has not been generated. -->
+  <Target Name="CopyE2ETestCertificate" AfterTargets="Build" Condition="Exists('test_ca.pem')">
+    <Copy SourceFiles="test_ca.pem" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ReactNativeWindowsTargets">
     <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.CppApp.targets" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.CppApp.targets')" />

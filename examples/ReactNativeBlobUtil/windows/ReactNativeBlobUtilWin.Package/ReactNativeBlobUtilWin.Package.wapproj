@@ -51,6 +51,14 @@
     </AppxManifest>
   </ItemGroup>
   <ItemGroup>
+    <!-- Throwaway CA for the customCACerts e2e tests, produced by
+         tests/e2e/certs/generate.js. Link places it at the package root, which is
+         what Package::Current().InstalledLocation() resolves to and therefore where
+         the module looks for customCACerts. Not tracked in git; skipped when it has
+         not been generated. -->
+    <Content Include="..\ReactNativeBlobUtilWin\test_ca.pem" Condition="Exists('..\ReactNativeBlobUtilWin\test_ca.pem')">
+      <Link>test_ca.pem</Link>
+    </Content>
     <Content Include="Images\SplashScreen.scale-200.png" />
     <Content Include="Images\LockScreenLogo.scale-200.png" />
     <Content Include="Images\Square150x150Logo.scale-200.png" />
