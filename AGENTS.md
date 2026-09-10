@@ -51,34 +51,45 @@ a green CI run as evidence that `npm test` passes.
 
 ## Linting and style
 
-**`npx eslint` currently fails repo-wide.** `.eslintrc.json` extends
-`@react-native`, and `@react-native/eslint-config` is not in
-`devDependencies`, so ESLint aborts before checking anything. There is no
-`lint` script either. Installing that one package would revive the config —
-worth doing, but until then nothing style-checks the JS and you cannot lint
-your own work.
+```sh
+npm run lint      # eslint over the package's own JS; must stay free of errors
+```
 
-The rules in `.eslintrc.json` still describe the intended style, so follow them
-by hand. The ones that are errors rather than warnings:
+Run it before committing, alongside `npm test`. It currently reports **0
+errors and 149 warnings** and exits 0, so a non-zero exit or any error line is
+something you introduced.
 
-- `eqeqeq` — always `===` / `!==`
-- `semi`, `semi-spacing`, `no-extra-semi` — semicolons required
-- `no-cond-assign`, `no-irregular-whitespace`
+The warnings are a real backlog, not noise to ignore wholesale — mostly
+`import/order` (36), `import/no-default-export` (29), `quotes` (26) and
+`no-useless-escape` (23). Do not clear them with a blanket `eslint --fix`:
+that rewrites nearly every file at once and buries whatever you were actually
+changing. Fix them in the files you are already touching, or in a deliberate
+pass of their own. If you do need `--fix`, scope it to one rule:
 
-`no-console` and `no-extra-parens` are warnings; `import/order` wants external
-imports before internal ones. Beyond that, match the file you are editing:
-4-space indent, single quotes.
+```sh
+npx eslint <paths> --no-eslintrc --parser @babel/eslint-parser --parser-options=sourceType:module --rule '{"semi":["error","always"]}' --fix
+```
+
+`.eslintignore` deliberately excludes `lib/` (the vendored oboe bundle),
+`codegenSpecs/` (Flow spec syntax the parser cannot read — RN's codegen
+validates it instead), the example and e2e apps, and build output.
+
+Style comes from `@react-native/eslint-config` plus the overrides in
+`.eslintrc.json`. Beyond what the linter checks, match the file you are
+editing: 4-space indent, single quotes.
 
 ## Line endings
 
-There is no `.gitattributes` and no `.editorconfig`, and the tree is genuinely
-mixed — `index.js` and `android.js` are CRLF, `fetch.js` and `fs.js` are LF.
+`.gitattributes` stores text as LF and checks it out natively, so new work
+stays consistent. Existing files were **not** renormalised — that would have
+rewritten most of the tree in one commit and conflicted with open PRs — so the
+tree still holds a mix, and files convert as they are touched.
 
-Never let an editor or script normalise line endings across a file. Rewriting a
-whole file to change one line produces a diff nobody can review and buries the
-actual change. After editing, check that `git diff --stat` reports roughly the
-number of lines you meant to touch; if it reports the whole file, you have
-reformatted it and should redo the edit in place.
+Two consequences. Git will warn `LF will be replaced by CRLF` on many commits;
+that is the conversion working, not a problem. And a file you barely edited
+may show as fully rewritten if your editor also flipped its endings — after
+editing, check that `git diff --stat` reports roughly the number of lines you
+meant to touch, and redo the edit in place if it does not.
 
 ## Commit messages
 
