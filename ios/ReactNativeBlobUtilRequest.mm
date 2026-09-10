@@ -605,8 +605,11 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
         }
 
         if (anchorCertsArray.count == 0) {
-            NSLog(@"[ReactNativeBlobUtil] No valid certificates loaded from customCACerts, falling back to default");
-            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+            // Fail closed. Falling back to default handling here would quietly evaluate
+            // against the system trust store, so a misspelled certificate name would
+            // silently disable the pinning the caller asked for.
+            NSLog(@"[ReactNativeBlobUtil] customCACerts: none of %@ could be loaded from the app bundle", customCACerts);
+            completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
             return;
         }
 

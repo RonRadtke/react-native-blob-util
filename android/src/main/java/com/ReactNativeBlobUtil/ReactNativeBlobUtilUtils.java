@@ -30,6 +30,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
+import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 
 public class ReactNativeBlobUtilUtils {
@@ -72,21 +73,10 @@ public class ReactNativeBlobUtilUtils {
 
     public static OkHttpClient.Builder getUnsafeOkHttpClient(OkHttpClient client) {
         try {
-            // Fallback to trust-all when no shared manager is set — trusty: true must always
-            // work regardless of whether a prior request configured sharedTrustManager.
-            X509TrustManager trustManager = sharedTrustManager;
-            if (trustManager == null) {
-                trustManager = new X509TrustManager() {
-                    @Override
-                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
-                    @Override
-                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
-                    @Override
-                    public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[]{}; }
-                };
-            }
 
-            final TrustManager[] trustAllCerts = new TrustManager[]{trustManager};
+            if (sharedTrustManager == null) throw new IllegalStateException("Use of own trust manager but none defined");
+
+            final TrustManager[] trustAllCerts = new TrustManager[]{sharedTrustManager};
 
             // Install the all-trusting trust manager
             final SSLContext sslContext = SSLContext.getInstance("SSL");
@@ -95,7 +85,7 @@ public class ReactNativeBlobUtilUtils {
             final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
             OkHttpClient.Builder builder = client.newBuilder();
-            builder.sslSocketFactory(sslSocketFactory, trustManager);
+            builder.sslSocketFactory(sslSocketFactory, sharedTrustManager);
             builder.hostnameVerifier(new HostnameVerifier() {
                 @Override
                 public boolean verify(String hostname, SSLSession session) {
@@ -109,7 +99,24 @@ public class ReactNativeBlobUtilUtils {
         }
     }
 
-    public static OkHttpClient.Builder getCustomCACertOkHttpClient(OkHttpClient client, Context context, List<String> certNames, List<String> pinnedHosts, boolean trustSystemCerts) {
+    /**
+     * Whether a request to {@code url} should use the custom CA trust store.
+     *
+     * When pinnedHosts is set the custom CA only covers those hosts; anything else
+     * falls through to the platform trust store, which is what the README documents
+     * and what iOS does by returning NSURLSessionAuthChallengePerformDefaultHandling.
+     */
+    public static boolean customCACertsApplyTo(List<String> certNames, List<String> pinnedHosts, String url) {
+        if (certNames == null || certNames.isEmpty()) return false;
+        if (pinnedHosts == null || pinnedHosts.isEmpty()) return true;
+
+        HttpUrl parsed = HttpUrl.parse(url);
+        if (parsed == null) return false;
+
+        return pinnedHosts.contains(parsed.host());
+    }
+
+    public static OkHttpClient.Builder getCustomCACertOkHttpClient(OkHttpClient client, Context context, List<String> certNames, boolean trustSystemCerts) {
         try {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -118,22 +125,31 @@ public class ReactNativeBlobUtilUtils {
             if (trustSystemCerts) {
                 TrustManagerFactory defaultTmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
                 defaultTmf.init((KeyStore) null);
-                KeyStore systemKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-                systemKeyStore.load(null, null);
+                int systemIndex = 0;
                 for (TrustManager tm : defaultTmf.getTrustManagers()) {
                     if (tm instanceof X509TrustManager) {
                         for (java.security.cert.X509Certificate cert : ((X509TrustManager) tm).getAcceptedIssuers()) {
-                            keyStore.setCertificateEntry("system_" + cert.getSubjectDN().getName().hashCode(), cert);
+                            keyStore.setCertificateEntry("system_" + (systemIndex++), cert);
                         }
                     }
                 }
             }
 
+            int loaded = 0;
             for (String certName : certNames) {
                 Certificate cert = loadCertificateFromResources(context, cf, certName);
                 if (cert != null) {
                     keyStore.setCertificateEntry(certName, cert);
+                    loaded++;
                 }
+            }
+
+            // Fail closed. Without this the keystore is empty, every connection fails
+            // trust evaluation, and the developer sees a generic handshake error rather
+            // than the actual problem: the certificate is not in res/raw under that name.
+            if (loaded == 0) {
+                throw new IllegalStateException(
+                    "customCACerts: none of " + certNames + " could be loaded from res/raw");
             }
 
             TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -157,26 +173,9 @@ public class ReactNativeBlobUtilUtils {
             OkHttpClient.Builder builder = client.newBuilder();
             builder.sslSocketFactory(sslContext.getSocketFactory(), customTrustManager);
 
-            if (pinnedHosts != null && !pinnedHosts.isEmpty()) {
-                final HostnameVerifier defaultVerifier = javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier();
-                builder.hostnameVerifier(new HostnameVerifier() {
-                    @Override
-                    public boolean verify(String hostname, SSLSession session) {
-                        // Intentionally skip hostname verification for pinned hosts. The primary
-                        // use case is IP-based private PKI (IoT devices, gateways) where certs
-                        // rarely carry IP SANs. Trust is scoped by the custom CA itself.
-                        if (pinnedHosts.contains(hostname)) {
-                            return true;
-                        }
-                        if (trustSystemCerts) {
-                            return defaultVerifier.verify(hostname, session);
-                        }
-                        // Non-pinned hosts are rejected when trustSystemCerts is false —
-                        // this fails at hostname verification, not trust evaluation.
-                        return false;
-                    }
-                });
-            }
+            // No hostnameVerifier override: the default verifier still applies, so a
+            // certificate is only accepted for the names it actually carries. Scoping to
+            // pinnedHosts happens before this client is built - see ReactNativeBlobUtilReq.
 
             return builder;
         } catch (Exception e) {
