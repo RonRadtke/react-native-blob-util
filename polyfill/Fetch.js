@@ -41,7 +41,7 @@ class ReactNativeBlobUtilFetchPolyfill {
                     promise = Blob.build(body).then((b) => {
                         blobCache = b;
 
-                        const contentType = 'multipart/form-data;boundary=' + b.multipartBoundary
+                        const contentType = 'multipart/form-data;boundary=' + b.multipartBoundary;
                         options.headers['Content-Type'] = contentType;
                         options.headers['content-type'] = contentType;
                         return Promise.resolve(URIUtil.wrap(b._ref));
@@ -156,7 +156,6 @@ function readArrayBuffer(resp, info): Promise<Array> {
     switch (info.rnfbEncode) {
         case 'path':
             return resp.readFile('ascii');
-            break;
         default:
             let buffer = [];
             let str = resp.text();
@@ -164,7 +163,6 @@ function readArrayBuffer(resp, info): Promise<Array> {
                 buffer[i] = str.charCodeAt(i);
             }
             return Promise.resolve(buffer);
-            break;
     }
 }
 
@@ -178,13 +176,10 @@ function readText(resp, info): Promise<string> {
     switch (info.rnfbEncode) {
         case 'base64':
             return Promise.resolve(resp.text());
-            break;
         case 'path':
             return resp.text();
-            break;
         default:
             return Promise.resolve(resp.text());
-            break;
     }
 }
 

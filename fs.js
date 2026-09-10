@@ -199,7 +199,7 @@ function readFile(path: string, encoding: string = 'utf8'): Promise<any> {
  */
 function readFileWithTransform(path: string, encoding: string = 'utf8'): Promise<any> {
     if (typeof path !== 'string') {
-        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')))
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
     return requireNativeModule().readFile(path, encoding, true);
 }
@@ -240,18 +240,18 @@ function writeFile(path: string, data: string | Array<number>, encoding: ?string
  */
 function writeFileWithTransform(path: string, data: string | Array<number>, encoding: ?string = 'utf8'): Promise {
     if (typeof path !== 'string') {
-        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')))
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
     if (encoding.toLocaleLowerCase() === 'ascii') {
-        return Promise.reject(addCode('EINVAL', new TypeError('ascii is not supported for converted files')))
+        return Promise.reject(addCode('EINVAL', new TypeError('ascii is not supported for converted files')));
     }
     else {
         if (typeof data !== 'string') {
-            return Promise.reject(addCode('EINVAL', new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`)))
+            return Promise.reject(addCode('EINVAL', new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`)));
         }
 
         else
-            return requireNativeModule().writeFile(path, encoding, data, true, false)
+            return requireNativeModule().writeFile(path, encoding, data, true, false);
     }
 }
 

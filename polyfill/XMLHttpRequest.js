@@ -303,7 +303,7 @@ export default class XMLHttpRequest extends XMLHttpRequestEventTarget {
             this._status = Math.floor(e.status);
             this._dispatchReadStateChange(XMLHttpRequest.HEADERS_RECEIVED);
         }
-    }
+    };
 
     _uploadProgressEvent = (send: number, total: number) => {
         if (!this._uploadStarted) {
@@ -313,7 +313,7 @@ export default class XMLHttpRequest extends XMLHttpRequestEventTarget {
         if (send >= total)
             this.upload.dispatchEvent('load');
         this.upload.dispatchEvent('progress', new ProgressEvent(true, send, total));
-    }
+    };
 
     _progressEvent = (send: number, total: number, chunk: string) => {
         log.verbose(this.readyState);
@@ -328,7 +328,7 @@ export default class XMLHttpRequest extends XMLHttpRequestEventTarget {
             this._responseText += chunk;
         }
         this.dispatchEvent('progress', e);
-    }
+    };
 
     _onError = (err) => {
         let statusCode = Math.floor(this.status);
@@ -340,7 +340,7 @@ export default class XMLHttpRequest extends XMLHttpRequestEventTarget {
         this._status = String(err).match(/\d+/);
         this._status = this._status ? Math.floor(this.status) : 404;
         this._dispatchReadStateChange(XMLHttpRequest.DONE);
-        if (err && String(err.message).match(/(timed\sout|timedout)/) || this._status == 408) {
+        if (err && String(err.message).match(/(timed\sout|timedout)/) || this._status === 408) {
             this.dispatchEvent('timeout');
         }
         this.dispatchEvent('loadend');
@@ -349,7 +349,7 @@ export default class XMLHttpRequest extends XMLHttpRequestEventTarget {
             detail: err
         });
         this.clearEventListeners();
-    }
+    };
 
     _onDone = (resp) => {
         log.debug('XMLHttpRequest done', this._url, resp, this);
@@ -387,7 +387,7 @@ export default class XMLHttpRequest extends XMLHttpRequestEventTarget {
             }
         }
 
-    }
+    };
 
     _dispatchReadStateChange(state) {
         this._readyState = state;

@@ -1,8 +1,8 @@
 export default class Log {
 
   _name:string;
-  _isEnable:boolean = true
-  _level:number = 0
+  _isEnable:boolean = true;
+  _level:number = 0;
 
   constructor(name:string) {
     this._name = name;
