@@ -3,27 +3,9 @@ import URIUtil from './utils/uri';
 import fs from './fs';
 import getUUID from './utils/uuid';
 import toByteCount from './utils/byteCount';
-import {NativeEventEmitter} from 'react-native';
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
-import ReactNativeBlobUtil from './codegenSpecs/NativeBlobUtils';
-
-const eventEmitter = new NativeEventEmitter(ReactNativeBlobUtil);
-
-// register message channel event handler.
-eventEmitter.addListener('ReactNativeBlobUtilMessage', (e) => {
-    if (typeof e === 'string') e = JSON.parse(e);
-
-    if (e.event === 'warn') {
-        console.warn(e.detail);
-    }
-    else if (e.event === 'error') {
-        throw e.detail;
-    }
-    else {
-        console.log('ReactNativeBlobUtil native message', e.detail);
-    }
-});
+import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
 
 /**
  * Calling this method will inject configurations into followed `fetch` method.
@@ -190,35 +172,35 @@ export function fetch(...args: any): Promise {
         let nativeMethodName = Array.isArray(body) ? 'fetchBlobForm' : 'fetchBlob';
 
         // on progress event listener
-        subscription = eventEmitter.addListener('ReactNativeBlobUtilProgress', (e) => {
+        subscription = getEventEmitter().addListener('ReactNativeBlobUtilProgress', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onProgress) {
                 promise.onProgress(toByteCount(e.written), toByteCount(e.total), e.chunk);
             }
         });
 
-        subscriptionUpload = eventEmitter.addListener('ReactNativeBlobUtilProgress-upload', (e) => {
+        subscriptionUpload = getEventEmitter().addListener('ReactNativeBlobUtilProgress-upload', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onUploadProgress) {
                 promise.onUploadProgress(toByteCount(e.written), toByteCount(e.total));
             }
         });
 
-        stateEvent = eventEmitter.addListener('ReactNativeBlobUtilState', (e) => {
+        stateEvent = getEventEmitter().addListener('ReactNativeBlobUtilState', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId)
                 respInfo = e;
             promise.onStateChange && promise.onStateChange(e);
         });
 
-        subscription = eventEmitter.addListener('ReactNativeBlobUtilExpire', (e) => {
+        subscription = getEventEmitter().addListener('ReactNativeBlobUtilExpire', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onExpire) {
                 promise.onExpire(e);
             }
         });
 
-        partEvent = eventEmitter.addListener('ReactNativeBlobUtilServerPush', (e) => {
+        partEvent = getEventEmitter().addListener('ReactNativeBlobUtilServerPush', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onPartData) {
                 promise.onPartData(e.chunk);
@@ -303,7 +285,7 @@ export function fetch(...args: any): Promise {
             fn = args[0];
         }
         promise.onProgress = fn;
-        ReactNativeBlobUtil.enableProgressReport(taskId, interval, count);
+        requireNativeModule().enableProgressReport(taskId, interval, count);
         return promise;
     };
     promise.uploadProgress = (...args) => {
@@ -320,7 +302,7 @@ export function fetch(...args: any): Promise {
             fn = args[0];
         }
         promise.onUploadProgress = fn;
-        ReactNativeBlobUtil.enableUploadProgressReport(taskId, interval, count);
+        requireNativeModule().enableUploadProgressReport(taskId, interval, count);
         return promise;
     };
     promise.part = (fn) => {
@@ -341,7 +323,7 @@ export function fetch(...args: any): Promise {
         subscription.remove();
         subscriptionUpload.remove();
         stateEvent.remove();
-        ReactNativeBlobUtil.cancelRequest(taskId, fn);
+        requireNativeModule().cancelRequest(taskId, fn);
         promiseReject(new CanceledFetchError('canceled'));
     };
     promise.taskId = taskId;

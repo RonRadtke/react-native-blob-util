@@ -3,8 +3,7 @@
 // found in the LICENSE file.
 
 import { Platform } from "react-native";
-import ReactNativeBlobUtil from "./codegenSpecs/NativeBlobUtils";
-
+import {requireNativeModule} from './utils/nativeModule';
 /**
  * Displays an options menu using UIDocumentInteractionController.presentOptionsMenu
  * @param  {string} path Path of the file to be open.
@@ -13,7 +12,7 @@ import ReactNativeBlobUtil from "./codegenSpecs/NativeBlobUtils";
  */
 function presentOptionsMenu(path: string, scheme: string) {
   if (Platform.OS === "ios")
-    return ReactNativeBlobUtil.presentOptionsMenu("file://" + path, scheme);
+    return requireNativeModule().presentOptionsMenu("file://" + path, scheme);
   else return Promise.reject("ReactNativeBlobUtil.openDocument only supports IOS.");
 }
 
@@ -25,7 +24,7 @@ function presentOptionsMenu(path: string, scheme: string) {
  */
 function presentOpenInMenu(path: string, scheme: string) {
   if (Platform.OS === "ios")
-    return ReactNativeBlobUtil.presentOpenInMenu("file://" + path, scheme);
+    return requireNativeModule().presentOpenInMenu("file://" + path, scheme);
   else return Promise.reject("ReactNativeBlobUtil.openDocument only supports IOS.");
 }
 
@@ -37,7 +36,7 @@ function presentOpenInMenu(path: string, scheme: string) {
  */
 function presentPreview(path: string, scheme: string) {
   if (Platform.OS === "ios")
-    return ReactNativeBlobUtil.presentPreview("file://" + path, scheme);
+    return requireNativeModule().presentPreview("file://" + path, scheme);
   else return Promise.reject("ReactNativeBlobUtil.previewDocument only supports IOS.");
 }
 
@@ -48,7 +47,7 @@ function presentPreview(path: string, scheme: string) {
  * @return {Promise}
  */
 function excludeFromBackupKey(path: string) {
-  return ReactNativeBlobUtil.excludeFromBackupKey("file://" + path);
+  return requireNativeModule().excludeFromBackupKey("file://" + path);
 }
 
 export default {

@@ -1,29 +1,28 @@
 import type {ReactNativeBlobUtilNative, filedescriptor} from "./types";
-import ReactNativeBlobUtil from "./codegenSpecs/NativeBlobUtils";
-
+import {requireNativeModule} from './utils/nativeModule';
 function createMediafile(fd: filedescriptor, mediatype: string): Promise {
     if ((!'parentFolder' in fd)) fd['parentFolder'] = '';
-    return ReactNativeBlobUtil.createMediaFile(fd, mediatype);
+    return requireNativeModule().createMediaFile(fd, mediatype);
 }
 
 function writeToMediafile(uri: string, path: string) {
-    return ReactNativeBlobUtil.writeToMediaFile(uri, path, false);
+    return requireNativeModule().writeToMediaFile(uri, path, false);
 }
 
 function writeToMediafileWithTransform(uri: string, path: string) {
-    return ReactNativeBlobUtil.writeToMediaFile(uri, path, true);
+    return requireNativeModule().writeToMediaFile(uri, path, true);
 }
 
 function copyToInternal(contenturi: string, destpath: string) {
-    return ReactNativeBlobUtil.copyToInternal(contenturi, destpath);
+    return requireNativeModule().copyToInternal(contenturi, destpath);
 }
 
 function getBlob(contenturi: string, encoding: string) {
-    return ReactNativeBlobUtil.getBlob(contenturi, encoding);
+    return requireNativeModule().getBlob(contenturi, encoding);
 }
 
 function copyToMediaStore(fd: filedescriptor, mediatype: string, path: string) {
-    return ReactNativeBlobUtil.copyToMediaStore(fd, mediatype, path);
+    return requireNativeModule().copyToMediaStore(fd, mediatype, path);
 }
 
 export default {

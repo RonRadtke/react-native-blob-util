@@ -9,31 +9,51 @@ import ReactNativeBlobUtilSession from './class/ReactNativeBlobUtilSession';
 import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStream';
 import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
 import ReactNativeBlobUtilFile from './class/ReactNativeBlobUtilFile';
-import ReactNativeBlobUtil from './codegenSpecs/NativeBlobUtils';
+import {requireNativeModule} from './utils/nativeModule';
 
-const constants = ReactNativeBlobUtil.getConstants();
+/**
+ * Native constants are read on first access rather than at import. On the New
+ * Architecture the module may not be registered when this file is evaluated,
+ * and reaching native here would throw while the package is being imported.
+ */
+let constants = null;
 
-const dirs = {
-    DocumentDir: constants.DocumentDir,
-    CacheDir: constants.CacheDir,
-    PictureDir: constants.PictureDir,
-    MusicDir: constants.MusicDir,
-    MovieDir: constants.MovieDir,
-    DownloadDir: constants.DownloadDir,
-    DCIMDir: constants.DCIMDir,
-    SDCardDir: constants.SDCardDir, // Depracated
-    SDCardApplicationDir: constants.SDCardApplicationDir, // Deprecated
-    MainBundleDir: constants.MainBundleDir,
-    LibraryDir: constants.LibraryDir,
-    ApplicationSupportDir: constants.ApplicationSupportDir,
+function getConstants() {
+    if (constants == null) {
+        constants = requireNativeModule().getConstants();
+    }
 
-    LegacyPictureDir: constants.LegacyPictureDir,
-    LegacyMusicDir: constants.LegacyMusicDir,
-    LegacyMovieDir: constants.LegacyMovieDir,
-    LegacyDownloadDir: constants.LegacyDownloadDir,
-    LegacyDCIMDir: constants.LegacyDCIMDir,
-    LegacySDCardDir: constants.LegacySDCardDir, // Depracated
-};
+    return constants;
+}
+
+const dirs = {};
+
+for (const name of [
+    'DocumentDir',
+    'CacheDir',
+    'PictureDir',
+    'MusicDir',
+    'MovieDir',
+    'DownloadDir',
+    'DCIMDir',
+    'SDCardDir', // Depracated
+    'SDCardApplicationDir', // Deprecated
+    'MainBundleDir',
+    'LibraryDir',
+    'ApplicationSupportDir',
+
+    'LegacyPictureDir',
+    'LegacyMusicDir',
+    'LegacyMovieDir',
+    'LegacyDownloadDir',
+    'LegacyDCIMDir',
+    'LegacySDCardDir', // Depracated
+]) {
+    Object.defineProperty(dirs, name, {
+        enumerable: true,
+        get: () => getConstants()[name],
+    });
+}
 
 function addCode(code: string, error: Error): Error {
     error.code = code;
@@ -67,11 +87,11 @@ function asset(path: string): string {
 function createFile(path: string, data: string, encoding: 'base64' | 'ascii' | 'utf8' = 'utf8'): Promise<string> {
     if (encoding.toLowerCase() === 'ascii') {
         return Array.isArray(data) ?
-            ReactNativeBlobUtil.createFileASCII(path, data) :
+            requireNativeModule().createFileASCII(path, data) :
             Promise.reject(addCode('EINVAL', new TypeError('`data` of ASCII file must be an array with 0..255 numbers')));
     }
     else {
-        return ReactNativeBlobUtil.createFile(path, data, encoding);
+        return requireNativeModule().createFile(path, data, encoding);
     }
 }
 
@@ -91,7 +111,7 @@ function writeStream(
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
     return new Promise((resolve, reject) => {
-        ReactNativeBlobUtil.writeStream(path, encoding, append, (errCode, errMsg, streamId: string) => {
+        requireNativeModule().writeStream(path, encoding, append, (errCode, errMsg, streamId: string) => {
             if (errMsg) {
                 const err = new Error(errMsg);
                 err.code = errCode;
@@ -132,7 +152,7 @@ function mkdir(path: string): Promise {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    return ReactNativeBlobUtil.mkdir(path);
+    return requireNativeModule().mkdir(path);
 }
 
 /**
@@ -141,7 +161,7 @@ function mkdir(path: string): Promise {
  * @return {Promise}
  */
 function pathForAppGroup(groupName: string): Promise {
-    return ReactNativeBlobUtil.pathForAppGroup(groupName);
+    return requireNativeModule().pathForAppGroup(groupName);
 }
 
 /**
@@ -151,7 +171,7 @@ function pathForAppGroup(groupName: string): Promise {
  */
 function syncPathAppGroup(groupName: string): string {
     if (Platform.OS === 'ios') {
-        return ReactNativeBlobUtil.syncPathAppGroup(groupName);
+        return requireNativeModule().syncPathAppGroup(groupName);
     }
     else {
         return '';
@@ -168,7 +188,7 @@ function readFile(path: string, encoding: string = 'utf8'): Promise<any> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    return ReactNativeBlobUtil.readFile(path, encoding, false);
+    return requireNativeModule().readFile(path, encoding, false);
 }
 
 /**
@@ -181,7 +201,7 @@ function readFileWithTransform(path: string, encoding: string = 'utf8'): Promise
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')))
     }
-    return ReactNativeBlobUtil.readFile(path, encoding, true);
+    return requireNativeModule().readFile(path, encoding, true);
 }
 
 /**
@@ -200,14 +220,14 @@ function writeFile(path: string, data: string | Array<number>, encoding: ?string
             return Promise.reject(addCode('EINVAL', new TypeError('"data" must be an Array when encoding is "ascii"')));
         }
         else
-            return ReactNativeBlobUtil.writeFileArray(path, data, false);
+            return requireNativeModule().writeFileArray(path, data, false);
     }
     else {
         if (typeof data !== 'string') {
             return Promise.reject(addCode('EINVAL', new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`)));
         }
         else
-            return ReactNativeBlobUtil.writeFile(path, encoding, data, false, false);
+            return requireNativeModule().writeFile(path, encoding, data, false, false);
     }
 }
 
@@ -231,7 +251,7 @@ function writeFileWithTransform(path: string, data: string | Array<number>, enco
         }
 
         else
-            return ReactNativeBlobUtil.writeFile(path, encoding, data, true, false)
+            return requireNativeModule().writeFile(path, encoding, data, true, false)
     }
 }
 
@@ -244,14 +264,14 @@ function appendFile(path: string, data: string | Array<number>, encoding?: strin
             return Promise.reject(addCode('EINVAL', new TypeError('`data` of ASCII file must be an array with 0..255 numbers')));
         }
         else
-            return ReactNativeBlobUtil.writeFileArray(path, data, true);
+            return requireNativeModule().writeFileArray(path, data, true);
     }
     else {
         if (typeof data !== 'string') {
             return Promise.reject(addCode('EINVAL'), new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`));
         }
         else
-            return ReactNativeBlobUtil.writeFile(path, encoding, data, false, true);
+            return requireNativeModule().writeFile(path, encoding, data, false, true);
     }
 }
 
@@ -265,7 +285,7 @@ function stat(path: string): Promise<ReactNativeBlobUtilFile> {
         if (typeof path !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
         }
-        ReactNativeBlobUtil.stat(path, (err, stat) => {
+        requireNativeModule().stat(path, (err, stat) => {
             if (err)
                 reject(new Error(err));
             else {
@@ -289,7 +309,7 @@ function scanFile(pairs: any): Promise {
         if (pairs === undefined) {
             return reject(addCode('EINVAL', new TypeError('Missing argument')));
         }
-        ReactNativeBlobUtil.scanFile(pairs, (err) => {
+        requireNativeModule().scanFile(pairs, (err) => {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
@@ -302,7 +322,7 @@ function hash(path: string, algorithm: string): Promise<string> {
     if (typeof path !== 'string' || typeof algorithm !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "algorithm"')));
     }
-    return ReactNativeBlobUtil.hash(path, algorithm);
+    return requireNativeModule().hash(path, algorithm);
 }
 
 function cp(path: string, dest: string): Promise<boolean> {
@@ -310,7 +330,7 @@ function cp(path: string, dest: string): Promise<boolean> {
         if (typeof path !== 'string' || typeof dest !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
         }
-        ReactNativeBlobUtil.cp(path, dest, (err, res) => {
+        requireNativeModule().cp(path, dest, (err, res) => {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
@@ -324,7 +344,7 @@ function mv(path: string, dest: string): Promise<boolean> {
         if (typeof path !== 'string' || typeof dest !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
         }
-        ReactNativeBlobUtil.mv(path, dest, (err, res) => {
+        requireNativeModule().mv(path, dest, (err, res) => {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
@@ -338,7 +358,7 @@ function lstat(path: string): Promise<Array<ReactNativeBlobUtilFile>> {
         if (typeof path !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
         }
-        ReactNativeBlobUtil.lstat(path, (err, stat) => {
+        requireNativeModule().lstat(path, (err, stat) => {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
@@ -351,7 +371,7 @@ function ls(path: string): Promise<Array<String>> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    return ReactNativeBlobUtil.ls(path);
+    return requireNativeModule().ls(path);
 }
 
 /**
@@ -364,7 +384,7 @@ function unlink(path: string): Promise {
         if (typeof path !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
         }
-        ReactNativeBlobUtil.unlink(path, (err) => {
+        requireNativeModule().unlink(path, (err) => {
             if (err) {
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             }
@@ -385,7 +405,7 @@ function exists(path: string): Promise<boolean> {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
         }
         try {
-            ReactNativeBlobUtil.exists(path, (exist) => {
+            requireNativeModule().exists(path, (exist) => {
                 resolve(exist);
             });
         } catch (err) {
@@ -419,7 +439,7 @@ function slice(src: string, dest: string, start: number, end: number): Promise {
                 end = normalize(end, size);
             });
     }
-    return p.then(() => ReactNativeBlobUtil.slice(src, dest, start, end));
+    return p.then(() => requireNativeModule().slice(src, dest, start, end));
 }
 
 function isDir(path: string): Promise<bool> {
@@ -428,7 +448,7 @@ function isDir(path: string): Promise<bool> {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
         }
         try {
-            ReactNativeBlobUtil.exists(path, (exist, isDir) => {
+            requireNativeModule().exists(path, (exist, isDir) => {
                 resolve(isDir);
             });
         } catch (err) {
@@ -440,7 +460,7 @@ function isDir(path: string): Promise<bool> {
 
 function df(): Promise<{ free: number, total: number }> {
     return new Promise((resolve, reject) => {
-        ReactNativeBlobUtil.df((err, stat) => {
+        requireNativeModule().df((err, stat) => {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else

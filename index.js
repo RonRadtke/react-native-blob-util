@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
-import ReactNativeBlobUtil from './codegenSpecs/NativeBlobUtils';
+import {getNativeModule} from './utils/nativeModule';
 
 //import StatefulPromise from './class/StatefulPromise.js'
 import fs from './fs';
@@ -36,7 +36,9 @@ const Blob = polyfill.Blob;
 const wrap = URIUtil.wrap;
 
 // Show warning if native module not detected
-if (!ReactNativeBlobUtil || !ReactNativeBlobUtil.fetchBlobForm || !ReactNativeBlobUtil.fetchBlob) {
+const nativeModule = getNativeModule();
+
+if (!nativeModule || !nativeModule.fetchBlobForm || !nativeModule.fetchBlob) {
     console.warn(
         'react-native-blob-util could not find valid native module.',
         'please make sure you have linked native modules using `rnpm link`,',

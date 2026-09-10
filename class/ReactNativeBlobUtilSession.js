@@ -2,8 +2,7 @@
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
-import ReactNativeBlobUtil from '../codegenSpecs/NativeBlobUtils';
-
+import {requireNativeModule} from '../utils/nativeModule';
 let sessions = {};
 
 export default class ReactNativeBlobUtilSession {
@@ -54,7 +53,7 @@ export default class ReactNativeBlobUtilSession {
 
   dispose():Promise {
     return new Promise((resolve, reject) => {
-      ReactNativeBlobUtil.removeSession(sessions[this.name], (err) => {
+      requireNativeModule().removeSession(sessions[this.name], (err) => {
         if (err)
           reject(new Error(err));
         else {

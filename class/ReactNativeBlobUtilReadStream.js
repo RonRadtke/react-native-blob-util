@@ -2,12 +2,9 @@
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
-import {NativeEventEmitter} from 'react-native';
 import UUID from '../utils/uuid';
 
-import ReactNativeBlobUtil from '../codegenSpecs/NativeBlobUtils';
-
-const emitter = new NativeEventEmitter(ReactNativeBlobUtil);
+import {getEventEmitter, requireNativeModule} from '../utils/nativeModule';
 
 export default class ReactNativeBlobUtilReadStream {
 
@@ -34,7 +31,7 @@ export default class ReactNativeBlobUtilReadStream {
         this.streamId = 'RNFBRS' + UUID();
 
         // register for file stream event
-        let subscription = emitter.addListener('ReactNativeBlobUtilFilesystem', (e) => {
+        let subscription = getEventEmitter().addListener('ReactNativeBlobUtilFilesystem', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.streamId !== this.streamId) return; // wrong stream
             let {event, code, detail} = e;
@@ -64,7 +61,7 @@ export default class ReactNativeBlobUtilReadStream {
 
     open() {
         if (!this.closed)
-            ReactNativeBlobUtil.readStream(this.path, this.encoding, this.bufferSize || 10240, this.tick || -1, this.streamId);
+            requireNativeModule().readStream(this.path, this.encoding, this.bufferSize || 10240, this.tick || -1, this.streamId);
         else
             throw new Error('Stream closed');
     }

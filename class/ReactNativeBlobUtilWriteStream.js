@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
-import ReactNativeBlobUtil from '../codegenSpecs/NativeBlobUtils';
+import {requireNativeModule} from '../utils/nativeModule';
 export default class ReactNativeBlobUtilWriteStream {
 
   id : string;
@@ -38,7 +38,7 @@ export default class ReactNativeBlobUtilWriteStream {
   close() {
     return new Promise((resolve, reject) => {
       try {
-        ReactNativeBlobUtil.closeStream(this.id, () => {
+        requireNativeModule().closeStream(this.id, () => {
           resolve();
         });
       } catch (err) {
