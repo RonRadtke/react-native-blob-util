@@ -4,6 +4,7 @@
 #include <winrt/Windows.ApplicationModel.Activation.h>
 #include <winrt/Windows.Security.Cryptography.h>
 #include <winrt/Windows.Security.Cryptography.Core.h>
+#include <winrt/Windows.Security.Cryptography.Certificates.h>
 #include <winrt/Windows.Storage.FileProperties.h>
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Windows.Storage.h>
@@ -11,7 +12,11 @@
 #include <winrt/Windows.Web.Http.Headers.h>
 #include <winrt/windows.web.http.filters.h>
 #include <winrt/Windows.System.Threading.h>
+#include <algorithm>
+#include <cwchar>
+#include <cwctype>
 #include <filesystem>
+#include <string_view>
 #include <sstream> 
 
 using namespace winrt;
@@ -130,6 +135,29 @@ ReactNativeBlobUtilConfig::ReactNativeBlobUtilConfig(::React::JSValue& options)
     overwrite = getBoolOrDefault(options["overwrite"]);
     trusty = getBoolOrDefault(options["trusty"]);
 
+    trustSystemCerts = getBoolOrDefault(options["trustSystemCerts"]);
+
+    auto getStringList = [](const winrt::Microsoft::ReactNative::JSValue& value) -> std::vector<std::string> {
+        std::vector<std::string> result;
+        if (value.IsNull())
+        {
+            return result;
+        }
+
+        for (const auto& item : value.AsArray())
+        {
+            if (!item.IsNull())
+            {
+                result.push_back(item.AsString());
+            }
+        }
+
+        return result;
+    };
+
+    customCACerts = getStringList(options["customCACerts"]);
+    pinnedHosts = getStringList(options["pinnedHosts"]);
+
     // Handle path sanitization
     {
         std::string filepath = getStringOrDefault(options["path"]);
@@ -159,6 +187,214 @@ ReactNativeBlobUtilStream::ReactNativeBlobUtilStream(Streams::IRandomAccessStrea
 	: streamInstance{ std::move(_streamInstance) }
 	, encoding{ _encoding }
 {
+}
+
+namespace
+{
+    namespace Certificates = winrt::Windows::Security::Cryptography::Certificates;
+
+    // Mirrors ReactNativeBlobUtilUtils.customCACertsApplyTo on Android and the
+    // pinnedHosts check on iOS: when pinnedHosts is set the custom CA only covers
+    // those hosts, and anything else falls through to the platform trust store.
+    bool CustomCACertsApplyTo(const ReactNativeBlobUtilConfig& config, const winrt::Windows::Foundation::Uri& uri)
+    {
+        if (config.customCACerts.empty())
+        {
+            return false;
+        }
+
+        if (config.pinnedHosts.empty())
+        {
+            return true;
+        }
+
+        const auto host = winrt::to_string(uri.Host());
+        return std::find(config.pinnedHosts.begin(), config.pinnedHosts.end(), host) != config.pinnedHosts.end();
+    }
+
+    winrt::Windows::Storage::Streams::IBuffer DerFromPem(const winrt::hstring& text)
+    {
+        std::wstring body{ text };
+        for (const auto* marker : { L"-----BEGIN CERTIFICATE-----", L"-----END CERTIFICATE-----" })
+        {
+            for (auto pos = body.find(marker); pos != std::wstring::npos; pos = body.find(marker))
+            {
+                body.erase(pos, wcslen(marker));
+            }
+        }
+
+        // iswspace covers CR, LF, tab and space without needing escapes here.
+        body.erase(std::remove_if(body.begin(), body.end(), [](wchar_t c) { return iswspace(c) != 0; }), body.end());
+
+        if (body.empty())
+        {
+            return nullptr;
+        }
+
+        try
+        {
+            return winrt::Windows::Security::Cryptography::CryptographicBuffer::DecodeFromBase64String(winrt::hstring{ body });
+        }
+        catch (...)
+        {
+            return nullptr;
+        }
+    }
+
+    // Certificates ship inside the app package, the Windows counterpart of the iOS
+    // main bundle (the same folder reported as MainBundleDir). DER and PEM are both
+    // accepted, matching the other two platforms.
+    std::vector<Certificates::Certificate> LoadCustomCACerts(const std::vector<std::string>& names)
+    {
+        std::vector<Certificates::Certificate> certs;
+
+        std::filesystem::path root;
+        try
+        {
+            root = std::filesystem::path{ winrt::to_string(Package::Current().InstalledLocation().Path()) };
+        }
+        catch (...)
+        {
+            return certs;  // unpackaged app: nothing to resolve against
+        }
+
+        for (const auto& name : names)
+        {
+            for (const auto* ext : { "", ".cer", ".der", ".pem", ".crt" })
+            {
+                const auto candidate = root / (name + ext);
+                std::error_code ec;
+                if (!std::filesystem::exists(candidate, ec) || ec)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    auto file = StorageFile::GetFileFromPathAsync(winrt::to_hstring(candidate.wstring())).get();
+                    winrt::Windows::Storage::Streams::IBuffer buffer{ nullptr };
+
+                    if (std::string_view{ ext } == ".pem")
+                    {
+                        buffer = DerFromPem(FileIO::ReadTextAsync(file).get());
+                    }
+                    else
+                    {
+                        buffer = FileIO::ReadBufferAsync(file).get();
+                    }
+
+                    if (buffer)
+                    {
+                        certs.emplace_back(Certificates::Certificate{ buffer });
+                        break;
+                    }
+                }
+                catch (...)
+                {
+                    // wrong encoding for this extension - try the next one
+                }
+            }
+        }
+
+        return certs;
+    }
+
+    // Installs custom-CA trust evaluation on the filter for this request.
+    //
+    // NOTE: unverified against a real build - there is no Windows toolchain in the
+    // environment this was written in. The API surface was checked against the
+    // 10.0.26100 SDK headers, but it has not been compiled or run.
+    void ConfigureCustomCATrust(
+        winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter const& filter,
+        const ReactNativeBlobUtilConfig& config,
+        const std::string& url)
+    {
+        winrt::Windows::Foundation::Uri uri{ winrt::to_hstring(url) };
+        if (!CustomCACertsApplyTo(config, uri))
+        {
+            return;
+        }
+
+        // An unknown root aborts the handshake before the validation event fires,
+        // so it has to be ignorable for the handler below to get a say. Every other
+        // error stays fatal and is re-checked there.
+        filter.IgnorableServerCertificateErrors().Append(Certificates::ChainValidationResult::Untrusted);
+
+        filter.ServerCustomValidationRequested([certNames = config.customCACerts, trustSystemCerts = config.trustSystemCerts](
+            winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter const&,
+            winrt::Windows::Web::Http::Filters::HttpServerCustomValidationRequestedEventArgs const& args) -> winrt::fire_and_forget
+        {
+            auto eventArgs = args;
+            auto deferral = eventArgs.GetDeferral();
+
+            const bool systemTrusted = eventArgs.ServerCertificateErrors().Size() == 0;
+
+            // Only an unknown root is forgiven. A name mismatch, an expired or a
+            // revoked certificate still fails, which is what SecTrust enforces on
+            // iOS and what OkHttp's default verifier enforces on Android.
+            bool onlyUntrusted = true;
+            for (const auto& error : eventArgs.ServerCertificateErrors())
+            {
+                if (error != Certificates::ChainValidationResult::Untrusted)
+                {
+                    onlyUntrusted = false;
+                    break;
+                }
+            }
+
+            if (!onlyUntrusted)
+            {
+                eventArgs.Reject();
+                deferral.Complete();
+                co_return;
+            }
+
+            if (systemTrusted && trustSystemCerts)
+            {
+                deferral.Complete();
+                co_return;
+            }
+
+            const auto roots = LoadCustomCACerts(certNames);
+            if (roots.empty())
+            {
+                // Fail closed. Accepting here would hand the caller the system trust
+                // store under the name of a pinned connection.
+                eventArgs.Reject();
+                deferral.Complete();
+                co_return;
+            }
+
+            Certificates::ChainBuildingParameters parameters;
+            for (const auto& root : roots)
+            {
+                parameters.ExclusiveTrustRoots().Append(root);
+            }
+
+            // A private CA publishes no CRL or OCSP responder, so leaving revocation
+            // checking on makes Validate() fail with RevocationInformationMissing for
+            // certificates that are otherwise perfectly good.
+            parameters.RevocationCheckEnabled(false);
+            parameters.NetworkRetrievalEnabled(false);
+
+            try
+            {
+                const auto chain = co_await eventArgs.ServerCertificate().BuildChainAsync(
+                    eventArgs.ServerIntermediateCertificates(), parameters);
+
+                if (chain.Validate() != Certificates::ChainValidationResult::Success)
+                {
+                    eventArgs.Reject();
+                }
+            }
+            catch (...)
+            {
+                eventArgs.Reject();
+            }
+
+            deferral.Complete();
+        });
+    }
 }
 
 namespace winrt::ReactNativeBlobUtil
@@ -204,6 +440,10 @@ namespace winrt::ReactNativeBlobUtil
             {
                 filter.IgnorableServerCertificateErrors().Append(
                     winrt::Windows::Security::Cryptography::Certificates::ChainValidationResult::Untrusted);
+            }
+            else
+            {
+                ConfigureCustomCATrust(filter, config, url);
             }
 
             winrt::Windows::Web::Http::HttpMethod httpMethod = winrt::Windows::Web::Http::HttpMethod::Post();
@@ -356,6 +596,10 @@ namespace winrt::ReactNativeBlobUtil
             if (config.trusty)
             {
                 filter.IgnorableServerCertificateErrors().Append(Cryptography::Certificates::ChainValidationResult::Untrusted);
+            }
+            else
+            {
+                ConfigureCustomCATrust(filter, config, url);
             }
 
             winrt::Windows::Web::Http::HttpClient httpClient{ filter };

@@ -14,6 +14,8 @@
 #include <winrt/Windows.Security.Cryptography.Core.h>
 #include <winrt/Windows.Web.Http.Filters.h>
 #include <mutex>
+#include <string>
+#include <vector>
 
 namespace Cryptography = winrt::Windows::Security::Cryptography;
 namespace CryptographyCore = winrt::Windows::Security::Cryptography::Core;
@@ -107,6 +109,9 @@ public:
 	std::string appendExt;
 	std::string path;
 	bool followRedirect;
+	std::vector<std::string> customCACerts;
+	std::vector<std::string> pinnedHosts;
+	bool trustSystemCerts;
 };
 
 

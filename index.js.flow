@@ -168,7 +168,10 @@ export type ReactNativeBlobUtilConfig = {
     timeout?: number,
     trusty?: boolean,
     wifiOnly?: boolean,
-    followRedirect?: boolean
+    followRedirect?: boolean,
+    customCACerts?: Array<string>,
+    pinnedHosts?: Array<string>,
+    trustSystemCerts?: boolean
 };
 export type ReactNativeBlobUtilResponseInfo = {
     headers: { [fieldName: string]: string },

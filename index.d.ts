@@ -768,6 +768,14 @@ export interface ReactNativeBlobUtilConfig {
      *
      * On iOS, certificates are loaded from the main bundle.
      * On Android, certificates are loaded from res/raw/.
+     * On Windows, certificates are loaded from the app package (MainBundleDir).
+     *
+     * Hostname verification still applies on every platform, so the server
+     * certificate must carry the host as a subject alternative name - including
+     * an IP SAN when connecting to an address rather than a name.
+     *
+     * If none of the named certificates can be loaded the request fails rather
+     * than falling back to system trust.
      */
     customCACerts?: string[];
 

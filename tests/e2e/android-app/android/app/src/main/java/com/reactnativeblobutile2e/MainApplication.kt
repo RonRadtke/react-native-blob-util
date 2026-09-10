@@ -11,6 +11,8 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
+import com.ReactNativeBlobUtil.ReactNativeBlobUtilUtils
+import javax.net.ssl.X509TrustManager
 
 class MainApplication : Application(), ReactApplication {
 
@@ -36,6 +38,18 @@ class MainApplication : Application(), ReactApplication {
   override fun onCreate() {
     super.onCreate()
     SoLoader.init(this, OpenSourceMergedSoMapping)
+
+    // `trusty: true` on Android requires the app to supply its own trust manager -
+    // the library deliberately stopped shipping one (see the Self-Signed SSL section
+    // of the README). The e2e app installs the documented trust-all manager so the
+    // trusty regression test exercises the real, documented path.
+    ReactNativeBlobUtilUtils.sharedTrustManager = object : X509TrustManager {
+      override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+
+      override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+
+      override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+    }
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
       load()

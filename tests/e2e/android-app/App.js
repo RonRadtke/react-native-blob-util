@@ -803,6 +803,24 @@ const App: () => React$Node = () => {
             });
     };
 
+    // Regression test: a customCACerts name that resolves to nothing must fail the
+    // request. iOS used to fall back to NSURLSessionAuthChallengePerformDefaultHandling
+    // here, so a typo silently swapped the caller's pinning for the system trust store.
+    const tlsBogusCertNameCall = () => {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+        ReactNativeBlobUtil.config({
+            customCACerts: ['no_such_ca_exists'],
+            pinnedHosts: [host],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-bogus-cert', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-bogus-cert', 'PASS: ' + err.message);
+            });
+    };
     return (
         <View style={styles.body}>
             <View style={styles.e2eContainer}>
@@ -996,6 +1014,7 @@ const App: () => React$Node = () => {
                         <E2EButton id="tls-wrong-pin-button" title="Wrong Pin (fail)" color="#e74c3c" onPress={tlsWrongPinnedHostCall} />
                         <E2EButton id="tls-system-certs-button" title="System Certs" color="#3498db" onPress={tlsTrustSystemCertsCall} />
                         <E2EButton id="tls-trusty-button" title="Trusty (regression)" color="#f39c12" onPress={tlsTrustyRegressionCall} />
+                        <E2EButton id="tls-bogus-cert-button" title="Bogus CA (fail)" color="#e74c3c" onPress={tlsBogusCertNameCall} />
                     </View>
                 ) : null}
 

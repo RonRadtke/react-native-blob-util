@@ -1027,6 +1027,7 @@ module.exports = {
 
 - **iOS:** Add your certificate file to the Xcode project's "Copy Bundle Resources" build phase.
 - **Android:** Place the certificate in `android/app/src/main/res/raw/` (use underscores in filename, no extension for DER or keep `.cer`/`.pem`).
+- **Windows:** Add the certificate to the app package so it ships next to the executable (the folder reported as `MainBundleDir`).
 
 #### Usage
 
@@ -1049,6 +1050,23 @@ ReactNativeBlobUtil.config({
 | `customCACerts` | `string[]` | — | Array of certificate resource names (without extension). Supports `.cer`, `.der`, and `.pem` formats. |
 | `pinnedHosts` | `string[]` | — | When set, custom CA trust is only applied to these hosts. Other hosts use default system trust. |
 | `trustSystemCerts` | `boolean` | `false` | When true, system CAs are also trusted alongside custom CAs. When false, only custom CAs are trusted. |
+
+#### Behaviour
+
+The same rules apply on iOS, Android and Windows:
+
+- **Hostname verification still applies.** A custom CA changes which issuers are
+  trusted, not which names a certificate is valid for, so the server certificate
+  must carry the host in its subject alternative names. Connecting to an IP
+  address needs an IP SAN - a common surprise with private PKI, where
+  certificates are often issued for a name the device is never reached by.
+- **Failure to load a certificate fails the request.** If none of the names in
+  `customCACerts` resolve to a usable certificate the connection is refused
+  rather than quietly falling back to the system trust store, so a typo cannot
+  silently undo the pinning.
+- **`pinnedHosts` scopes the custom trust.** Requests to other hosts are
+  evaluated normally against the system trust store.
+
 
 #### Alternative: Android Network Security Config
 
