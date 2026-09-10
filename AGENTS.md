@@ -140,6 +140,28 @@ node node_modules/@react-native/codegen/lib/cli/combine/combine-js-to-schema-cli
   --platform ios /tmp/schema.json codegenSpecs
 ```
 
+## Building the Windows module
+
+The module builds from its own solution, but only with two overrides - the
+standalone solution does not pull the reference set the example app does:
+
+```sh
+MSBuild windows/ReactNativeBlobUtil.sln /t:Restore;Build \
+  /p:Configuration=Debug /p:Platform=x64 \
+  /p:ReactNativeWindowsDir=<repo>/node_modules/react-native-windows/ \
+  /p:RunCodegenWindows=false \
+  /p:WindowsAppSDKVerifyTransitiveDependencies=false
+```
+
+`RunCodegenWindows=false` skips a CLI invocation that needs the app context;
+the generated headers are committed under `codegenSpecs/`. Without the Windows
+App SDK override the build stops on unresolved transitive references that only
+the app solution supplies. Needs the .NET SDK (for restore) and Windows SDK
+10.0.22621, which the project pins.
+
+Deploying the example app for e2e additionally needs Developer Mode and
+WinAppDriver - see tests/e2e/README.md.
+
 ## Dependencies
 
 Do not add one without a strong reason. The unit tests deliberately use Node's
