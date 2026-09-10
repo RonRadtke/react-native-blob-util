@@ -1,0 +1,40 @@
+# Normalise line endings. The tree grew up mixed - some sources are CRLF and
+# some LF - which turns a one-line edit into a whole-file diff whenever an
+# editor rewrites the file. Text is stored as LF in the repository and checked
+# out in the platform's native form.
+#
+# Existing files are deliberately NOT renormalised here: doing so would rewrite
+# most of the tree at once and conflict with open pull requests. Files convert
+# as they are touched.
+* text=auto
+
+# Scripts and project files that must keep a specific ending regardless of host
+*.sh              text eol=lf
+gradlew           text eol=lf
+*.bat             text eol=crlf
+*.cmd             text eol=crlf
+*.pbxproj         text eol=lf
+*.pbxproj         -merge
+
+# Binary, never touch
+*.png             binary
+*.jpg             binary
+*.jpeg            binary
+*.gif             binary
+*.ico             binary
+*.pdf             binary
+*.jar             binary
+*.keystore        binary
+*.ttf             binary
+*.otf             binary
+*.woff            binary
+*.woff2           binary
+*.aar             binary
+*.so              binary
+*.dylib           binary
+*.zip             binary
+
+# Generated - keep them out of diffs and language stats
+package-lock.json  linguist-generated=true
+yarn.lock          linguist-generated=true
+lib/oboe-browser*  linguist-vendored=true
