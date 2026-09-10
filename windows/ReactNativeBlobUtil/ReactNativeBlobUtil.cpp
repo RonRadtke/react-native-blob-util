@@ -248,6 +248,11 @@ namespace
     {
         std::vector<Certificates::Certificate> certs;
 
+        // Packaged apps resolve against the install location, the counterpart of the
+        // iOS main bundle. Unpackaged ones have no Package::Current() at all - that
+        // call throws - so fall back to the directory holding the executable, which is
+        // where a loose certificate would sit. Without this every custom-CA request
+        // from an unpackaged app fails closed with nothing to explain why.
         std::filesystem::path root;
         try
         {
@@ -255,7 +260,14 @@ namespace
         }
         catch (...)
         {
-            return certs;  // unpackaged app: nothing to resolve against
+            wchar_t modulePath[MAX_PATH]{};
+            const auto length = GetModuleFileNameW(nullptr, modulePath, static_cast<DWORD>(std::size(modulePath)));
+            if (length == 0 || length == std::size(modulePath))
+            {
+                return certs;
+            }
+
+            root = std::filesystem::path{ modulePath }.parent_path();
         }
 
         for (const auto& name : names)
