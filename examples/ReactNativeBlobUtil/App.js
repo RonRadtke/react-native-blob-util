@@ -20,6 +20,15 @@ const DEFAULT_BASE_URL = Platform.select({
     default: 'http://127.0.0.1:19076',
 });
 
+// The e2e HTTPS server (tests/e2e/server.js). Its certificate is signed by the
+// throwaway CA that tests/e2e/certs/generate.js produces; the same CA is bundled
+// into this app so the customCACerts tests have an anchor to evaluate against.
+const HTTPS_BASE_URL = Platform.select({
+    android: 'https://10.0.2.2:19077',
+    ios: 'https://127.0.0.1:19077',
+    default: 'https://127.0.0.1:19077',
+});
+
 const MAX_LOG_ENTRIES = 200;
 
 const normalizeBaseUrl = (value) => (value || '').trim().replace(/\/+$/, '');
@@ -591,6 +600,96 @@ const App: () => React$Node = () => {
     };
 
     //
+    // Custom CA trust evaluation. Mirrors the cases in tests/e2e/android-app/App.js
+    // under the same testIDs, so tests/e2e/appium/scenarios/tls.js drives either app.
+    const tlsHost = () => (Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1');
+
+    const tlsCustomCACall = () => {
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: [tlsHost()],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-custom-ca', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-custom-ca', 'ERROR: ' + err.message);
+            });
+    };
+
+    const tlsNoCACall = () => {
+        ReactNativeBlobUtil.config({trusty: false})
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-no-ca', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-no-ca', 'PASS: ' + err.message);
+            });
+    };
+
+    const tlsWrongPinnedHostCall = () => {
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: ['wrong.example.com'],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-wrong-pin', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-wrong-pin', 'PASS: ' + err.message);
+            });
+    };
+
+    const tlsBogusCertNameCall = () => {
+        ReactNativeBlobUtil.config({
+            customCACerts: ['no_such_ca_exists'],
+            pinnedHosts: [tlsHost()],
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                notify('tls-bogus-cert', 'FAIL: should have rejected but got ' + res.text());
+            })
+            .catch((err) => {
+                notify('tls-bogus-cert', 'PASS: ' + err.message);
+            });
+    };
+
+    const tlsTrustSystemCertsCall = () => {
+        ReactNativeBlobUtil.config({
+            customCACerts: ['test_ca'],
+            pinnedHosts: [tlsHost()],
+            trustSystemCerts: true,
+            trusty: false,
+        })
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-system-certs', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-system-certs', 'ERROR: ' + err.message);
+            });
+    };
+
+    const tlsTrustyRegressionCall = () => {
+        ReactNativeBlobUtil.config({trusty: true})
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
+            .then((res) => {
+                const data = res.json();
+                notify('tls-trusty', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
+            })
+            .catch((err) => {
+                notify('tls-trusty', 'ERROR: ' + err.message);
+            });
+    };
+
     const MakeRequestWithProgress = () => {
         ReactNativeBlobUtil.config({
             // add this option that makes response data to be stored as a file,
@@ -928,6 +1027,12 @@ const App: () => React$Node = () => {
                             <Button title="Upload Text From Storage" color="#9a73ef" onPress={uploadTextFromCall} testID="upload-text-button" />
                             <Button title="Multipart Call" color="#9a73ef" onPress={MultipartFileAndData} testID="multipart-button" />
                             <Button title="Progress Call" color="#9a73ef" onPress={MakeRequestWithProgress} testID="progress-button" />
+                            <Button title="TLS Custom CA" color="#2ecc71" onPress={tlsCustomCACall} testID="tls-custom-ca-button" />
+                            <Button title="TLS No CA (fail)" color="#e74c3c" onPress={tlsNoCACall} testID="tls-no-ca-button" />
+                            <Button title="TLS Wrong Pin (fail)" color="#e74c3c" onPress={tlsWrongPinnedHostCall} testID="tls-wrong-pin-button" />
+                            <Button title="TLS Bogus CA (fail)" color="#e74c3c" onPress={tlsBogusCertNameCall} testID="tls-bogus-cert-button" />
+                            <Button title="TLS System Certs" color="#3498db" onPress={tlsTrustSystemCertsCall} testID="tls-system-certs-button" />
+                            <Button title="TLS Trusty" color="#f39c12" onPress={tlsTrustyRegressionCall} testID="tls-trusty-button" />
                         </View>
                     </View>
                 </ScrollView>

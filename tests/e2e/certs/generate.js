@@ -29,6 +29,10 @@ const SERVER_CSR = path.join(certsDir, 'server.csr');
 
 const ANDROID_CA = path.join(appDir, 'android', 'app', 'src', 'main', 'res', 'raw', 'test_ca');
 const IOS_CA = path.join(appDir, 'ios', 'ReactNativeBlobUtilE2E', 'test_ca.pem');
+// The Windows e2e target is the example app; the module resolves customCACerts
+// from the package root, so the CA ships beside the executable.
+const WINDOWS_CA = path.join(certsDir, '..', '..', '..', 'examples', 'ReactNativeBlobUtil',
+    'windows', 'ReactNativeBlobUtilWin', 'test_ca.pem');
 
 const DAYS = 365;
 
@@ -38,7 +42,7 @@ function openssl(args) {
 
 /** True when every artifact exists and the server certificate has not expired. */
 function stillValid() {
-    const required = [CA_KEY, CA_PEM, SERVER_KEY, SERVER_CRT, ANDROID_CA, IOS_CA];
+    const required = [CA_KEY, CA_PEM, SERVER_KEY, SERVER_CRT, ANDROID_CA, IOS_CA, WINDOWS_CA];
     if (!required.every(f => fs.existsSync(f))) return false;
 
     try {
@@ -76,6 +80,9 @@ function generate() {
         fs.mkdirSync(path.dirname(IOS_CA), {recursive: true});
         openssl(['x509', '-in', CA_PEM, '-outform', 'DER', '-out', ANDROID_CA]);
         fs.copyFileSync(CA_PEM, IOS_CA);
+
+        fs.mkdirSync(path.dirname(WINDOWS_CA), {recursive: true});
+        fs.copyFileSync(CA_PEM, WINDOWS_CA);
     } finally {
         try { fs.unlinkSync(ext); } catch {}
     }

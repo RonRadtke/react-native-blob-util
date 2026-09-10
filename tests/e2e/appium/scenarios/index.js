@@ -1,12 +1,14 @@
 const {runFilesystemScenario} = require('./filesystem');
 const {runNetworkScenario} = require('./network');
+const {runTlsScenario} = require('./tls');
 
 const SCENARIOS = {
     filesystem: runFilesystemScenario,
     network: runNetworkScenario,
+    tls: runTlsScenario,
 };
 
-const DEFAULT_SCENARIOS = ['filesystem', 'network'];
+const DEFAULT_SCENARIOS = ['filesystem', 'network', 'tls'];
 
 const resolveScenarioNames = (rawScenarios) => {
     if (!rawScenarios) {

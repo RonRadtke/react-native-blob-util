@@ -61,3 +61,6 @@ android/keystores/debug.keystore
 # Generated e2e CA copies (tests/e2e/certs/generate.js)
 tests/e2e/android-app/android/app/src/main/res/raw/test_ca
 tests/e2e/android-app/ios/ReactNativeBlobUtilE2E/test_ca.pem
+
+# Generated e2e CA copy for the Windows example app (tests/e2e/certs/generate.js)
+examples/ReactNativeBlobUtil/windows/ReactNativeBlobUtilWin/test_ca.pem

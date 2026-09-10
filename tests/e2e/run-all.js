@@ -434,6 +434,12 @@ const main = async () => {
         throw new Error('No valid platforms to run. Set E2E_PLATFORMS to android,ios,windows.');
     }
 
+    // Before any app is built. The apps bundle the generated CA as a build input -
+    // res/raw/test_ca on Android, test_ca.pem in the iOS bundle - so generating it
+    // when the HTTPS server starts would be too late: the app would already be built
+    // without it.
+    require('./certs/generate').ensureCerts();
+
     await ensureAndroidAppTarget(platforms);
     await ensureDrivers(platforms);
 

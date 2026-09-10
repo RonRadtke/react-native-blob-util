@@ -771,6 +771,12 @@ const App: () => React$Node = () => {
             });
     };
 
+    // trustSystemCerts adds the system anchors alongside the custom CA, so the
+    // local server - signed by the custom CA, unknown to the system store - must
+    // still be accepted. This used to fetch httpbin.org, which needed the public
+    // internet and, because that host is not in pinnedHosts, never exercised the
+    // flag at all: it only measured the fall-through to system trust, which
+    // tls-wrong-pin already covers.
     const tlsTrustSystemCertsCall = () => {
         const host = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
         ReactNativeBlobUtil.config({
@@ -779,10 +785,10 @@ const App: () => React$Node = () => {
             trustSystemCerts: true,
             trusty: false,
         })
-            .fetch('GET', 'https://httpbin.org/get')
+            .fetch('GET', `${HTTPS_BASE_URL}/health`)
             .then((res) => {
-                const status = res.info().status;
-                notify('tls-system-certs', status === 200 ? 'PASS' : 'FAIL: status ' + status);
+                const data = res.json();
+                notify('tls-system-certs', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
             })
             .catch((err) => {
                 notify('tls-system-certs', 'ERROR: ' + err.message);

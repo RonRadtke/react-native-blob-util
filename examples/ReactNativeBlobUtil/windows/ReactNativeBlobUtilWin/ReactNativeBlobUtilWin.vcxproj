@@ -119,6 +119,15 @@
     <Image Include="ReactNativeBlobUtilWin.ico" />
     <Image Include="small.ico" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Throwaway CA for the customCACerts e2e tests, produced by
+         tests/e2e/certs/generate.js. Ships in the package root, which is where
+         the module resolves customCACerts from (Package::Current().InstalledLocation).
+         Not tracked in git; the build skips it when it has not been generated. -->
+    <Content Include="test_ca.pem" Condition="Exists('test_ca.pem')">
+      <DeploymentContent>true</DeploymentContent>
+    </Content>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ReactNativeWindowsTargets">
     <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.CppApp.targets" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.CppApp.targets')" />

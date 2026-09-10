@@ -64,12 +64,27 @@ Set one of:
 - `E2E_APP_PATH` (or `E2E_APP_PATH_IOS`) to a `.app`/`.ipa`
 - `IOS_BUNDLE_ID` for an installed simulator app
 
+### Windows
+
+The Windows target is the example app in `examples/ReactNativeBlobUtil/windows`,
+not the app under `tests/e2e/android-app` - it carries the same testIDs. Build and
+deploy it, then set one of:
+
+- `WINDOWS_APP_ID` (or `E2E_WINDOWS_APP_ID`) for a deployed package
+- `WINDOWS_APP_PATH` (or `E2E_WINDOWS_APP_PATH`) for an executable
+
+The `tls` scenario additionally needs the app to be **packaged**. `customCACerts`
+resolves from `Package::Current().InstalledLocation()`, and an unpackaged build has
+no install location to resolve against, so every custom-CA case fails closed. That
+is correct behaviour, but it looks like a trust bug - check the packaging first.
+
 ## Scenario selection
 
 Default scenarios:
 
 - `filesystem`
 - `network`
+- `tls`
 
 Run only filesystem checks:
 
@@ -81,6 +96,36 @@ Per-platform override:
 
 - `E2E_SCENARIOS_ANDROID`
 - `E2E_SCENARIOS_IOS`
+- `E2E_SCENARIOS_WINDOWS`
+
+## TLS / custom CA scenario
+
+The `tls` scenario covers `customCACerts`, `pinnedHosts` and `trustSystemCerts`
+against the HTTPS server in `server.js` (port 19077). It runs on all three
+platforms and needs no network access beyond localhost.
+
+Certificates are generated, never committed. `run-all.js` calls
+`certs/generate.js` before the apps are built, because the CA is a build input:
+Android reads `res/raw/test_ca`, iOS bundles `test_ca.pem`, and the Windows app
+ships it in the package root. `openssl` must be on `PATH`; without it the HTTPS
+server starts HTTP-only and these cases cannot run.
+
+Run just this scenario:
+
+```sh
+E2E_SCENARIOS=tls npm run e2e:ios       # macOS
+E2E_SCENARIOS=tls npm run e2e:android
+E2E_SCENARIOS=tls npm run e2e:windows   # Windows, packaged app
+```
+
+Four of the six cases assert that a request is **refused**. That is deliberate:
+a fall back to the system trust store would let them pass silently otherwise, and
+that is exactly the bug class this feature had on iOS.
+
+The wiring between these scenarios and the apps is checked by `npm test`
+(`tests/unit/e2eScenarioIds.test.js`), which fails if a scenario taps a testID no
+app exposes, if the two apps drift apart on the TLS cases, or if a TLS button
+exists that nothing exercises. That runs anywhere, without a device.
 
 ## Run-all options
 
