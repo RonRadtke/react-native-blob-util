@@ -417,7 +417,7 @@ function exists(path: string): Promise<boolean> {
 
 function slice(src: string, dest: string, start: number, end: number): Promise {
     if (typeof src !== 'string' || typeof dest !== 'string') {
-        return reject(addCode('EINVAL', new TypeError('Missing argument "src" and/or "destination"')));
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "src" and/or "destination"')));
     }
 
     let p = Promise.resolve();

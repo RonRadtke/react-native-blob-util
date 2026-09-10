@@ -16,7 +16,7 @@
         "no-extra-boolean-cast": 1,
         "no-cond-assign": 2,
         "no-irregular-whitespace": 2,
-        "no-undef": 0,
+        "no-undef": 2,
         "no-unused-vars": 0,
         "semi": 2,
         "semi-spacing": 2,

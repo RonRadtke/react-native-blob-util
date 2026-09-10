@@ -11,10 +11,12 @@
 import {readFileSync, readdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname, join} from 'node:path';
+import {createRequire} from 'node:module';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const require = createRequire(import.meta.url);
 
 const SCENARIO_DIR = join(root, 'tests', 'e2e', 'appium', 'scenarios');
 const APPS = {
@@ -109,4 +111,28 @@ test('every TLS case the apps expose is exercised by a scenario', () => {
     const untested = exposed.filter(id => !tapped.has(id)).sort();
 
     assert.deepEqual(untested, [], 'TLS buttons exist that no scenario taps');
+});
+
+test('every tapped id routes to a panel the app defines', () => {
+    // The e2e panel is tabbed, and ui.js switches tabs by mapping a testID to a
+    // panel name. An id with no mapping leaves the harness on whatever tab is open,
+    // so the button is simply not rendered and the tap times out after 20s with
+    // "element still not displayed" - which reads like a broken app, not a missing
+    // line in a lookup table. That is exactly how the TLS cases first failed.
+    const {panelForTestId} = require(join(root, 'tests', 'e2e', 'appium', 'lib', 'ui.js'));
+
+    // panel names come from the tab list the app renders
+    const appSource = readFileSync(APPS['e2e app'], 'utf8');
+    const tabList = appSource.slice(appSource.indexOf('styles.e2eTabs'));
+    const panels = new Set([...tabList.matchAll(/\[\s*'([A-Za-z]+)'\s*,\s*'[^']*'\s*\]/g)].map(m => m[1]));
+
+    assert.ok(panels.has('tls'), `expected a tls tab, saw ${[...panels].join(', ')}`);
+
+    const unroutable = [...tappedIds().keys()]
+        .map(id => [id, panelForTestId(id)])
+        .filter(([, panel]) => !panel || !panels.has(panel))
+        .map(([id, panel]) => `${id} -> ${panel || 'no mapping'}`)
+        .sort();
+
+    assert.deepEqual(unroutable, [], 'tapped ids do not route to a panel the app renders');
 });

@@ -121,7 +121,7 @@ export default class XMLHttpRequest extends XMLHttpRequestEventTarget {
 
     static removeBinaryContentType(val) {
         for (let i in XMLHttpRequest.binaryContentTypes) {
-            if (new RegExp(substr, 'i').test(XMLHttpRequest.binaryContentTypes[i])) {
+            if (new RegExp(val, 'i').test(XMLHttpRequest.binaryContentTypes[i])) {
                 XMLHttpRequest.binaryContentTypes.splice(i, 1);
                 return;
             }

@@ -213,7 +213,7 @@ export function fetch(...args: any): Promise {
             body = body.getReactNativeBlobUtilRef();
         }
 
-        let req = ReactNativeBlobUtil[nativeMethodName];
+        let req = requireNativeModule()[nativeMethodName];
 
         /**
          * Send request via native module, the response callback accepts three arguments

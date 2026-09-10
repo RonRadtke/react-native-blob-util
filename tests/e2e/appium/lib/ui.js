@@ -49,6 +49,8 @@ const panelForTestId = (testId) => {
 
     if (testId.startsWith('hash-')) return 'hash';
 
+    if (testId.startsWith('tls-')) return 'tls';
+
     if (testId.startsWith('write-stream-') || testId.startsWith('append-stream-')) return 'writeStream';
     if (testId.startsWith('write-') || testId.startsWith('append-')) return 'write';
 
@@ -176,6 +178,7 @@ const scrollToTop = async () => {
 
 module.exports = {
     byId,
+    panelForTestId,
     waitForAppReady,
     scrollToTop,
     waitForDisplayed,

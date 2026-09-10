@@ -23,7 +23,7 @@ export default class ReactNativeBlobUtilWriteStream {
             reject(new Error('ascii input data must be an Array'));
             return;
         }
-        ReactNativeBlobUtil[method](this.id, data, (error) => {
+        requireNativeModule()[method](this.id, data, (error) => {
           if (error)
             reject(new Error(error));
           else
