@@ -429,9 +429,48 @@ const buildEnvForPlatform = (platform) => {
     return env;
 };
 
+/**
+ * Starts the packaged Windows app and returns its top-level window handle.
+ *
+ * WinAppDriver looks for the app's window shortly after launching it, and a debug
+ * React Native build has to fetch its bundle from Metro before it renders one, so
+ * the session fails with "Failed to locate opened application window" even though
+ * the app is fine. Launching it here and handing the driver an existing window
+ * through appTopLevelWindow sidesteps the race entirely.
+ */
+const launchWindowsApp = async (appId) => {
+    const script = [
+        `Start-Process 'shell:AppsFolder\\${appId}'`,
+        `for ($i = 0; $i -lt 60; $i++) {`,
+        `  $p = Get-Process -Name ReactNativeBlobUtilWin -ErrorAction SilentlyContinue |`,
+        `      Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1`,
+        `  if ($p) { '0x' + $p.MainWindowHandle.ToString('X'); exit 0 }`,
+        `  Start-Sleep -Seconds 2`,
+        `}`,
+        `exit 1`,
+        // Joined with newlines: '; ' would land inside the for block's braces
+        // and PowerShell would reject the script.
+    ].join(String.fromCharCode(10));
+
+    const result = spawnSync('powershell', ['-NoProfile', '-Command', script], {encoding: 'utf8'});
+    const handle = (result.stdout || '').trim().split(/\s+/).pop();
+
+    if (!handle || !handle.startsWith('0x')) {
+        throw new Error('Could not find the Windows app window after launching it.');
+    }
+
+    return handle;
+};
+
 const runPlatform = async (platform) => {
     log(`Running ${platform} tests.`);
     const env = buildEnvForPlatform(platform);
+
+    if (platform === 'windows' && env.WINDOWS_APP_ID && !env.WINDOWS_APP_TOP_LEVEL_WINDOW) {
+        log('Launching the Windows app so Appium can attach to its window.');
+        env.WINDOWS_APP_TOP_LEVEL_WINDOW = await launchWindowsApp(env.WINDOWS_APP_ID);
+        log(`Windows app window: ${env.WINDOWS_APP_TOP_LEVEL_WINDOW}`);
+    }
     await runCommand(nodeCmd, ['tests/e2e/appium/run.js', platform], {cwd: rootDir, env});
 };
 

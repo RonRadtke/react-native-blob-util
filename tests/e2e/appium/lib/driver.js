@@ -10,6 +10,12 @@ const createDriverSession = async (capabilities) =>
         port: appiumPort,
         path: appiumPath,
         capabilities,
+        // Starting an app can take a while before it answers - a debug React
+        // Native build fetches its bundle from Metro first, and on Windows that
+        // regularly outruns the default budget, aborting the session while the
+        // driver is still waiting patiently on its own timeout.
+        connectionRetryTimeout: Number(process.env.E2E_SESSION_TIMEOUT || 180000),
+        connectionRetryCount: 2,
     });
 
 module.exports = {
