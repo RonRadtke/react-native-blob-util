@@ -46,6 +46,21 @@ const buildMobileCaps = (platform) => {
 };
 
 const buildWindowsCaps = () => {
+    // WinAppDriver 1.2.1 predates WinUI 3, and it often cannot find the window of a
+    // Composition-based React Native Windows app that it started itself. Attaching
+    // to an already-running window by handle sidesteps that: set
+    // WINDOWS_APP_TOP_LEVEL_WINDOW to the hex handle of a launched app.
+    const topLevelWindow = process.env.WINDOWS_APP_TOP_LEVEL_WINDOW;
+    if (topLevelWindow) {
+        return {
+            platformName: 'Windows',
+            'appium:automationName': 'Windows',
+            'appium:deviceName': process.env.DEVICE_NAME || defaultDeviceName('windows'),
+            'appium:newCommandTimeout': 120,
+            'appium:appTopLevelWindow': topLevelWindow,
+        };
+    }
+
     const windowsApp = process.env.WINDOWS_APP_ID || process.env.WINDOWS_APP_PATH || process.env.E2E_APP_PATH;
     if (!windowsApp) {
         throw new Error('WINDOWS_APP_ID or WINDOWS_APP_PATH (or E2E_APP_PATH) is required for Windows runs.');

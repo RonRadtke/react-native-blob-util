@@ -10,23 +10,13 @@ const rnwPath = fs.realpathSync(
 );
 
 /**
- * One app, three platforms, so this config has to serve all of them.
+ * One app, three platforms, so this config serves all of them.
  *
- * react and react-native are pinned to this app's node_modules on Android and
- * iOS: the repository root is on the watch list (the library is consumed from
- * there) and it has its own copies, which Metro will otherwise happily bundle
- * alongside these, producing two Reacts.
- *
- * That pinning is deliberately skipped on Windows. react-native-windows works
- * by shipping .windows.js overrides at react-native's own module paths, and
- * redirecting react-native/* at this app's copy defeats them.
- *
- * The Windows build output is excluded either way: msbuild writes into windows/
- * and into react-native-windows' build and target folders while Metro watches,
- * which crashes the server with EBUSY on msbuild.ProjectImports.zip. blockList
- * takes a single RegExp - metro-config used to export an exclusionList helper
- * to combine several, but only from src/ internals current versions no longer
- * expose, so the patterns are joined here.
+ * The Windows build output is excluded: msbuild writes into windows/ and into
+ * react-native-windows' build and target folders while Metro watches, which
+ * crashes the server with EBUSY on msbuild.ProjectImports.zip. blockList takes a
+ * single RegExp - metro-config used to export an exclusionList helper to combine
+ * several, but only from src/ internals current versions no longer expose.
  *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
@@ -36,38 +26,55 @@ const blocked = [
     /.*\.ProjectImports\.zip/,
 ];
 
-const rnPath = path.dirname(require.resolve('react-native/package.json', {paths: [appDir]}));
+const NODE_MODULES_RN = `${path.sep}node_modules${path.sep}react-native${path.sep}`;
 
 /**
- * react-native-windows is a partial overlay on react-native: it supplies
- * .windows.js variants at react-native's own paths, but only for the files it
- * actually overrides. Redirecting the whole package would break on everything it
- * does not carry, and the imports that need redirecting are relative ones made
- * from inside react-native, so they cannot be matched by module name either.
- *
- * Resolve normally, and only when that fails, retry the same request as if the
- * importing file were its react-native-windows counterpart. That is how
- * react-native's setUpReactDevTools.js reaches
- * ReactDevToolsSettingsManager.windows.js, which exists only in the overlay.
+ * Maps a file inside any react-native copy to the same path inside
+ * react-native-windows. The library is consumed from the repository root, which
+ * has its own react-native, so this matches the last node_modules segment rather
+ * than one known location.
  */
-const resolveThroughOverlay = (context, moduleName, platform) => {
-    const origin = context.originModulePath;
-    if (!origin) {
+const overlayPathFor = (origin) => {
+    const at = origin ? origin.lastIndexOf(NODE_MODULES_RN) : -1;
+    return at === -1 ? null : path.join(rnwPath, origin.slice(at + NODE_MODULES_RN.length));
+};
+
+/**
+ * react-native-windows is a partial overlay on react-native: it ships
+ * .windows.js variants at react-native's own paths, but only for the files it
+ * actually overrides, so redirecting the whole package breaks on everything it
+ * does not carry. The imports needing redirection are also relative ones made
+ * from inside react-native, so they cannot be matched by module name.
+ *
+ * The overlay has to take precedence rather than act as a fallback. Platform is
+ * the case that proves it: react-native ships a generic Platform.js, so
+ * resolution succeeds with a module that has no OS, and the app dies on
+ * Platform.OS before any fallback could run. Only a .windows.js counts as an
+ * override - anything react-native-windows merely mirrors is left alone.
+ */
+const resolveOverride = (origin, moduleName, platform) => {
+    const overlaid = overlayPathFor(origin);
+    if (!overlaid) {
         return null;
     }
 
-    // Match any react-native copy, not only the app's: the library is consumed
-    // from the repository root, which has its own.
-    const marker = `${path.sep}node_modules${path.sep}react-native${path.sep}`;
-    const at = origin.lastIndexOf(marker);
-    if (at === -1) {
+    const candidate = `${path.resolve(path.dirname(overlaid), moduleName)}.${platform}.js`;
+    return fs.existsSync(candidate) ? {type: 'sourceFile', filePath: candidate} : null;
+};
+
+/**
+ * Last resort for imports react-native makes that it cannot satisfy itself,
+ * where the only copy lives in the overlay - setUpReactDevTools.js reaching
+ * ReactDevToolsSettingsManager is the example.
+ */
+const resolveMissingThroughOverlay = (origin, moduleName, platform) => {
+    const overlaid = overlayPathFor(origin);
+    if (!overlaid) {
         return null;
     }
 
-    const overlaid = path.join(rnwPath, origin.slice(at + marker.length));
     const target = path.resolve(path.dirname(overlaid), moduleName);
-
-    for (const suffix of [`.${platform}.js`, '.native.js', '.js', `/index.${platform}.js`, '/index.js']) {
+    for (const suffix of [`.${platform}.js`, '.native.js', '.js', `${path.sep}index.js`]) {
         const candidate = `${target}${suffix}`;
         if (fs.existsSync(candidate)) {
             return {type: 'sourceFile', filePath: candidate};
@@ -88,10 +95,9 @@ const config = {
     resolver: {
         blockList: new RegExp(`(${blocked.map(r => r.source).join('|')})`),
         resolveRequest: (context, moduleName, platform) => {
-            // Every platform, including Windows. The repository root is watched and
-            // carries its own react and react-native, and the library there imports
-            // react-native too, so without this the bundle ends up with two copies -
-            // and on Windows the root copy is the one that lost its overlay.
+            // The repository root is watched and carries its own react and
+            // react-native, and the library there imports react-native too, so
+            // without pinning the bundle ends up with two copies.
             if (isReactCore(moduleName)) {
                 return {
                     type: 'sourceFile',
@@ -103,12 +109,17 @@ const config = {
                 return context.resolveRequest(context, moduleName, platform);
             }
 
+            const override = resolveOverride(context.originModulePath, moduleName, platform);
+            if (override) {
+                return override;
+            }
+
             try {
                 return context.resolveRequest(context, moduleName, platform);
             } catch (error) {
-                const overlaid = resolveThroughOverlay(context, moduleName, platform);
-                if (overlaid) {
-                    return overlaid;
+                const missing = resolveMissingThroughOverlay(context.originModulePath, moduleName, platform);
+                if (missing) {
+                    return missing;
                 }
 
                 throw error;
