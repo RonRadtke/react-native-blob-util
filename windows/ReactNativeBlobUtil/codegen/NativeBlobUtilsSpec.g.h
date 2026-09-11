@@ -52,7 +52,7 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
       Method<void(std::string, ::React::JSValueArray, Promise<void>) noexcept>{3, L"createFileASCII"},
       Method<void(std::string, Promise<std::string>) noexcept>{4, L"pathForAppGroup"},
       SyncMethod<std::string(std::string) noexcept>{5, L"syncPathAppGroup"},
-      Method<void(std::string, Callback<std::vector<bool>>) noexcept>{6, L"exists"},
+      Method<void(std::string, Callback<bool, bool>) noexcept>{6, L"exists"},
       Method<void(std::string, std::string, std::string, bool, bool, Promise<double>) noexcept>{7, L"writeFile"},
       Method<void(std::string, ::React::JSValueArray, bool, Promise<double>) noexcept>{8, L"writeFileArray"},
       Method<void(std::string, std::string, bool, Callback<::React::JSValueArray>) noexcept>{9, L"writeStream"},
@@ -140,8 +140,8 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
     REACT_SHOW_METHOD_SPEC_ERRORS(
           6,
           "exists",
-          "    REACT_METHOD(exists) void exists(std::string path, std::function<void(std::vector<bool> const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(exists) static void exists(std::string path, std::function<void(std::vector<bool> const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(exists) void exists(std::string path, std::function<void(bool, bool)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(exists) static void exists(std::string path, std::function<void(bool, bool)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           7,
           "writeFile",

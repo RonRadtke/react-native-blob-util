@@ -986,7 +986,7 @@ std::string ReactNativeBlobUtil::syncPathAppGroup(
 
 void ReactNativeBlobUtil::exists(
     std::string path,
-    std::function<void(std::vector<bool> const&)> const& callback) noexcept
+    std::function<void(bool, bool)> const& callback) noexcept
 {
     try
     {
@@ -994,12 +994,14 @@ void ReactNativeBlobUtil::exists(
         bool doesExist = std::filesystem::exists(fsPath);
         bool isDirectory = std::filesystem::is_directory(fsPath);
 
-        callback(std::vector<bool>{ doesExist, isDirectory });
+        // Two arguments, as Android and iOS pass them. A single vector was
+        // marshalled as one array argument, so fs.exists() received [false, false]
+        // - truthy - and reported every path as present.
+        callback(doesExist, isDirectory);
     }
     catch (const std::exception&)
     {
-        // If something goes wrong, return false, false
-        callback(std::vector<bool>{ false, false });
+        callback(false, false);
     }
 }
 

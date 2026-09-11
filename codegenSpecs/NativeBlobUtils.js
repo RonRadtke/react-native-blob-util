@@ -34,7 +34,12 @@ export interface Spec extends TurboModule {
     +createFileASCII: (path: string, data: Array<any>) => Promise<void>;
     +pathForAppGroup: (groupName: string) => Promise<string>;
     +syncPathAppGroup: (groupName: string) => string;
-    +exists: (path: string, callback: (value: Array<boolean>) => void) => void;
+    // Two arguments, not one array: Android invokes callback.invoke(exists,
+    // isDirectory) and iOS callback(@[@(exists), @(isDir)]), which JavaScript
+    // receives as two. Declaring an array made the Windows binding marshal one
+    // array argument instead, so fs.exists() read [false, false] - truthy - and
+    // answered yes for every path.
+    +exists: (path: string, callback: (exists: boolean, isDirectory: boolean) => void) => void;
     +writeFile: (path: string, encoding: string, data: string, transformFile: boolean, append: boolean) => Promise<number>;
     +writeFileArray: (path: string, data: Array<any>, append: boolean) => Promise<number>;
     +writeStream: (path: string, withEncoding: string, appendData: boolean, callback: (value: Array<any>) => void) => void;

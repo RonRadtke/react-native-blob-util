@@ -182,7 +182,7 @@ struct ReactNativeBlobUtil
     std::string syncPathAppGroup(std::string groupName) noexcept;
 
     REACT_METHOD(exists)
-    void exists(std::string path, std::function<void(std::vector<bool> const&)> const& callback) noexcept;
+    void exists(std::string path, std::function<void(bool, bool)> const& callback) noexcept;
 
     REACT_METHOD(writeStream)
     winrt::fire_and_forget writeStream(std::string path, std::string encoding, bool appendData, std::function<void(::React::JSValueArray)> callback) noexcept;
