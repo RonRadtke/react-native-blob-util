@@ -26,104 +26,69 @@ const blocked = [
     /.*\.ProjectImports\.zip/,
 ];
 
-const NODE_MODULES_RN = `${path.sep}node_modules${path.sep}react-native${path.sep}`;
-
 /**
- * Maps a file inside any react-native copy to the same path inside
- * react-native-windows. The library is consumed from the repository root, which
- * has its own react-native, so this matches the last node_modules segment rather
- * than one known location.
- */
-const overlayPathFor = (origin) => {
-    const at = origin ? origin.lastIndexOf(NODE_MODULES_RN) : -1;
-    return at === -1 ? null : path.join(rnwPath, origin.slice(at + NODE_MODULES_RN.length));
-};
-
-/**
- * react-native-windows is a partial overlay on react-native: it ships
- * .windows.js variants at react-native's own paths, but only for the files it
- * actually overrides, so redirecting the whole package breaks on everything it
- * does not carry. The imports needing redirection are also relative ones made
- * from inside react-native, so they cannot be matched by module name.
+ * react-native-windows is a complete superset of react-native, not a patch on
+ * top of it: every file under Libraries/ and src/ is mirrored (455 and 159
+ * respectively, none missing) with .windows.js variants added where a platform
+ * implementation is needed, and its package main is index.windows.js.
  *
- * The overlay has to take precedence rather than act as a fallback. Platform is
- * the case that proves it: react-native ships a generic Platform.js, so
- * resolution succeeds with a module that has no OS, and the app dies on
- * Platform.OS before any fallback could run. Only a .windows.js counts as an
- * override - anything react-native-windows merely mirrors is left alone.
+ * So on Windows the whole package is redirected. Serving some modules from
+ * react-native and some from the overlay produces two module registries in one
+ * bundle, which fails at startup with "Tried to register two views with the same
+ * name RCTSafeAreaView" - and picking per-file is what caused that.
  */
-const resolveOverride = (origin, moduleName, platform) => {
-    const overlaid = overlayPathFor(origin);
-    if (!overlaid) {
-        return null;
-    }
+const RN_PREFIX = 'react-native';
 
-    const candidate = `${path.resolve(path.dirname(overlaid), moduleName)}.${platform}.js`;
-    return fs.existsSync(candidate) ? {type: 'sourceFile', filePath: candidate} : null;
-};
+const redirectToOverlay = (moduleName) => {
+    const suffix = moduleName.slice(RN_PREFIX.length);
+    const target = suffix ? path.join(rnwPath, suffix) : rnwPath;
 
-/**
- * Last resort for imports react-native makes that it cannot satisfy itself,
- * where the only copy lives in the overlay - setUpReactDevTools.js reaching
- * ReactDevToolsSettingsManager is the example.
- */
-const resolveMissingThroughOverlay = (origin, moduleName, platform) => {
-    const overlaid = overlayPathFor(origin);
-    if (!overlaid) {
-        return null;
-    }
-
-    const target = path.resolve(path.dirname(overlaid), moduleName);
-    for (const suffix of [`.${platform}.js`, '.native.js', '.js', `${path.sep}index.js`]) {
-        const candidate = `${target}${suffix}`;
-        if (fs.existsSync(candidate)) {
-            return {type: 'sourceFile', filePath: candidate};
+    for (const candidate of [target, `${target}.windows.js`, `${target}.js`]) {
+        try {
+            return {type: 'sourceFile', filePath: require.resolve(candidate)};
+        } catch (_) {
+            // try the next shape
         }
     }
 
     return null;
 };
 
-const isReactCore = (moduleName) =>
-    moduleName === 'react' ||
-    moduleName.startsWith('react/') ||
-    moduleName === 'react-native' ||
-    moduleName.startsWith('react-native/');
+const isReact = (moduleName) =>
+    moduleName === 'react' || moduleName.startsWith('react/');
+
+const isReactNative = (moduleName) =>
+    moduleName === RN_PREFIX || moduleName.startsWith(`${RN_PREFIX}/`);
 
 const config = {
     watchFolders: [repoRoot, rnwPath],
     resolver: {
         blockList: new RegExp(`(${blocked.map(r => r.source).join('|')})`),
         resolveRequest: (context, moduleName, platform) => {
-            // The repository root is watched and carries its own react and
-            // react-native, and the library there imports react-native too, so
-            // without pinning the bundle ends up with two copies.
-            if (isReactCore(moduleName)) {
+            // The repository root is watched and carries its own react, and the
+            // library there imports react too, so pin it to one copy.
+            if (isReact(moduleName)) {
                 return {
                     type: 'sourceFile',
                     filePath: require.resolve(moduleName, {paths: [appDir]}),
                 };
             }
 
-            if (platform !== 'windows') {
-                return context.resolveRequest(context, moduleName, platform);
-            }
-
-            const override = resolveOverride(context.originModulePath, moduleName, platform);
-            if (override) {
-                return override;
-            }
-
-            try {
-                return context.resolveRequest(context, moduleName, platform);
-            } catch (error) {
-                const missing = resolveMissingThroughOverlay(context.originModulePath, moduleName, platform);
-                if (missing) {
-                    return missing;
+            if (isReactNative(moduleName)) {
+                if (platform === 'windows') {
+                    const overlaid = redirectToOverlay(moduleName);
+                    if (overlaid) {
+                        return overlaid;
+                    }
                 }
 
-                throw error;
+                return {
+                    type: 'sourceFile',
+                    filePath: require.resolve(moduleName, {paths: [appDir]}),
+                };
             }
+
+            return context.resolveRequest(context, moduleName, platform);
         },
         extraNodeModules: {
             'react-native-blob-util': repoRoot,
