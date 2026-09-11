@@ -1177,15 +1177,20 @@ winrt::fire_and_forget ReactNativeBlobUtil::unlink(
                 co_await item.DeleteAsync();
             }
 
+            // (error, result), the shape fs.js reads and the one Android and iOS
+            // already use - callback.invoke(null, true) there. Reporting success as
+            // the first element instead put a truthy value in the error slot, so
+            // fs.unlink() rejected every time it succeeded.
             ::React::JSValueArray result;
+            result.push_back(::React::JSValue::Null.Copy());
             result.push_back(::React::JSValue(true));
             callback(std::move(result));
         }
         catch (const winrt::hresult_error& ex)
         {
             ::React::JSValueArray errorResult;
-            errorResult.push_back(::React::JSValue(false));
             errorResult.push_back(::React::JSValue(winrt::to_string(ex.message())));
+            errorResult.push_back(::React::JSValue(false));
             callback(std::move(errorResult));
         }
    
