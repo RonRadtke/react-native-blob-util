@@ -10,6 +10,7 @@ import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStre
 import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
 import ReactNativeBlobUtilFile from './class/ReactNativeBlobUtilFile';
 import {requireNativeModule} from './utils/nativeModule';
+import toExistsResult from './utils/existsResult';
 
 /**
  * Native constants are read on first access rather than at import. On the New
@@ -405,8 +406,8 @@ function exists(path: string): Promise<boolean> {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
         }
         try {
-            requireNativeModule().exists(path, (exist) => {
-                resolve(exist);
+            requireNativeModule().exists(path, (...args) => {
+                resolve(toExistsResult(...args).exists);
             });
         } catch (err) {
             reject(addCode('EUNSPECIFIED', new Error(err)));
@@ -448,8 +449,8 @@ function isDir(path: string): Promise<bool> {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
         }
         try {
-            requireNativeModule().exists(path, (exist, isDir) => {
-                resolve(isDir);
+            requireNativeModule().exists(path, (...args) => {
+                resolve(toExistsResult(...args).isDirectory);
             });
         } catch (err) {
             reject(addCode('EUNSPECIFIED', new Error(err)));

@@ -176,34 +176,44 @@ const App: () => React$Node = () => {
 
     const resetE2eFixtures = async () => {
         const fs = ReactNativeBlobUtil.fs;
-        try {
-            const rootExists = await fs.exists(e2eRoot);
-            if (rootExists) {
-                await fs.unlink(e2eRoot);
-            }
-            await fs.mkdir(e2eRoot);
-            await fs.mkdir(e2eRoot + '/dir');
-            await fs.createFile(e2eRoot + '/exists.txt', 'exists', 'utf8');
-            await fs.createFile(e2eRoot + '/source.txt', 'source', 'utf8');
-            await fs.createFile(e2eRoot + '/stat.txt', 'stat', 'utf8');
-            await fs.createFile(e2eRoot + '/read.txt', 'foo', 'utf8');
-            await fs.createFile(e2eRoot + '/hash.txt', 'hash-content', 'utf8');
-            await fs.createFile(e2eRoot + '/uri-source.txt', 'uri-source', 'utf8');
-            await fs.createFile(e2eRoot + '/write-source.txt', 'write-source', 'utf8');
-            await fs.createFile(e2eRoot + '/stream.txt', 'stream-data', 'utf8');
-            await fs.createFile(e2eRoot + '/unlink.txt', 'unlink', 'utf8');
-            await fs.createFile(e2eRoot + '/dir/child.txt', 'child', 'utf8');
 
-            const imageExists = await fs.exists(imageToUploadPath);
-            if (imageExists) {
-                await fs.unlink(imageToUploadPath);
+        // Name each step. Without this a failure anywhere in the sequence surfaces
+        // as a bare platform message with no indication of which of the fifteen
+        // calls produced it.
+        let step = 'start';
+        const at = async (label, run) => {
+            step = label;
+            return run();
+        };
+
+        try {
+            const rootExists = await at('exists(root)', () => fs.exists(e2eRoot));
+            if (rootExists) {
+                await at('unlink(root)', () => fs.unlink(e2eRoot));
             }
-            await fs.createFile(imageToUploadPath, 'ZmFrZSBqcGc=', 'base64');
+            await at('mkdir(root)', () => fs.mkdir(e2eRoot));
+            await at('mkdir(root/dir)', () => fs.mkdir(e2eRoot + '/dir'));
+            await at('createFile(exists.txt)', () => fs.createFile(e2eRoot + '/exists.txt', 'exists', 'utf8'));
+            await at('createFile(source.txt)', () => fs.createFile(e2eRoot + '/source.txt', 'source', 'utf8'));
+            await at('createFile(stat.txt)', () => fs.createFile(e2eRoot + '/stat.txt', 'stat', 'utf8'));
+            await at('createFile(read.txt)', () => fs.createFile(e2eRoot + '/read.txt', 'foo', 'utf8'));
+            await at('createFile(hash.txt)', () => fs.createFile(e2eRoot + '/hash.txt', 'hash-content', 'utf8'));
+            await at('createFile(uri-source.txt)', () => fs.createFile(e2eRoot + '/uri-source.txt', 'uri-source', 'utf8'));
+            await at('createFile(write-source.txt)', () => fs.createFile(e2eRoot + '/write-source.txt', 'write-source', 'utf8'));
+            await at('createFile(stream.txt)', () => fs.createFile(e2eRoot + '/stream.txt', 'stream-data', 'utf8'));
+            await at('createFile(unlink.txt)', () => fs.createFile(e2eRoot + '/unlink.txt', 'unlink', 'utf8'));
+            await at('createFile(child.txt)', () => fs.createFile(e2eRoot + '/dir/child.txt', 'child', 'utf8'));
+
+            const imageExists = await at('exists(image)', () => fs.exists(imageToUploadPath));
+            if (imageExists) {
+                await at('unlink(image)', () => fs.unlink(imageToUploadPath));
+            }
+            await at('createFile(image)', () => fs.createFile(imageToUploadPath, 'ZmFrZSBqcGc=', 'base64'));
 
             setE2eEnabled(true);
             appendE2eLog('E2E: Fixtures ready');
         } catch (err) {
-            notifyError(err);
+            notify('Error', `${step}: ${err?.message ?? String(err)}`);
         }
     };
 
