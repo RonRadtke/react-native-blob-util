@@ -36,6 +36,47 @@ const blocked = [
     /.*\.ProjectImports\.zip/,
 ];
 
+const rnPath = path.dirname(require.resolve('react-native/package.json', {paths: [appDir]}));
+
+/**
+ * react-native-windows is a partial overlay on react-native: it supplies
+ * .windows.js variants at react-native's own paths, but only for the files it
+ * actually overrides. Redirecting the whole package would break on everything it
+ * does not carry, and the imports that need redirecting are relative ones made
+ * from inside react-native, so they cannot be matched by module name either.
+ *
+ * Resolve normally, and only when that fails, retry the same request as if the
+ * importing file were its react-native-windows counterpart. That is how
+ * react-native's setUpReactDevTools.js reaches
+ * ReactDevToolsSettingsManager.windows.js, which exists only in the overlay.
+ */
+const resolveThroughOverlay = (context, moduleName, platform) => {
+    const origin = context.originModulePath;
+    if (!origin) {
+        return null;
+    }
+
+    // Match any react-native copy, not only the app's: the library is consumed
+    // from the repository root, which has its own.
+    const marker = `${path.sep}node_modules${path.sep}react-native${path.sep}`;
+    const at = origin.lastIndexOf(marker);
+    if (at === -1) {
+        return null;
+    }
+
+    const overlaid = path.join(rnwPath, origin.slice(at + marker.length));
+    const target = path.resolve(path.dirname(overlaid), moduleName);
+
+    for (const suffix of [`.${platform}.js`, '.native.js', '.js', `/index.${platform}.js`, '/index.js']) {
+        const candidate = `${target}${suffix}`;
+        if (fs.existsSync(candidate)) {
+            return {type: 'sourceFile', filePath: candidate};
+        }
+    }
+
+    return null;
+};
+
 const isReactCore = (moduleName) =>
     moduleName === 'react' ||
     moduleName.startsWith('react/') ||
@@ -47,14 +88,31 @@ const config = {
     resolver: {
         blockList: new RegExp(`(${blocked.map(r => r.source).join('|')})`),
         resolveRequest: (context, moduleName, platform) => {
-            if (platform !== 'windows' && isReactCore(moduleName)) {
+            // Every platform, including Windows. The repository root is watched and
+            // carries its own react and react-native, and the library there imports
+            // react-native too, so without this the bundle ends up with two copies -
+            // and on Windows the root copy is the one that lost its overlay.
+            if (isReactCore(moduleName)) {
                 return {
                     type: 'sourceFile',
                     filePath: require.resolve(moduleName, {paths: [appDir]}),
                 };
             }
 
-            return context.resolveRequest(context, moduleName, platform);
+            if (platform !== 'windows') {
+                return context.resolveRequest(context, moduleName, platform);
+            }
+
+            try {
+                return context.resolveRequest(context, moduleName, platform);
+            } catch (error) {
+                const overlaid = resolveThroughOverlay(context, moduleName, platform);
+                if (overlaid) {
+                    return overlaid;
+                }
+
+                throw error;
+            }
         },
         extraNodeModules: {
             'react-native-blob-util': repoRoot,
