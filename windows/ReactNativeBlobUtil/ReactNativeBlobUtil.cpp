@@ -311,12 +311,30 @@ namespace
         return certs;
     }
 
+    // Errors a private CA is expected to produce, and the only ones the custom-CA
+    // path forgives.
+    //
+    // Untrusted is the point of the exercise: the root is deliberately not in the
+    // system store. The revocation pair comes with it - a private CA publishes no
+    // CRL and runs no OCSP responder, so Windows cannot determine revocation status
+    // and says so. The chain built below disables revocation checking for exactly
+    // that reason, and curl against the same server reports the same thing
+    // (CERT_TRUST_REVOCATION_STATUS_UNKNOWN).
+    //
+    // Everything else stays fatal: a name mismatch, an expired or actually revoked
+    // certificate, a broken chain. That keeps Windows aligned with SecTrust on iOS
+    // and OkHttp's default verifier on Android.
+    bool IsForgivableForCustomCA(Certificates::ChainValidationResult error)
+    {
+        return error == Certificates::ChainValidationResult::Untrusted
+            || error == Certificates::ChainValidationResult::RevocationInformationMissing
+            || error == Certificates::ChainValidationResult::RevocationFailure;
+    }
+
     // Installs custom-CA trust evaluation on the filter for this request.
     //
-    // Builds as part of the module (MSBuild, Debug|x64, Windows App SDK 1.8), so the
-    // WinRT API use here is checked by the compiler. Not yet exercised against a real
-    // handshake - tests/e2e/appium/scenarios/tls.js covers that once the example app
-    // is deployed.
+    // Exercised by tests/e2e/appium/scenarios/tls.js against the HTTPS server in
+    // tests/e2e/server.js, whose certificate is signed by a throwaway private CA.
     void ConfigureCustomCATrust(
         winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter const& filter,
         const ReactNativeBlobUtilConfig& config,
@@ -328,10 +346,12 @@ namespace
             return;
         }
 
-        // An unknown root aborts the handshake before the validation event fires,
-        // so it has to be ignorable for the handler below to get a say. Every other
-        // error stays fatal and is re-checked there.
+        // These abort the handshake before the validation event fires, so they have
+        // to be ignorable for the handler below to get a say. It re-checks them, and
+        // everything not listed here stays fatal at the stack level.
         filter.IgnorableServerCertificateErrors().Append(Certificates::ChainValidationResult::Untrusted);
+        filter.IgnorableServerCertificateErrors().Append(Certificates::ChainValidationResult::RevocationInformationMissing);
+        filter.IgnorableServerCertificateErrors().Append(Certificates::ChainValidationResult::RevocationFailure);
 
         filter.ServerCustomValidationRequested([certNames = config.customCACerts, trustSystemCerts = config.trustSystemCerts](
             winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter const&,
@@ -342,20 +362,17 @@ namespace
 
             const bool systemTrusted = eventArgs.ServerCertificateErrors().Size() == 0;
 
-            // Only an unknown root is forgiven. A name mismatch, an expired or a
-            // revoked certificate still fails, which is what SecTrust enforces on
-            // iOS and what OkHttp's default verifier enforces on Android.
-            bool onlyUntrusted = true;
+            bool onlyForgivable = true;
             for (const auto& error : eventArgs.ServerCertificateErrors())
             {
-                if (error != Certificates::ChainValidationResult::Untrusted)
+                if (!IsForgivableForCustomCA(error))
                 {
-                    onlyUntrusted = false;
+                    onlyForgivable = false;
                     break;
                 }
             }
 
-            if (!onlyUntrusted)
+            if (!onlyForgivable)
             {
                 eventArgs.Reject();
                 deferral.Complete();
@@ -395,7 +412,18 @@ namespace
                 const auto chain = co_await eventArgs.ServerCertificate().BuildChainAsync(
                     eventArgs.ServerIntermediateCertificates(), parameters);
 
-                if (chain.Validate() != Certificates::ChainValidationResult::Success)
+                // Success, or a revocation result - RevocationCheckEnabled(false)
+                // should prevent those, but a private CA can produce them anyway and
+                // they say nothing about whether the chain reaches our root.
+                // Untrusted is deliberately not accepted here: it means the chain
+                // did not reach the configured CA, which is the whole question.
+                const auto result = chain.Validate();
+                const bool reachesOurRoot =
+                    result == Certificates::ChainValidationResult::Success
+                    || result == Certificates::ChainValidationResult::RevocationInformationMissing
+                    || result == Certificates::ChainValidationResult::RevocationFailure;
+
+                if (!reachesOurRoot)
                 {
                     eventArgs.Reject();
                 }
