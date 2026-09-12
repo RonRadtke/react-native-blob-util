@@ -9,8 +9,8 @@ import ReactNativeBlobUtilSession from './class/ReactNativeBlobUtilSession';
 import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStream';
 import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
 import ReactNativeBlobUtilFile from './class/ReactNativeBlobUtilFile';
-import {requireNativeModule} from './utils/nativeModule';
 import toExistsResult from './utils/existsResult';
+import {requireNativeModule} from './utils/nativeModule';
 
 /**
  * Native constants are read on first access rather than at import. On the New
