@@ -1636,18 +1636,25 @@ winrt::fire_and_forget ReactNativeBlobUtil::readFile(
             std::string base64Content = winrt::to_string(Cryptography::CryptographicBuffer::EncodeToBase64String(buffer));
             resultArray.push_back(base64Content);
         }
+        else if (encoding == "ascii")
+        {
+            // ASCII reads return the raw bytes, one number per byte, which is
+            // what Android and iOS return and what fs.readFile()'s callers
+            // expect. Returning the decoded text made an ascii read
+            // indistinguishable from a utf8 one.
+            auto reader{ winrt::Windows::Storage::Streams::DataReader::FromBuffer(buffer) };
+            std::vector<uint8_t> bytes(reader.UnconsumedBufferLength());
+            reader.ReadBytes(bytes);
+
+            for (const auto byte : bytes)
+            {
+                resultArray.push_back(static_cast<int64_t>(byte));
+            }
+        }
         else
         {
             std::string utf8Content = winrt::to_string(Cryptography::CryptographicBuffer::ConvertBinaryToString(BinaryStringEncoding::Utf8, buffer));
-            if (encoding == "ascii")
-            {
-                // For ASCII, just return the utf8Content as a string
-                resultArray.push_back(utf8Content);
-            }
-            else
-            {
-                resultArray.push_back(utf8Content);
-            }
+            resultArray.push_back(utf8Content);
         }
         promise.Resolve(resultArray);
     }
