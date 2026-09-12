@@ -1201,6 +1201,13 @@ winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
     {
         winrt::hstring directoryPath, fileName;
         splitPath(path, directoryPath, fileName);
+
+        // Create missing parents: a stream may be opened at a path whose
+        // directory does not exist yet - the issue-333 case deletes it first -
+        // and GetFolderFromPathAsync opens a folder, it never creates one.
+        std::error_code directoryError;
+        std::filesystem::create_directories(std::filesystem::path{ path }.parent_path(), directoryError);
+
         auto folder = co_await StorageFolder::GetFolderFromPathAsync(directoryPath);
         auto file = co_await folder.CreateFileAsync(fileName, CreationCollisionOption::OpenIfExists);
         auto stream = co_await file.OpenAsync(FileAccessMode::ReadWrite);
