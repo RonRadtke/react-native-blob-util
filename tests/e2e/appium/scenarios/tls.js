@@ -51,6 +51,15 @@ const runTlsScenario = async (context) => {
     await tap(context, 'tls-trusty-button');
     await waitForLogContains(context, 'tls-trusty: PASS');
 
+    // A strict request straight after a trusty one must still be evaluated.
+    // Windows remembers a certificate the process accepted with errors ignored
+    // and, left to itself, lets this one through unexamined - tls-no-ca after
+    // tls-custom-ca above covers the same for the custom-CA path. The log is
+    // cleared first so the earlier tls-no-ca PASS cannot satisfy the wait.
+    await clearLog(context);
+    await tap(context, 'tls-no-ca-button');
+    await waitForLogContains(context, 'tls-no-ca: PASS');
+
     await clearLog(context);
 };
 

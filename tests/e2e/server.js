@@ -11,11 +11,15 @@ const HTTPS_PORT = Number(process.env.E2E_HTTPS_PORT || 19077);
 const PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAOZ+9rEAAAAASUVORK5CYII=";
 const PNG_BUFFER = Buffer.from(PNG_BASE64, "base64");
 
+// A case that must be refused only means something if it performs a handshake,
+// so a success must never be answered from a cache.
 const sendJson = (res, status, body) => {
     const payload = JSON.stringify(body);
     res.writeHead(status, {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(payload),
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        Pragma: "no-cache",
     });
     res.end(payload);
 };

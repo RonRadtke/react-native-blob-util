@@ -1,3 +1,5 @@
+const {execFileSync} = require('child_process');
+
 const {sleep, byId} = require('./utils');
 
 const safeIsExisting = async (element) => element.isExisting().catch(() => false);
@@ -111,6 +113,16 @@ const tap = async (context, testId) => {
     await sleep(250);
 };
 
+// Text is read from stdin rather than interpolated into the command line, so
+// quotes and backslashes in a path survive.
+const setWindowsClipboard = (text) => {
+    execFileSync(
+        'powershell',
+        ['-NoProfile', '-Command', 'Set-Clipboard -Value ([Console]::In.ReadToEnd())'],
+        {input: text},
+    );
+};
+
 const setInput = async (context, testId, value) => {
     const element = await waitForDisplayed(context, byId(testId));
     await element.click();
@@ -121,7 +133,21 @@ const setInput = async (context, testId, value) => {
         // clearValue may not be supported.
     }
 
-    await element.setValue(String(value ?? ''));
+    const text = String(value ?? '');
+
+    if (context.platform === 'windows') {
+        // WinAppDriver types through the active keyboard layout, so on a
+        // non-US one the characters these scenarios depend on arrive wrong: a
+        // German layout turns every "/" into "-", which silently rewrites
+        // every path and URL set here - "e2e/exists.txt" arrives as
+        // "e2e-exists.txt". Paste instead. Ctrl stays pressed until the NULL
+        // key, and Ctrl+A / Ctrl+V sit in the same place on every layout.
+        setWindowsClipboard(text);
+        await element.addValue('a');
+        await element.addValue('v');
+    } else {
+        await element.setValue(text);
+    }
 
     await sleep(500);
 };
