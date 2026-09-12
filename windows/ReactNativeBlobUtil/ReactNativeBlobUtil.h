@@ -140,10 +140,10 @@ struct ReactNativeBlobUtil
     ReactNativeBlobUtilCodegen::BlobUtilsSpec_Constants GetConstants() noexcept;
 
     REACT_METHOD(fetchBlobForm)
-    winrt::fire_and_forget fetchBlobForm(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, ::React::JSValueArray form, std::function<void(::React::JSValueArray)> callback) noexcept;
+    winrt::fire_and_forget fetchBlobForm(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, ::React::JSValueArray form, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
     REACT_METHOD(fetchBlob)
-    winrt::fire_and_forget fetchBlob(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, std::string body, std::function<void(::React::JSValueArray)> callback) noexcept;
+    winrt::fire_and_forget fetchBlob(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, std::string body, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
     REACT_METHOD(createFile)
         winrt::fire_and_forget createFile(
@@ -197,7 +197,7 @@ struct ReactNativeBlobUtil
     void closeStream(std::string streamId, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
 
     REACT_METHOD(unlink)
-    winrt::fire_and_forget unlink(std::string path, std::function<void(::React::JSValueArray)> callback) noexcept;
+    winrt::fire_and_forget unlink(std::string path, std::function<void(std::optional<std::string>, bool)> callback) noexcept;
 
     REACT_METHOD(removeSession)
     winrt::fire_and_forget removeSession(::React::JSValueArray paths, std::function<void(::React::JSValueArray)> callback) noexcept;

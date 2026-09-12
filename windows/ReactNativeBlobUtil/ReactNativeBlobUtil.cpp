@@ -16,6 +16,7 @@
 #include <cwchar>
 #include <cwctype>
 #include <filesystem>
+#include <optional>
 #include <string_view>
 #include <sstream> 
 
@@ -467,7 +468,7 @@ namespace winrt::ReactNativeBlobUtil
         std::string url,
         ::React::JSValue headers,
         ::React::JSValueArray body,
-        std::function<void(::React::JSValueArray)> callback
+        std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback
     ) noexcept
     {
         try
@@ -496,9 +497,7 @@ namespace winrt::ReactNativeBlobUtil
                 httpMethod = winrt::Windows::Web::Http::HttpMethod::Get();
             else if (method != "POST" && method != "post")
             {
-                ::React::JSValueArray errorArray;
-                errorArray.push_back("Method not supported");
-                callback(std::move(errorArray));
+                callback("Method not supported", std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
 
@@ -595,23 +594,18 @@ namespace winrt::ReactNativeBlobUtil
                 responseBody = winrt::to_string(co_await response.Content().ReadAsStringAsync());
             }
 
-            ::React::JSValueArray resultArray;
-            resultArray.push_back(responseBody);
-            callback(std::move(resultArray));
+            // (err, rawType, data, responseInfo) as four arguments - the shape
+            // fetch.js destructures and the one Android already sends. The body is
+            // read as text above, so it is always the utf8 form.
+            callback(std::nullopt, "utf8", responseBody, std::nullopt);
         }
         catch (const winrt::hresult_error& ex)
         {
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back(winrt::to_string(ex.message()));
-            callback(std::move(errorArray));
+            callback(winrt::to_string(ex.message()), std::nullopt, std::nullopt, std::nullopt);
         }
         catch (...)
         {
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back("Unknown error in fetchBlobForm");
-            callback(std::move(errorArray));
+            callback("Unknown error in fetchBlobForm", std::nullopt, std::nullopt, std::nullopt);
         }
     }
 
@@ -622,7 +616,7 @@ namespace winrt::ReactNativeBlobUtil
         std::string url,
         ::React::JSValue headers,
         std::string body,
-        std::function<void(::React::JSValueArray)> callback
+        std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback
     ) noexcept
     {
         // Convert rvalue references to lvalues for safe use
@@ -660,9 +654,7 @@ namespace winrt::ReactNativeBlobUtil
             }
             else
             {
-                ::React::JSValueArray errorArray;
-                errorArray.push_back("Method not supported");
-                callback(std::move(errorArray));
+                callback("Method not supported", std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
 
@@ -723,23 +715,18 @@ namespace winrt::ReactNativeBlobUtil
                 responseBody = winrt::to_string(co_await response.Content().ReadAsStringAsync());
             }
 
-            ::React::JSValueArray resultArray;
-            resultArray.push_back(responseBody);
-            callback(std::move(resultArray));
+            // (err, rawType, data, responseInfo) as four arguments - the shape
+            // fetch.js destructures and the one Android already sends. The body is
+            // read as text above, so it is always the utf8 form.
+            callback(std::nullopt, "utf8", responseBody, std::nullopt);
         }
         catch (const winrt::hresult_error& ex)
         {
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back(winrt::to_string(ex.message()));
-            callback(std::move(errorArray));
+            callback(winrt::to_string(ex.message()), std::nullopt, std::nullopt, std::nullopt);
         }
         catch (...)
         {
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back("Unknown error in fetchBlob");
-            callback(std::move(errorArray));
+            callback("Unknown error in fetchBlob", std::nullopt, std::nullopt, std::nullopt);
         }
     }
 
@@ -1186,7 +1173,7 @@ void ReactNativeBlobUtil::closeStream(
 
 winrt::fire_and_forget ReactNativeBlobUtil::unlink(
     std::string path,
-    std::function<void(::React::JSValueArray)> callback) noexcept
+    std::function<void(std::optional<std::string>, bool)> callback) noexcept
 {
    try
         {
@@ -1211,17 +1198,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::unlink(
             // already use - callback.invoke(null, true) there. Reporting success as
             // the first element instead put a truthy value in the error slot, so
             // fs.unlink() rejected every time it succeeded.
-            ::React::JSValueArray result;
-            result.push_back(::React::JSValue::Null.Copy());
-            result.push_back(::React::JSValue(true));
-            callback(std::move(result));
+            callback(std::nullopt, true);
         }
         catch (const winrt::hresult_error& ex)
         {
-            ::React::JSValueArray errorResult;
-            errorResult.push_back(::React::JSValue(winrt::to_string(ex.message())));
-            errorResult.push_back(::React::JSValue(false));
-            callback(std::move(errorResult));
+            callback(winrt::to_string(ex.message()), false);
         }
    
 }

@@ -46,8 +46,8 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
       TypedConstant<BlobUtilsSpec_Constants>{0},
   };
   static constexpr auto methods = std::tuple{
-      Method<void(::React::JSValue, std::string, std::string, std::string, ::React::JSValue, ::React::JSValueArray, Callback<::React::JSValueArray>) noexcept>{0, L"fetchBlobForm"},
-      Method<void(::React::JSValue, std::string, std::string, std::string, ::React::JSValue, std::string, Callback<::React::JSValueArray>) noexcept>{1, L"fetchBlob"},
+      Method<void(::React::JSValue, std::string, std::string, std::string, ::React::JSValue, ::React::JSValueArray, Callback<std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>>) noexcept>{0, L"fetchBlobForm"},
+      Method<void(::React::JSValue, std::string, std::string, std::string, ::React::JSValue, std::string, Callback<std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>>) noexcept>{1, L"fetchBlob"},
       Method<void(std::string, std::string, std::string, Promise<void>) noexcept>{2, L"createFile"},
       Method<void(std::string, ::React::JSValueArray, Promise<void>) noexcept>{3, L"createFileASCII"},
       Method<void(std::string, Promise<std::string>) noexcept>{4, L"pathForAppGroup"},
@@ -59,7 +59,7 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
       Method<void(std::string, ::React::JSValueArray, Callback<::React::JSValueArray>) noexcept>{10, L"writeArrayChunk"},
       Method<void(std::string, std::string, Callback<::React::JSValueArray>) noexcept>{11, L"writeChunk"},
       Method<void(std::string, Callback<::React::JSValueArray>) noexcept>{12, L"closeStream"},
-      Method<void(std::string, Callback<::React::JSValueArray>) noexcept>{13, L"unlink"},
+      Method<void(std::string, Callback<std::optional<std::string>, bool>) noexcept>{13, L"unlink"},
       Method<void(::React::JSValueArray, Callback<::React::JSValueArray>) noexcept>{14, L"removeSession"},
       Method<void(std::string, Promise<::React::JSValueArray>) noexcept>{15, L"ls"},
       Method<void(std::string, Callback<::React::JSValueArray>) noexcept>{16, L"stat"},
@@ -110,13 +110,13 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
     REACT_SHOW_METHOD_SPEC_ERRORS(
           0,
           "fetchBlobForm",
-          "    REACT_METHOD(fetchBlobForm) void fetchBlobForm(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, ::React::JSValueArray && form, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(fetchBlobForm) static void fetchBlobForm(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, ::React::JSValueArray && form, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(fetchBlobForm) void fetchBlobForm(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, ::React::JSValueArray && form, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(fetchBlobForm) static void fetchBlobForm(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, ::React::JSValueArray && form, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           1,
           "fetchBlob",
-          "    REACT_METHOD(fetchBlob) void fetchBlob(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, std::string body, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(fetchBlob) static void fetchBlob(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, std::string body, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(fetchBlob) void fetchBlob(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, std::string body, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(fetchBlob) static void fetchBlob(::React::JSValue && options, std::string taskId, std::string method, std::string url, ::React::JSValue && headers, std::string body, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           2,
           "createFile",
@@ -175,8 +175,8 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
     REACT_SHOW_METHOD_SPEC_ERRORS(
           13,
           "unlink",
-          "    REACT_METHOD(unlink) void unlink(std::string path, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(unlink) static void unlink(std::string path, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(unlink) void unlink(std::string path, std::function<void(std::optional<std::string>, bool)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(unlink) static void unlink(std::string path, std::function<void(std::optional<std::string>, bool)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           14,
           "removeSession",

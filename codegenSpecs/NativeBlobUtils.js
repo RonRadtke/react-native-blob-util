@@ -28,8 +28,13 @@ export interface Spec extends TurboModule {
         LegacySDCardDir: string,
     |};
 
-    +fetchBlobForm: (options: Object, taskId: string, method: string, url: string, headers: Object, form: Array<any>, callback: (value: Array<any>) => void) => void;
-    +fetchBlob: (options: Object, taskId: string, method: string, url: string, headers: Object, body: string, callback: (value: Array<any>) => void) => void;
+    // Four arguments, not one array. Android invokes callback.invoke(err, rawType,
+    // data, responseInfo) and fetch.js destructures exactly that, so declaring an
+    // array made the Windows binding marshal one argument: the response body
+    // arrived in the error position and every request on Windows rejected, with
+    // the body as the message.
+    +fetchBlobForm: (options: Object, taskId: string, method: string, url: string, headers: Object, form: Array<any>, callback: (err: ?string, rawType: ?string, data: ?string, responseInfo: ?Object) => void) => void;
+    +fetchBlob: (options: Object, taskId: string, method: string, url: string, headers: Object, body: string, callback: (err: ?string, rawType: ?string, data: ?string, responseInfo: ?Object) => void) => void;
     +createFile: (path: string, data: string, encoding: string) => Promise<void>;
     +createFileASCII: (path: string, data: Array<any>) => Promise<void>;
     +pathForAppGroup: (groupName: string) => Promise<string>;
@@ -46,7 +51,10 @@ export interface Spec extends TurboModule {
     +writeArrayChunk: (streamId: string, withArray: Array<any>, callback: (value: Array<any>) => void) => void;
     +writeChunk: (streamId: string, withData: string, callback: (value: Array<any>) => void) => void;
     +closeStream: (streamId: string, callback: (value: Array<any>) => void) => void;
-    +unlink: (path: string, callback: (value: Array<any>) => void) => void;
+    // (err, result), matching Android's callback.invoke(null, true). Declared as
+    // an array it arrived as a single argument, so fs.unlink() read [null, true]
+    // - truthy - and rejected every time the delete had succeeded.
+    +unlink: (path: string, callback: (err: ?string, result: boolean) => void) => void;
     +removeSession: (paths: Array<any>, callback: (value: Array<any>) => void) => void;
     +ls: (path: string) => Promise<Array<any>>;
     +stat: (target: string, callback: (value: Array<any>) => void) => void;
