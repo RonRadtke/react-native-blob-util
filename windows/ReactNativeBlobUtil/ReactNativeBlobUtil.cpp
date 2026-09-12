@@ -1762,11 +1762,12 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
         }
         else
         {
-            // Invalid encoding
-            m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", streamId,
+            m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
                 winrt::Microsoft::ReactNative::JSValueObject{
+                    {"streamId", streamId},
                     {"event", "error"},
-                    {"EINVAL", "Unsupported encoding: " + encoding}
+                    {"code", "EINVAL"},
+                    {"detail", "Unsupported encoding: " + encoding}
                 });
             co_return;
         }
@@ -1791,9 +1792,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
             auto readBuffer = co_await stream.ReadAsync(buffer, buffer.Capacity(), InputStreamOptions::None);
             if (readBuffer.Length() == 0)
             {
-                m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", streamId,
+                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
                     winrt::Microsoft::ReactNative::JSValueObject{
-                        {"event", "end"}
+                        {"streamId", streamId},
+                        {"event", "end"},
+                        {"detail", ""}
                     });
                 break;
             }
@@ -1801,31 +1804,45 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
             if (usedEncoding == EncodingOptions::BASE64)
             {
                 winrt::hstring base64Content = Cryptography::CryptographicBuffer::EncodeToBase64String(readBuffer);
-                m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", streamId,
+                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
                     winrt::Microsoft::ReactNative::JSValueObject{
+                        {"streamId", streamId},
                         {"event", "data"},
                         {"detail", winrt::to_string(base64Content)}
                     });
+            }
+            else if (usedEncoding == EncodingOptions::ASCII)
+            {
+                // One number per byte, the chunk shape Android emits. Masking
+                // the decoded text to 7 bits produced a string instead, so an
+                // ascii reader on Windows got something no other platform sends.
+                auto reader{ winrt::Windows::Storage::Streams::DataReader::FromBuffer(readBuffer) };
+                std::vector<uint8_t> bytes(reader.UnconsumedBufferLength());
+                reader.ReadBytes(bytes);
+
+                winrt::Microsoft::ReactNative::JSValueArray chunk;
+                for (const auto byte : bytes)
+                {
+                    chunk.push_back(static_cast<int64_t>(byte));
+                }
+
+                winrt::Microsoft::ReactNative::JSValueObject payload;
+                payload["streamId"] = streamId;
+                payload["event"] = "data";
+                payload["detail"] = std::move(chunk);
+
+                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem", std::move(payload));
             }
             else
             {
                 winrt::hstring stringContent = Cryptography::CryptographicBuffer::ConvertBinaryToString(
                     BinaryStringEncoding::Utf8, readBuffer);
-                std::string utf8Content = winrt::to_string(stringContent);
 
-                // For ASCII, trim to 7-bit range
-                if (usedEncoding == EncodingOptions::ASCII)
-                {
-                    for (char& c : utf8Content)
-                    {
-                        c &= 0x7F;
-                    }
-                }
-
-                m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", streamId,
+                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
                     winrt::Microsoft::ReactNative::JSValueObject{
+                        {"streamId", streamId},
                         {"event", "data"},
-                        {"detail", utf8Content}
+                        {"detail", winrt::to_string(stringContent)}
                     });
             }
 
@@ -1837,23 +1854,15 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
     }
     catch (const hresult_error& ex)
     {
-        hresult result = ex.code();
-        if (result == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) // 0x80070002
-        {
-            m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", streamId,
-                winrt::Microsoft::ReactNative::JSValueObject{
-                    {"event", "error"},
-                    {"ENOENT", "No such file: " + path}
-                });
-        }
-        else
-        {
-            m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", streamId,
-                winrt::Microsoft::ReactNative::JSValueObject{
-                    {"event", "error"},
-                    {"EUNSPECIFIED", winrt::to_string(ex.message())}
-                });
-        }
+        const bool notFound = ex.code() == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND); // 0x80070002
+
+        m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
+            winrt::Microsoft::ReactNative::JSValueObject{
+                {"streamId", streamId},
+                {"event", "error"},
+                {"code", notFound ? "ENOENT" : "EUNSPECIFIED"},
+                {"detail", notFound ? "No such file: " + path : winrt::to_string(ex.message())}
+            });
     }
 }
 
@@ -2168,7 +2177,7 @@ try
 
 	eventState.state = winrt::to_string(response.ReasonPhrase());
 
-	m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilState",
+	m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilState",
 		Microsoft::ReactNative::JSValueObject{
 			{ "taskId", taskId },
 			{ "state", eventState.state },
@@ -2254,7 +2263,7 @@ try
 			currentProgressTime = winrt::clock::now().time_since_epoch().count() / 10000;
 			if ((currentProgressTime - initialProgressTime >= progressInfo.interval && progressInfo.interval > -1) ||
 				(totalRead >= progressInterval && progressInfo.count > -1)) {
-				m_reactContext.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilProgress",
+				m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilProgress",
 					Microsoft::ReactNative::JSValueObject{
 						{ "taskId", taskId },
 						{ "written", int64_t(totalRead) },

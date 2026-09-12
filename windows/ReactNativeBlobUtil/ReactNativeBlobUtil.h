@@ -341,7 +341,6 @@ private:
 
     std::map<StreamId, ReactNativeBlobUtilStream> m_streamMap;
     //winrt::Windows::Web::Http::HttpClient m_httpClient;
-    winrt::Microsoft::ReactNative::ReactContext m_reactContext;
     TaskCancellationManager m_tasks;
 
     winrt::Windows::Foundation::IAsyncAction ProcessRequestAsync(

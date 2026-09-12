@@ -126,13 +126,6 @@ function writeStream(
 
 /**
  * Create file stream from file at `path`.
- *
- * Known issue: this does not work on Windows. The native module crashes the app
- * process when a read stream is opened, and it emits the stream events under
- * the stream id as the event name while this class listens for
- * `ReactNativeBlobUtilFilesystem`, so no data would arrive even without the
- * crash. Use fs.readFile() on Windows until that is fixed.
- *
  * @param  {string} path   The file path.
  * @param  {string} encoding Data encoding, should be one of `base64`, `utf8`, `ascii`
  * @param  {boolean} bufferSize Size of stream buffer.
