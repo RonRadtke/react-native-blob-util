@@ -106,6 +106,16 @@ active keyboard layout, so on a non-US one the characters these scenarios rely o
 arrive wrong - a German layout turns every `/` into `-`, which silently rewrites
 every path and URL a scenario sets.
 
+The `filesystem` scenario currently **fails on Windows at its readStream step**,
+and that failure is real: `fs.readStream()` crashes the app process (access
+violation, `0xc0000005`, in `ReactNativeBlobUtil.dll`), reproducible with a
+single call. The native module also emits its stream events under the stream id
+as the event name, while `ReactNativeBlobUtilReadStream` listens for
+`ReactNativeBlobUtilFilesystem` and filters on `streamId` in the payload - so no
+data would reach JS even without the crash. Android and iOS both emit
+`ReactNativeBlobUtilFilesystem`. The step is deliberately **not** skipped: unlike
+the sha224 gap above, this is a crash and should stay visible.
+
 ## Scenario selection
 
 Default scenarios:

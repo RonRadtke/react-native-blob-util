@@ -374,6 +374,13 @@ export interface FS {
 
     /**
      * Create file stream from file at `path`.
+     *
+     * Known issue: not working on Windows. Opening a read stream crashes the app
+     * process, and the native module emits its stream events under the stream id
+     * as the event name while the JS side listens for
+     * `ReactNativeBlobUtilFilesystem`, so no data would arrive even without the
+     * crash. Use `readFile` on Windows until that is fixed.
+     *
      * @param  path   The file path.
      * @param  encoding Data encoding, should be one of `base64`, `utf8`, `ascii`
      * @param  bufferSize Size of stream buffer.
