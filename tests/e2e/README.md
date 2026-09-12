@@ -77,6 +77,16 @@ resolves from `Package::Current().InstalledLocation()`, and an unpackaged build 
 no install location to resolve against, so every custom-CA case fails closed. That
 is correct behaviour, but it looks like a trust bug - check the packaging first.
 
+The `filesystem` scenario skips the **sha224** hash case on Windows. WinRT's hash
+providers do not offer SHA-224 and neither does CNG, so `fs.hash()` rejects it
+there by design; Android (`MessageDigest`) and iOS (`CommonCrypto`) both provide
+it and still run the case.
+
+Input is **pasted** rather than typed on Windows. WinAppDriver types through the
+active keyboard layout, so on a non-US one the characters these scenarios rely on
+arrive wrong - a German layout turns every `/` into `-`, which silently rewrites
+every path and URL a scenario sets.
+
 ## Scenario selection
 
 Default scenarios:

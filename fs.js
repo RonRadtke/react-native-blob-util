@@ -319,6 +319,17 @@ function scanFile(pairs: any): Promise {
     });
 }
 
+/**
+ * Calculate a cryptographic hash sum over the contents of a file.
+ *
+ * `sha224` is unavailable on Windows - neither WinRT's hash providers nor CNG
+ * offer SHA-224 - so the promise rejects there. Android and iOS support all of
+ * md5, sha1, sha224, sha256, sha384 and sha512.
+ *
+ * @param  {string} path Path of the file.
+ * @param  {string} algorithm md5, sha1, sha224, sha256, sha384 or sha512.
+ * @return {Promise<string>} The hash, hex encoded.
+ */
 function hash(path: string, algorithm: string): Promise<string> {
     if (typeof path !== 'string' || typeof algorithm !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "algorithm"')));

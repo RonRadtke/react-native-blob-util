@@ -363,6 +363,10 @@ export interface FS {
     /**
      * Read the file from the given path and calculate a cryptographic hash sum over its contents.
      *
+     * Note: `sha224` is not available on Windows. Neither WinRT's hash providers
+     * nor CNG offer SHA-224, so the call rejects there. Android and iOS support
+     * every algorithm listed.
+     *
      * @param path Path to the file
      * @param algorithm The hash algorithm to use
      */

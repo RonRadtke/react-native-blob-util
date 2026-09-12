@@ -88,6 +88,13 @@ const runHashChecks = async (context) => {
     const hashValue = 'hash-content';
     const algorithms = ['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'];
     for (const algorithm of algorithms) {
+        // Windows has no SHA-224: WinRT's hash providers do not offer it and
+        // neither does CNG, so fs.hash() rejects it there by design. Android
+        // (MessageDigest) and iOS (CommonCrypto) both provide it.
+        if (algorithm === 'sha224' && context.platform === 'windows') {
+            continue;
+        }
+
         await tap(context, `hash-${algorithm}-button`);
         await tap(context, 'hash-button');
         await waitForLogContains(context, `hash ${algorithm}: ${hashFor(algorithm, hashValue)}`);
