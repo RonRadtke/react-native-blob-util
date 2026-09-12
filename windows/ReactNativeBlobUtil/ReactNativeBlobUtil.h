@@ -185,13 +185,13 @@ struct ReactNativeBlobUtil
     void exists(std::string path, std::function<void(bool, bool)> const& callback) noexcept;
 
     REACT_METHOD(writeStream)
-    winrt::fire_and_forget writeStream(std::string path, std::string encoding, bool appendData, std::function<void(::React::JSValueArray)> callback) noexcept;
+    winrt::fire_and_forget writeStream(std::string path, std::string encoding, bool appendData, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>)> callback) noexcept;
 
     REACT_METHOD(writeArrayChunk)
-    void writeArrayChunk(std::string streamId, ::React::JSValueArray&& dataArray, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
+    void writeArrayChunk(std::string streamId, ::React::JSValueArray&& dataArray, std::function<void(std::optional<std::string>)> const& callback) noexcept;
 
     REACT_METHOD(writeChunk)
-    void writeChunk(std::string streamId, std::string data, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
+    void writeChunk(std::string streamId, std::string data, std::function<void(std::optional<std::string>)> const& callback) noexcept;
 
     REACT_METHOD(closeStream)
     void closeStream(std::string streamId, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
@@ -200,7 +200,7 @@ struct ReactNativeBlobUtil
     winrt::fire_and_forget unlink(std::string path, std::function<void(std::optional<std::string>, bool)> callback) noexcept;
 
     REACT_METHOD(removeSession)
-    winrt::fire_and_forget removeSession(::React::JSValueArray paths, std::function<void(::React::JSValueArray)> callback) noexcept;
+    winrt::fire_and_forget removeSession(::React::JSValueArray paths, std::function<void(std::optional<std::string>)> callback) noexcept;
 
     // readFile
 	REACT_METHOD(readFile)
@@ -228,31 +228,31 @@ struct ReactNativeBlobUtil
 	winrt::fire_and_forget mv(
 		std::string src,
 		std::string dest,
-		std::function<void(::React::JSValueArray)> callback) noexcept;
+		std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept;
 
 	// cp
 	REACT_METHOD(cp)
 	winrt::fire_and_forget cp(
 		std::string src, // from
 		std::string dest, // to
-		std::function<void(::React::JSValueArray)> callback) noexcept;
+		std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept;
 
     // lstat
 	REACT_METHOD(lstat)
 	winrt::fire_and_forget lstat(
 		std::string path,
-		std::function<void(::React::JSValueArray)> callback) noexcept;
+		std::function<void(std::optional<std::string>, std::optional<::React::JSValueArray>)> callback) noexcept;
 
 	// stat
 	REACT_METHOD(stat)
 	winrt::fire_and_forget stat(
 		std::string path,
-		std::function<void(::React::JSValueArray)> callback) noexcept;
+		std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
 	// df
 	REACT_METHOD(df)
 	winrt::fire_and_forget df(
-		std::function<void(::React::JSValueArray)> callback) noexcept;
+		std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
 	REACT_METHOD(slice)
 	winrt::fire_and_forget slice(

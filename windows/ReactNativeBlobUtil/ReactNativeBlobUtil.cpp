@@ -1195,7 +1195,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
     std::string path,
     std::string encoding,
     bool appendData,
-    std::function<void(::React::JSValueArray)> callback) noexcept
+    std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>)> callback) noexcept
 {
     try
     {
@@ -1224,12 +1224,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
         }
         else
         {
-            // Return error as JSValueArray
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back("Invalid encoding: " + encoding);
-            errorArray.push_back("");
-            callback(std::move(errorArray));
+            callback("EUNSPECIFIED", "Invalid encoding: " + encoding, std::nullopt);
             co_return;
         }
 
@@ -1241,36 +1236,25 @@ winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
         ReactNativeBlobUtilStream streamInstance{ stream, encodingOption };
         m_streamMap.try_emplace(streamId, streamInstance);
 
-        // Return success as JSValueArray
-        ::React::JSValueArray resultArray;
-        resultArray.push_back(""); // no error
-        resultArray.push_back(""); // no message
-        resultArray.push_back(streamId);
-        callback(std::move(resultArray));
+        // (errCode, errMsg, streamId), the shape fs.js destructures.
+        callback(std::nullopt, std::nullopt, streamId);
     }
     catch (const winrt::hresult_error& ex)
     {
-        ::React::JSValueArray errorArray;
-        errorArray.push_back("EUNSPECIFIED");
-        errorArray.push_back("Failed to create write stream at path '" + path + "'; " + winrt::to_string(ex.message()));
-        errorArray.push_back("");
-        callback(std::move(errorArray));
+        callback("EUNSPECIFIED", "Failed to create write stream at path '" + path + "'; " + winrt::to_string(ex.message()), std::nullopt);
     }
 }
 
 void ReactNativeBlobUtil::writeArrayChunk(
     std::string streamId,
     ::React::JSValueArray&& dataArray,
-    std::function<void(::React::JSValueArray const&)> const& callback) noexcept
+    std::function<void(std::optional<std::string>)> const& callback) noexcept
 {
     try
     {
         auto streamIt = m_streamMap.find(streamId);
         if (streamIt == m_streamMap.end()) {
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back("Stream not found for id: " + streamId);
-            callback(errorArray);
+            callback("Stream not found for id: " + streamId);
             return;
         }
         auto& stream = streamIt->second;
@@ -1283,31 +1267,24 @@ void ReactNativeBlobUtil::writeArrayChunk(
         Streams::IBuffer buffer{ CryptographicBuffer::CreateFromByteArray(data) };
 
         stream.streamInstance.WriteAsync(buffer).get(); // Calls it synchronously
-        ::React::JSValueArray resultArray;
-        callback(resultArray); // Success: empty array
+        callback(std::nullopt);
     }
     catch (const winrt::hresult_error& ex)
     {
-        ::React::JSValueArray errorArray;
-        errorArray.push_back("EUNSPECIFIED");
-        errorArray.push_back(winrt::to_string(ex.message()));
-        callback(errorArray);
+        callback(winrt::to_string(ex.message()));
     }
 }
 
 void ReactNativeBlobUtil::writeChunk(
     std::string streamId,
     std::string data,
-    std::function<void(::React::JSValueArray const&)> const& callback) noexcept
+    std::function<void(std::optional<std::string>)> const& callback) noexcept
 {
     try
     {
         auto streamIt = m_streamMap.find(streamId);
         if (streamIt == m_streamMap.end()) {
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back("Stream not found for id: " + streamId);
-            callback(errorArray);
+            callback("Stream not found for id: " + streamId);
             return;
         }
         auto& stream = streamIt->second;
@@ -1323,22 +1300,19 @@ void ReactNativeBlobUtil::writeChunk(
         }
         else
         {
-            ::React::JSValueArray errorArray;
-            errorArray.push_back("EUNSPECIFIED");
-            errorArray.push_back("Invalid encoding type");
-            callback(errorArray);
+            callback("Invalid encoding type");
             return;
         }
         stream.streamInstance.WriteAsync(buffer).get(); // Synchronous write
-        ::React::JSValueArray resultArray;
-        callback(resultArray); // Success: empty array
+
+        // (err) alone, the shape the write stream's JS wrapper reads. An empty
+        // array here marshalled as one truthy argument, so a successful write
+        // rejected.
+        callback(std::nullopt);
     }
     catch (const winrt::hresult_error& ex)
     {
-        ::React::JSValueArray errorArray;
-        errorArray.push_back("EUNSPECIFIED");
-        errorArray.push_back(winrt::to_string(ex.message()));
-        callback(errorArray);
+        callback(winrt::to_string(ex.message()));
     }
 }
 
@@ -1406,7 +1380,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::unlink(
    
 }
 
-winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray paths, std::function<void(::React::JSValueArray)> callback) noexcept
+winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray paths, std::function<void(std::optional<std::string>)> callback) noexcept
 {
     try
     {
@@ -1421,23 +1395,15 @@ winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray 
             }
         }
 
-        ::React::JSValueArray resultArray;
-        resultArray.push_back("SUCCESS");
-        callback(std::move(resultArray));
+        callback(std::nullopt);
     }
     catch (const winrt::hresult_error& ex)
     {
-        ::React::JSValueArray errorArray;
-        errorArray.push_back("ERROR");
-        errorArray.push_back(winrt::to_string(ex.message()));
-        callback(std::move(errorArray));
+        callback(winrt::to_string(ex.message()));
     }
     catch (...)
     {
-        ::React::JSValueArray errorArray;
-        errorArray.push_back("ERROR");
-        errorArray.push_back("Unknown error in removeSession");
-        callback(std::move(errorArray));
+        callback("Unknown error in removeSession");
     }
 }
 
@@ -1477,7 +1443,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::ls(
 
 winrt::fire_and_forget ReactNativeBlobUtil::stat(
     std::string path,
-    std::function<void(::React::JSValueArray)> callback) noexcept
+    std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept
 {
     try
     {
@@ -1504,37 +1470,24 @@ winrt::fire_and_forget ReactNativeBlobUtil::stat(
         fileInfo["lastModified"] = winrt::clock::to_time_t(properties.DateModified());;
         fileInfo["type"] = isDirectory ? "directory" : "file";
 
-        ::React::JSValueArray result;
-        result.push_back(std::move(fileInfo));
-        callback(std::move(result));
+        callback(std::nullopt, ::React::JSValue{ std::move(fileInfo) });
     }
     catch (const hresult_error& ex)
     {
-        ::React::JSValueArray errorArray;
-        ::React::JSValueObject error;
-        error["error"] = winrt::to_string(ex.message());
-        errorArray.push_back(std::move(error));
-        callback(std::move(errorArray));
+        callback(winrt::to_string(ex.message()), std::nullopt);
     }
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::lstat(
     std::string path,
-    std::function<void(::React::JSValueArray)> callback) noexcept
+    std::function<void(std::optional<std::string>, std::optional<::React::JSValueArray>)> callback) noexcept
 {
     try
     {
-        std::filesystem::path directory(path);
-        directory.make_preferred();
-        StorageFolder targetDirectory{ co_await StorageFolder::GetFolderFromPathAsync(directory.c_str()) };
+        std::filesystem::path target(path);
+        target.make_preferred();
 
-        winrt::Microsoft::ReactNative::JSValueArray resultsArray;
-
-        auto items{ co_await targetDirectory.GetItemsAsync() };
-        for (auto item : items)
-        {
-            auto properties{ co_await item.GetBasicPropertiesAsync() };
-
+        auto describe = [](auto const& item, auto const& properties) {
             winrt::Microsoft::ReactNative::JSValueObject itemInfo;
 
             itemInfo["filename"] = to_string(item.Name());
@@ -1543,23 +1496,48 @@ winrt::fire_and_forget ReactNativeBlobUtil::lstat(
             itemInfo["type"] = item.IsOfType(StorageItemTypes::Folder) ? "directory" : "file";
             itemInfo["lastModified"] = properties.DateModified().time_since_epoch() / std::chrono::seconds(1) - UNIX_EPOCH_IN_WINRT_SECONDS;
 
-            resultsArray.push_back(std::move(itemInfo));
+            return itemInfo;
+        };
+
+        winrt::Microsoft::ReactNative::JSValueArray resultsArray;
+
+        // A directory lists its children, a file lists itself. That is the
+        // contract Android's lstat follows, and what the e2e scenario expects
+        // when it lstats the file it has just stat'ed; opening every path as a
+        // folder failed on any file.
+        if (std::filesystem::is_directory(target))
+        {
+            StorageFolder targetDirectory{ co_await StorageFolder::GetFolderFromPathAsync(target.c_str()) };
+
+            auto items{ co_await targetDirectory.GetItemsAsync() };
+            for (auto item : items)
+            {
+                auto properties{ co_await item.GetBasicPropertiesAsync() };
+                resultsArray.push_back(describe(item, properties));
+            }
+        }
+        else
+        {
+            StorageFile file{ co_await StorageFile::GetFileFromPathAsync(target.c_str()) };
+            auto properties{ co_await file.GetBasicPropertiesAsync() };
+            resultsArray.push_back(describe(file, properties));
         }
 
-        callback(std::move(resultsArray));
+        callback(std::nullopt, std::move(resultsArray));
     }
     catch (...)
     {
-        // "Failed to read directory."
-        winrt::Microsoft::ReactNative::JSValueArray emptyArray;
-        callback(std::move(emptyArray));
+        // A path that cannot be read is a failure, not an empty directory:
+        // Android reports the same, and returning an empty list made
+        // fs.lstat() look as though the path existed and held nothing.
+        callback("failed to lstat path `" + path + "` because it does not exist or it is not a folder", std::nullopt);
     }
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::cp(
     std::string src,
     std::string dest,
-    std::function<void(::React::JSValueArray)> callback) noexcept
+    std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept
 {
     try
     {
@@ -1575,20 +1553,18 @@ winrt::fire_and_forget ReactNativeBlobUtil::cp(
         StorageFile file = co_await srcFolder.GetFileAsync(srcFileName);
         co_await file.CopyAsync(destFolder, destFileName, NameCollisionOption::FailIfExists);
 
-        ::React::JSValueArray success{};
-        callback(std::move(success));
+        callback(std::nullopt, true);
     }
     catch (const winrt::hresult_error& ex)
     {
-        ::React::JSValueArray error{ winrt::to_string(ex.message()) };
-        callback(std::move(error));
+        callback(winrt::to_string(ex.message()), std::nullopt);
     }
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::mv(
     std::string src,
     std::string dest,
-    std::function<void(::React::JSValueArray)> callback) noexcept
+    std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept
 {
     try
     {
@@ -1604,13 +1580,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::mv(
         StorageFile file = co_await srcFolder.GetFileAsync(srcFileName);
         co_await file.MoveAsync(destFolder, destFileName, NameCollisionOption::ReplaceExisting);
 
-        ::React::JSValueArray success{}; // Success: empty array
-        callback(std::move(success));
+        callback(std::nullopt, true);
     }
     catch (const winrt::hresult_error& ex)
     {
-        ::React::JSValueArray error{ winrt::to_string(ex.message()) };
-        callback(std::move(error));
+        callback(winrt::to_string(ex.message()), std::nullopt);
     }
 }
 
@@ -1991,7 +1965,7 @@ void ReactNativeBlobUtil::excludeFromBackupKey(
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::df(
-    std::function<void(::React::JSValueArray)> callback) noexcept
+    std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept
 { 
         try
         {
@@ -2002,17 +1976,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::df(
             result["free"] = winrt::unbox_value<uint64_t>(properties.Lookup(L"System.FreeSpace"));
             result["total"] = winrt::unbox_value<uint64_t>(properties.Lookup(L"System.Capacity"));
 
-            ::React::JSValueArray arr;
-            arr.push_back(::React::JSValueObject(std::move(result)));
-            callback(std::move(arr));
+            callback(std::nullopt, ::React::JSValue{ std::move(result) });
         }
         catch (...)
         {
-            ::React::JSValueArray arr;
-            winrt::Microsoft::ReactNative::JSValueObject error;
-            error["error"] = "Failed to get storage usage.";
-            arr.push_back(::React::JSValueObject(std::move(error)));
-            callback(std::move(arr));
+            callback("Failed to get storage usage.", std::nullopt);
         }
    
 }

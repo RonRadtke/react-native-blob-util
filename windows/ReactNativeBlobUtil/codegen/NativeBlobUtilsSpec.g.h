@@ -55,17 +55,17 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
       Method<void(std::string, Callback<bool, bool>) noexcept>{6, L"exists"},
       Method<void(std::string, std::string, std::string, bool, bool, Promise<double>) noexcept>{7, L"writeFile"},
       Method<void(std::string, ::React::JSValueArray, bool, Promise<double>) noexcept>{8, L"writeFileArray"},
-      Method<void(std::string, std::string, bool, Callback<::React::JSValueArray>) noexcept>{9, L"writeStream"},
-      Method<void(std::string, ::React::JSValueArray, Callback<::React::JSValueArray>) noexcept>{10, L"writeArrayChunk"},
-      Method<void(std::string, std::string, Callback<::React::JSValueArray>) noexcept>{11, L"writeChunk"},
+      Method<void(std::string, std::string, bool, Callback<std::optional<std::string>, std::optional<std::string>, std::optional<std::string>>) noexcept>{9, L"writeStream"},
+      Method<void(std::string, ::React::JSValueArray, Callback<std::optional<std::string>>) noexcept>{10, L"writeArrayChunk"},
+      Method<void(std::string, std::string, Callback<std::optional<std::string>>) noexcept>{11, L"writeChunk"},
       Method<void(std::string, Callback<::React::JSValueArray>) noexcept>{12, L"closeStream"},
       Method<void(std::string, Callback<std::optional<std::string>, bool>) noexcept>{13, L"unlink"},
-      Method<void(::React::JSValueArray, Callback<::React::JSValueArray>) noexcept>{14, L"removeSession"},
+      Method<void(::React::JSValueArray, Callback<std::optional<std::string>>) noexcept>{14, L"removeSession"},
       Method<void(std::string, Promise<::React::JSValueArray>) noexcept>{15, L"ls"},
-      Method<void(std::string, Callback<::React::JSValueArray>) noexcept>{16, L"stat"},
-      Method<void(std::string, Callback<::React::JSValueArray>) noexcept>{17, L"lstat"},
-      Method<void(std::string, std::string, Callback<::React::JSValueArray>) noexcept>{18, L"cp"},
-      Method<void(std::string, std::string, Callback<::React::JSValueArray>) noexcept>{19, L"mv"},
+      Method<void(std::string, Callback<std::optional<std::string>, std::optional<::React::JSValue>>) noexcept>{16, L"stat"},
+      Method<void(std::string, Callback<std::optional<std::string>, std::optional<::React::JSValueArray>>) noexcept>{17, L"lstat"},
+      Method<void(std::string, std::string, Callback<std::optional<std::string>, std::optional<bool>>) noexcept>{18, L"cp"},
+      Method<void(std::string, std::string, Callback<std::optional<std::string>, std::optional<bool>>) noexcept>{19, L"mv"},
       Method<void(std::string, Promise<bool>) noexcept>{20, L"mkdir"},
       Method<void(std::string, std::string, bool, Promise<::React::JSValueArray>) noexcept>{21, L"readFile"},
       Method<void(std::string, std::string, Promise<std::string>) noexcept>{22, L"hash"},
@@ -79,7 +79,7 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
       Method<void(std::string, std::string, Promise<::React::JSValueArray>) noexcept>{30, L"presentOpenInMenu"},
       Method<void(std::string, std::string, Promise<::React::JSValueArray>) noexcept>{31, L"presentPreview"},
       Method<void(std::string, Promise<::React::JSValueArray>) noexcept>{32, L"excludeFromBackupKey"},
-      Method<void(Callback<::React::JSValueArray>) noexcept>{33, L"df"},
+      Method<void(Callback<std::optional<std::string>, std::optional<::React::JSValue>>) noexcept>{33, L"df"},
       Method<void(Callback<std::string>) noexcept>{34, L"emitExpiredEvent"},
       Method<void(std::string, std::string, std::string, Promise<void>) noexcept>{35, L"actionViewIntent"},
       Method<void(::React::JSValue, Promise<void>) noexcept>{36, L"addCompleteDownload"},
@@ -155,18 +155,18 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
     REACT_SHOW_METHOD_SPEC_ERRORS(
           9,
           "writeStream",
-          "    REACT_METHOD(writeStream) void writeStream(std::string path, std::string withEncoding, bool appendData, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(writeStream) static void writeStream(std::string path, std::string withEncoding, bool appendData, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(writeStream) void writeStream(std::string path, std::string withEncoding, bool appendData, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(writeStream) static void writeStream(std::string path, std::string withEncoding, bool appendData, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           10,
           "writeArrayChunk",
-          "    REACT_METHOD(writeArrayChunk) void writeArrayChunk(std::string streamId, ::React::JSValueArray && withArray, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(writeArrayChunk) static void writeArrayChunk(std::string streamId, ::React::JSValueArray && withArray, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(writeArrayChunk) void writeArrayChunk(std::string streamId, ::React::JSValueArray && withArray, std::function<void(std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(writeArrayChunk) static void writeArrayChunk(std::string streamId, ::React::JSValueArray && withArray, std::function<void(std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           11,
           "writeChunk",
-          "    REACT_METHOD(writeChunk) void writeChunk(std::string streamId, std::string withData, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(writeChunk) static void writeChunk(std::string streamId, std::string withData, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(writeChunk) void writeChunk(std::string streamId, std::string withData, std::function<void(std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(writeChunk) static void writeChunk(std::string streamId, std::string withData, std::function<void(std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           12,
           "closeStream",
@@ -180,8 +180,8 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
     REACT_SHOW_METHOD_SPEC_ERRORS(
           14,
           "removeSession",
-          "    REACT_METHOD(removeSession) void removeSession(::React::JSValueArray && paths, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(removeSession) static void removeSession(::React::JSValueArray && paths, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(removeSession) void removeSession(::React::JSValueArray && paths, std::function<void(std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(removeSession) static void removeSession(::React::JSValueArray && paths, std::function<void(std::optional<std::string>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           15,
           "ls",
@@ -190,23 +190,23 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
     REACT_SHOW_METHOD_SPEC_ERRORS(
           16,
           "stat",
-          "    REACT_METHOD(stat) void stat(std::string target, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(stat) static void stat(std::string target, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(stat) void stat(std::string target, std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(stat) static void stat(std::string target, std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           17,
           "lstat",
-          "    REACT_METHOD(lstat) void lstat(std::string path, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(lstat) static void lstat(std::string path, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(lstat) void lstat(std::string path, std::function<void(std::optional<std::string>, std::optional<::React::JSValueArray>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(lstat) static void lstat(std::string path, std::function<void(std::optional<std::string>, std::optional<::React::JSValueArray>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           18,
           "cp",
-          "    REACT_METHOD(cp) void cp(std::string src, std::string dest, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(cp) static void cp(std::string src, std::string dest, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(cp) void cp(std::string src, std::string dest, std::function<void(std::optional<std::string>, std::optional<bool>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(cp) static void cp(std::string src, std::string dest, std::function<void(std::optional<std::string>, std::optional<bool>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           19,
           "mv",
-          "    REACT_METHOD(mv) void mv(std::string path, std::string dest, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(mv) static void mv(std::string path, std::string dest, std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(mv) void mv(std::string path, std::string dest, std::function<void(std::optional<std::string>, std::optional<bool>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(mv) static void mv(std::string path, std::string dest, std::function<void(std::optional<std::string>, std::optional<bool>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           20,
           "mkdir",
@@ -275,8 +275,8 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
     REACT_SHOW_METHOD_SPEC_ERRORS(
           33,
           "df",
-          "    REACT_METHOD(df) void df(std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n"
-          "    REACT_METHOD(df) static void df(std::function<void(::React::JSValueArray const &)> const & callback) noexcept { /* implementation */ }\n");
+          "    REACT_METHOD(df) void df(std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(df) static void df(std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           34,
           "emitExpiredEvent",

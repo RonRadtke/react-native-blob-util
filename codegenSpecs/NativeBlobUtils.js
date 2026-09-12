@@ -47,20 +47,25 @@ export interface Spec extends TurboModule {
     +exists: (path: string, callback: (exists: boolean, isDirectory: boolean) => void) => void;
     +writeFile: (path: string, encoding: string, data: string, transformFile: boolean, append: boolean) => Promise<number>;
     +writeFileArray: (path: string, data: Array<any>, append: boolean) => Promise<number>;
-    +writeStream: (path: string, withEncoding: string, appendData: boolean, callback: (value: Array<any>) => void) => void;
-    +writeArrayChunk: (streamId: string, withArray: Array<any>, callback: (value: Array<any>) => void) => void;
-    +writeChunk: (streamId: string, withData: string, callback: (value: Array<any>) => void) => void;
+    // The same single-array mistake as above, in the methods that report a
+    // result. A JSValueArray marshals as one JS argument, so each of these put
+    // its whole payload in the first parameter - the error slot for most of
+    // them - and the JS wrapper rejected on success or read nonsense. The
+    // shapes below are the ones Android invokes and fs.js destructures.
+    +writeStream: (path: string, withEncoding: string, appendData: boolean, callback: (errCode: ?string, errMsg: ?string, streamId: ?string) => void) => void;
+    +writeArrayChunk: (streamId: string, withArray: Array<any>, callback: (err: ?string) => void) => void;
+    +writeChunk: (streamId: string, withData: string, callback: (err: ?string) => void) => void;
     +closeStream: (streamId: string, callback: (value: Array<any>) => void) => void;
     // (err, result), matching Android's callback.invoke(null, true). Declared as
     // an array it arrived as a single argument, so fs.unlink() read [null, true]
     // - truthy - and rejected every time the delete had succeeded.
     +unlink: (path: string, callback: (err: ?string, result: boolean) => void) => void;
-    +removeSession: (paths: Array<any>, callback: (value: Array<any>) => void) => void;
+    +removeSession: (paths: Array<any>, callback: (err: ?string) => void) => void;
     +ls: (path: string) => Promise<Array<any>>;
-    +stat: (target: string, callback: (value: Array<any>) => void) => void;
-    +lstat: (path: string, callback: (value: Array<any>) => void) => void;
-    +cp: (src: string, dest: string, callback: (value: Array<any>) => void) => void;
-    +mv: (path: string, dest: string, callback: (value: Array<any>) => void) => void;
+    +stat: (target: string, callback: (err: ?string, stat: ?Object) => void) => void;
+    +lstat: (path: string, callback: (err: ?string, stat: ?Array<any>) => void) => void;
+    +cp: (src: string, dest: string, callback: (err: ?string, res: ?boolean) => void) => void;
+    +mv: (path: string, dest: string, callback: (err: ?string, res: ?boolean) => void) => void;
     +mkdir: (path: string) => Promise<boolean>;
     +readFile: (path: string, encoding: string, transformFile: boolean) => Promise<Array<any>>;
     +hash: (path: string, algorithm: string) => Promise<string>;
@@ -74,7 +79,7 @@ export interface Spec extends TurboModule {
     +presentOpenInMenu: (uri: string, scheme: string) => Promise<Array<any>>;
     +presentPreview: (uri: string, scheme: string) => Promise<Array<any>>;
     +excludeFromBackupKey: (url: string) => Promise<Array<any>>;
-    +df: (callback: (value: Array<any>) => void) => void;
+    +df: (callback: (err: ?string, stat: ?Object) => void) => void;
     +emitExpiredEvent: (callback: (value: string) => void) => void; // The callback is not really used here
     // Android Only APIs
     +actionViewIntent: (path: string, mime: string, chooserTitle: string) => Promise<void>;
