@@ -396,6 +396,12 @@ NSMutableDictionary *fileStreams = nil;
         NSData * content = nil;
         if([encoding containsString:@"base64"]) {
             content = [[NSData alloc] initWithBase64EncodedString:data options:0];
+            if(content == nil) {
+                // Say what went wrong. Writing nil silently produced NO with no NSError,
+                // so an unparseable payload was reported as "could not be written;
+                // error: (null)" - which reads as a filesystem fault, not bad input.
+                return reject(@"EINVAL", [NSString stringWithFormat:@"Data for '%@' is not valid base64", path], nil);
+            }
         }
         else if([encoding isEqualToString:@"uri"]) {
             NSNumber* size = [[self class] writeFileFromFile:data toFile:path append:append callback:^(NSString *errMsg, NSNumber *size) {
