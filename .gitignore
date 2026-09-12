@@ -29,6 +29,9 @@ DerivedData
 project.xcworkspace
 /iOS/pods
 Podfile*
+# ...except the e2e app's, which its Xcode project needs to build at all.
+!examples/ReactNativeBlobUtil/ios/Podfile
+!examples/ReactNativeBlobUtil/ios/Podfile.lock
 contents.xcworkspacedata
 
 # packages

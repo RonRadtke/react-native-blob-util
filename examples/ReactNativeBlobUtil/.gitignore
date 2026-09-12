@@ -57,6 +57,9 @@ buck-out/
 
 # CocoaPods
 /ios/Pods/
+/ios/*.xcworkspace
+# Written by `pod install` to record the local node binary.
+/ios/.xcode.env.local
 
 # packages
 windows/packages/

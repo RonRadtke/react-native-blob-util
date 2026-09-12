@@ -1,0 +1,41 @@
+# The e2e app's iOS project is CocoaPods-integrated - the Xcode project links
+# libPods-ReactNativeBlobUtilE2E.a and reads Pods-*.xcconfig - so it cannot be
+# built without this file. It used to be missing from the repository: the root
+# .gitignore carried a blanket `Podfile*` rule from the days when the only
+# Podfiles here belonged to throwaway sample apps, which silently swallowed this
+# one. A fresh clone could therefore run the Android and Windows e2e suites but
+# not the iOS one.
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'ReactNativeBlobUtilE2E' do
+  # Picks up react-native-blob-util through the `file:../../` dependency in
+  # package.json, so the suite exercises the working tree rather than a
+  # published release.
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false
+    )
+  end
+end

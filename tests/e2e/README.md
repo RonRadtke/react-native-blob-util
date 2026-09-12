@@ -59,10 +59,29 @@ E2E_REBUILD_ANDROID_APP=1 npm run e2e:android
 
 ### iOS
 
-Set one of:
+Unlike Android, the runner does not build the iOS app for you. Build it once:
 
-- `E2E_APP_PATH` (or `E2E_APP_PATH_IOS`) to a `.app`/`.ipa`
-- `IOS_BUNDLE_ID` for an installed simulator app
+```sh
+cd examples/ReactNativeBlobUtil
+npm install
+cd ios && pod install
+xcodebuild -workspace ReactNativeBlobUtilE2E.xcworkspace \
+  -scheme ReactNativeBlobUtilE2E -configuration Debug -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath build build
+```
+
+The `Podfile` is checked in - the Xcode project links `libPods-...` and reads the
+generated `.xcconfig` files, so `pod install` is not optional. Then set one of:
+
+- `E2E_APP_PATH` (or `E2E_APP_PATH_IOS`) to the resulting
+  `ios/build/Build/Products/Debug-iphonesimulator/ReactNativeBlobUtilE2E.app`
+- `IOS_BUNDLE_ID` for an app already installed on the simulator
+
+Point the run at a specific simulator with `IOS_UDID` (from `xcrun simctl list
+devices`) or `IOS_PLATFORM_VERSION`. Without one of them the driver matches on
+`DEVICE_NAME` alone, and when no simulator of that name exists on the newest
+installed runtime it creates a throwaway one per session - a fresh boot and a
+WebDriverAgent rebuild every run, several minutes each time.
 
 ### Windows
 
@@ -171,6 +190,7 @@ and runs this same suite against provided app artifacts (`android_app`, `ios_app
 - `E2E_APP_PATH_ANDROID`, `E2E_APP_PATH_IOS`, `E2E_APP_PATH_WINDOWS`: per-platform app paths
 - `ANDROID_APP_PACKAGE`, `ANDROID_APP_ACTIVITY`
 - `IOS_BUNDLE_ID`
+- `IOS_UDID`, `IOS_PLATFORM_VERSION`: pin the iOS run to one simulator
 - `WINDOWS_APP_ID`, `WINDOWS_APP_PATH`
 - `DEVICE_NAME`: generic device name
 - `DEVICE_NAME_ANDROID`, `DEVICE_NAME_IOS`, `DEVICE_NAME_WINDOWS`
