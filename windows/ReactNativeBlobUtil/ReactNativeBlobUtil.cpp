@@ -437,6 +437,82 @@ namespace
             deferral.Complete();
         });
     }
+
+    // Where a response goes when the caller asked for a file. An explicit path
+    // wins; otherwise the name matches Android's (ReactNativeBlobUtilTmp_<taskId>
+    // plus appendExt), under the directory fs.dirs reports as CacheDir so JS can
+    // stat, session and unlink it.
+    std::string ResponseFilePath(const ReactNativeBlobUtilConfig& config, const std::string& taskId)
+    {
+        if (!config.path.empty())
+        {
+            return config.path;
+        }
+
+        std::string path = winrt::to_string(
+            winrt::Windows::Storage::ApplicationData::Current().LocalCacheFolder().Path())
+            + "\\ReactNativeBlobUtilTmp_" + taskId;
+        if (!config.appendExt.empty())
+        {
+            path += "." + config.appendExt;
+        }
+
+        return path;
+    }
+
+    // Hands the response to fetch.js in the shape it expects: a file reference
+    // when the caller asked for one through fileCache or path - the same
+    // contract as Android and iOS, so res.path() resolves - and the decoded text
+    // otherwise.
+    winrt::Windows::Foundation::IAsyncAction DeliverResponseAsync(
+        winrt::Windows::Web::Http::HttpResponseMessage response,
+        ReactNativeBlobUtilConfig config,
+        std::string taskId,
+        std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback)
+    {
+        if (!config.fileCache && config.path.empty())
+        {
+            std::string responseBody;
+            if (response.Content() != nullptr)
+            {
+                responseBody = winrt::to_string(co_await response.Content().ReadAsStringAsync());
+            }
+
+            // (err, rawType, data, responseInfo) as four arguments - the shape
+            // fetch.js destructures and the one Android already sends. The body is
+            // read as text here, so it is always the utf8 form.
+            callback(std::nullopt, "utf8", responseBody, std::nullopt);
+            co_return;
+        }
+
+        const std::string destination = ResponseFilePath(config, taskId);
+        const std::filesystem::path path{ destination };
+
+        winrt::Windows::Storage::Streams::IBuffer buffer{ nullptr };
+        if (response.Content() != nullptr)
+        {
+            buffer = co_await response.Content().ReadAsBufferAsync();
+        }
+
+        // Android and iOS write to a path whose directory does not exist yet -
+        // see the issue-453 case in the network scenario - so Windows creates
+        // the missing parents rather than failing to open them.
+        std::error_code directoryError;
+        std::filesystem::create_directories(path.parent_path(), directoryError);
+
+        const auto folder = co_await winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(
+            path.parent_path().wstring());
+        const auto file = co_await folder.CreateFileAsync(
+            path.filename().wstring(),
+            winrt::Windows::Storage::CreationCollisionOption::ReplaceExisting);
+
+        if (buffer != nullptr)
+        {
+            co_await winrt::Windows::Storage::FileIO::WriteBufferAsync(file, buffer);
+        }
+
+        callback(std::nullopt, "path", destination, std::nullopt);
+    }
 }
 
 namespace winrt::ReactNativeBlobUtil
@@ -588,16 +664,7 @@ namespace winrt::ReactNativeBlobUtil
             winrt::Windows::Web::Http::HttpClient httpClient{ filter };
             auto response = co_await httpClient.SendRequestAsync(requestMessage);
 
-            std::string responseBody;
-            if (response.Content() != nullptr)
-            {
-                responseBody = winrt::to_string(co_await response.Content().ReadAsStringAsync());
-            }
-
-            // (err, rawType, data, responseInfo) as four arguments - the shape
-            // fetch.js destructures and the one Android already sends. The body is
-            // read as text above, so it is always the utf8 form.
-            callback(std::nullopt, "utf8", responseBody, std::nullopt);
+            co_await DeliverResponseAsync(response, config, taskId, callback);
         }
         catch (const winrt::hresult_error& ex)
         {
@@ -652,8 +719,10 @@ namespace winrt::ReactNativeBlobUtil
             {
                 httpMethod = winrt::Windows::Web::Http::HttpMethod::Get();
             }
-            else
+            else if (method != "POST" && method != "post")
             {
+                // POST is the default set above, and it reached this branch as
+                // unsupported - so every upload through fetchBlob failed here.
                 callback("Method not supported", std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
@@ -709,16 +778,7 @@ namespace winrt::ReactNativeBlobUtil
             // Send the request
             auto response = co_await httpClient.SendRequestAsync(requestMessage);
 
-            std::string responseBody;
-            if (response.Content() != nullptr)
-            {
-                responseBody = winrt::to_string(co_await response.Content().ReadAsStringAsync());
-            }
-
-            // (err, rawType, data, responseInfo) as four arguments - the shape
-            // fetch.js destructures and the one Android already sends. The body is
-            // read as text above, so it is always the utf8 form.
-            callback(std::nullopt, "utf8", responseBody, std::nullopt);
+            co_await DeliverResponseAsync(response, config, taskId, callback);
         }
         catch (const winrt::hresult_error& ex)
         {
