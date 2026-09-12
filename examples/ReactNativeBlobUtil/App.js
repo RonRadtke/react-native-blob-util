@@ -45,6 +45,12 @@ const e2eTestId = (id) => ({testID: id, nativeID: id, accessibilityLabel: id, ac
 
 const normalizeBaseUrl = (value) => (value || '').trim().replace(/\/+$/, '');
 
+// 'foo' is three characters, and three characters are not a valid base64 payload.
+// Android's decoder accepts it anyway, iOS' initWithBase64EncodedString: returns
+// nil, and the write then failed with "could not be written; error: (null)" - the
+// test data was wrong, not the write. 'Zm9v' is "foo", as createFile already uses.
+const payloadFor = (encoding) => (encoding === 'base64' ? 'Zm9v' : 'foo');
+
 const E2EButton = ({id, title, onPress, color}) => (
     <Pressable
         onPress={onPress}
@@ -394,7 +400,7 @@ const App: () => React$Node = () => {
             }
             else {
                 ReactNativeBlobUtil.fs
-                    .writeFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, 'foo', writeEncodeParam)
+                    .writeFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, payloadFor(writeEncodeParam), writeEncodeParam)
                     .then(() => notify('writeFile', writeEncodeParam))
                     .catch(notifyError);
             }
@@ -422,7 +428,7 @@ const App: () => React$Node = () => {
             }
             else {
                 ReactNativeBlobUtil.fs
-                    .appendFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, 'foo', writeEncodeParam)
+                    .appendFile(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/' + writeParam, payloadFor(writeEncodeParam), writeEncodeParam)
                     .then(() => notify('appendFile', writeEncodeParam))
                     .catch(notifyError);
             }
@@ -546,13 +552,20 @@ const App: () => React$Node = () => {
                 });
 
                 stream.onEnd(() => {
+                    // The end marker goes first. Only the newest entry reaches the
+                    // page source - iOS collapses the log view behind its
+                    // accessibility label, so the harness reads
+                    // `e2e-last-log-output:<entry>` - and both of these land in one
+                    // React batch, so logging the marker afterwards overwrote the
+                    // result before any frame carried it and the scenario could
+                    // never see "readStream: length:".
+                    appendLog('readStream end');
                     if (sawData) {
                         notify('readStream', `length: ${totalLength}`);
                     }
                     else {
                         notify('readStream', 'no data emitted');
                     }
-                    appendLog('readStream end');
                 });
 
                 stream.open();
