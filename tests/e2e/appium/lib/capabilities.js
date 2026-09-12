@@ -35,6 +35,18 @@ const buildMobileCaps = (platform) => {
         return caps;
     }
 
+    // Without one of these the driver matches only on deviceName, and when no
+    // simulator of that name exists on the newest installed runtime it creates a
+    // throwaway one per session - a fresh boot and a WebDriverAgent rebuild every
+    // run, and the simulator is deleted afterwards. Naming an existing device
+    // keeps both caches warm.
+    if (process.env.IOS_UDID) {
+        caps['appium:udid'] = process.env.IOS_UDID;
+    }
+    if (process.env.IOS_PLATFORM_VERSION) {
+        caps['appium:platformVersion'] = process.env.IOS_PLATFORM_VERSION;
+    }
+
     if (process.env.IOS_BUNDLE_ID) {
         caps['appium:bundleId'] = process.env.IOS_BUNDLE_ID;
     }
