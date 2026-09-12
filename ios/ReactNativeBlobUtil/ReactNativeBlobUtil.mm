@@ -582,16 +582,21 @@ RCT_EXPORT_METHOD(lstat:(NSString *)path callback:(RCTResponseSenderBlock) callb
         return ;
     }
     NSError * error = nil;
-    NSArray * files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:path error:&error];
-
     NSMutableArray * res = [[NSMutableArray alloc] init];
+
     if(isDir == YES) {
+        NSArray * files = [fm contentsOfDirectoryAtPath:path error:&error];
         for(NSString * p in files) {
             NSString * filePath = [NSString stringWithFormat:@"%@/%@", path, p];
             [res addObject:[ReactNativeBlobUtilFS stat:filePath error:&error]];
         }
     }
     else {
+        // Only a directory is enumerated. This used to call
+        // contentsOfDirectoryAtPath: before looking at isDir, and on a regular file
+        // that call fails and fills in `error` - so the check below reported the
+        // whole lstat as failed even though the file's own stat had succeeded, and
+        // fs.lstat() rejected for every file path on iOS while Android resolved.
         [res addObject:[ReactNativeBlobUtilFS stat:path error:&error]];
     }
 
