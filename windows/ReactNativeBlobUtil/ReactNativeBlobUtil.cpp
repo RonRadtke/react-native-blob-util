@@ -438,6 +438,30 @@ namespace
         });
     }
 
+    // A malformed URL used to take the whole process down - a fast-fail in
+    // ucrtbase - rather than reporting an error, so the URL is parsed here,
+    // before anything else, and a bad one is reported through the callback like
+    // any other failure. A URL with no host counts as bad: that is what a
+    // mistyped "//" leaves behind, as in "http:--127.0.0.1:19076".
+    bool TryParseRequestUri(const std::string& url, winrt::Windows::Foundation::Uri& uri)
+    {
+        try
+        {
+            winrt::Windows::Foundation::Uri parsed{ winrt::to_hstring(url) };
+            if (parsed.Host().empty())
+            {
+                return false;
+            }
+
+            uri = parsed;
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
     // Where a response goes when the caller asked for a file. An explicit path
     // wins; otherwise the name matches Android's (ReactNativeBlobUtilTmp_<taskId>
     // plus appendExt), under the directory fs.dirs reports as CacheDir so JS can
@@ -549,6 +573,20 @@ namespace winrt::ReactNativeBlobUtil
     {
         try
         {
+            // Off the caller's thread before anything else. Reporting a failure
+            // through the callback while still on it - which every check below
+            // does, since none of them has suspended yet - took the whole process
+            // down with a fast-fail instead of surfacing the error, while the same
+            // callback after a suspension reports normally.
+            co_await winrt::resume_background();
+
+            winrt::Windows::Foundation::Uri requestUri{ nullptr };
+            if (!TryParseRequestUri(url, requestUri))
+            {
+                callback("Invalid URL: " + url, std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
+
             winrt::hstring boundary{ L"-----" };
             winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter filter;
             ReactNativeBlobUtilConfig config{ options };
@@ -577,7 +615,7 @@ namespace winrt::ReactNativeBlobUtil
                 co_return;
             }
 
-            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethod, winrt::Windows::Foundation::Uri{ winrt::to_hstring(url) } };
+            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethod, requestUri };
             winrt::Windows::Web::Http::HttpMultipartFormDataContent requestContent{ boundary };
 
             // Add headers
@@ -692,6 +730,16 @@ namespace winrt::ReactNativeBlobUtil
 
         try
         {
+            // Off the caller's thread before anything else - see fetchBlobForm.
+            co_await winrt::resume_background();
+
+            winrt::Windows::Foundation::Uri requestUri{ nullptr };
+            if (!TryParseRequestUri(url, requestUri))
+            {
+                callback("Invalid URL: " + url, std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
+
             winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter filter;
             ReactNativeBlobUtilConfig config{ optionsRef };
             filter.AllowAutoRedirect(false);
@@ -727,10 +775,7 @@ namespace winrt::ReactNativeBlobUtil
                 co_return;
             }
 
-            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{
-                httpMethod,
-                winrt::Windows::Foundation::Uri{ winrt::to_hstring(url) }
-            };
+            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethod, requestUri };
 
             std::string prefix = "file://";
             bool pathToFile = body.rfind(prefix, 0) == 0;
