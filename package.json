@@ -62,7 +62,7 @@
         "react": "19.2.3",
         "react-native": "0.84.1",
         "react-native-windows": "0.84.0",
-        "webdriverio": "^9.29.0"
+        "webdriverio": "^9.30.0"
     },
     "peerDependencies": {
         "react": "*",
