@@ -1,0 +1,2049 @@
+{
+  "libraryName": "",
+  "modules": {
+    "NativeBlobUtils": {
+      "type": "NativeModule",
+      "aliasMap": {},
+      "enumMap": {},
+      "spec": {
+        "eventEmitters": [],
+        "methods": [
+          {
+            "name": "getConstants",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "ObjectTypeAnnotation",
+                "properties": [
+                  {
+                    "name": "CacheDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "DocumentDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "DownloadDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LibraryDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "MainBundleDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "MovieDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "MusicDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "PictureDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "ApplicationSupportDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "RingtoneDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "SDCardDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "SDCardApplicationDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "DCIMDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LegacyDCIMDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LegacyPictureDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LegacyMusicDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LegacyDownloadDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LegacyMovieDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LegacyRingtoneDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "LegacySDCardDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  }
+                ]
+              },
+              "params": []
+            }
+          },
+          {
+            "name": "fetchBlobForm",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "options",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "taskId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "method",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "url",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "headers",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "form",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "ArrayTypeAnnotation",
+                    "elementType": {
+                      "type": "AnyTypeAnnotation"
+                    }
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "rawType",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "data",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "responseInfo",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "GenericObjectTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "fetchBlob",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "options",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "taskId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "method",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "url",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "headers",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "body",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "rawType",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "data",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "responseInfo",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "GenericObjectTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "createFile",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "data",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "encoding",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "createFileASCII",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "data",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "ArrayTypeAnnotation",
+                    "elementType": {
+                      "type": "AnyTypeAnnotation"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "pathForAppGroup",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "groupName",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "syncPathAppGroup",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "StringTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "groupName",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "exists",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "exists",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "BooleanTypeAnnotation"
+                        }
+                      },
+                      {
+                        "name": "isDirectory",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "BooleanTypeAnnotation"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "writeFile",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "NumberTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "encoding",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "data",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "transformFile",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "BooleanTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "append",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "BooleanTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "writeFileArray",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "NumberTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "data",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "ArrayTypeAnnotation",
+                    "elementType": {
+                      "type": "AnyTypeAnnotation"
+                    }
+                  }
+                },
+                {
+                  "name": "append",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "BooleanTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "writeStream",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "withEncoding",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "appendData",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "BooleanTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "errCode",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "errMsg",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "streamId",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "writeArrayChunk",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "streamId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "withArray",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "ArrayTypeAnnotation",
+                    "elementType": {
+                      "type": "AnyTypeAnnotation"
+                    }
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "writeChunk",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "streamId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "withData",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "closeStream",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "streamId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "value",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "ArrayTypeAnnotation",
+                          "elementType": {
+                            "type": "AnyTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "unlink",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "result",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "BooleanTypeAnnotation"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "removeSession",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "paths",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "ArrayTypeAnnotation",
+                    "elementType": {
+                      "type": "AnyTypeAnnotation"
+                    }
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "ls",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "stat",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "target",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "stat",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "GenericObjectTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "lstat",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "stat",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "ArrayTypeAnnotation",
+                            "elementType": {
+                              "type": "AnyTypeAnnotation"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "cp",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "src",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "dest",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "res",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "BooleanTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "mv",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "dest",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "res",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "BooleanTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "mkdir",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "BooleanTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "readFile",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "encoding",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "transformFile",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "BooleanTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "hash",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "algorithm",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "readStream",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "encoding",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "bufferSize",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "tick",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "streamId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "getEnvironmentDirs",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "value",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "ArrayTypeAnnotation",
+                          "elementType": {
+                            "type": "AnyTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "cancelRequest",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "taskId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "value",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "ArrayTypeAnnotation",
+                          "elementType": {
+                            "type": "AnyTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "enableProgressReport",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "taskId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "interval",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "count",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "enableUploadProgressReport",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "taskId",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "interval",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "count",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "slice",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "src",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "dest",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "start",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "end",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "presentOptionsMenu",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "uri",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "scheme",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "presentOpenInMenu",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "uri",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "scheme",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "presentPreview",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "uri",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "scheme",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "excludeFromBackupKey",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "url",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "df",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "stat",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "GenericObjectTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "emitExpiredEvent",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "value",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "StringTypeAnnotation"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "actionViewIntent",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "mime",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "chooserTitle",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "addCompleteDownload",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "config",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "copyToInternal",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "contentUri",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "destpath",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "copyToMediaStore",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "filedata",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "mt",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "createMediaFile",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "filedata",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "mt",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "getBlob",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "contentUri",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "encoding",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "getContentIntent",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "mime",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "getSDCardDir",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": []
+            }
+          },
+          {
+            "name": "getSDCardApplicationDir",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": []
+            }
+          },
+          {
+            "name": "scanFile",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "pairs",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "ArrayTypeAnnotation",
+                    "elementType": {
+                      "type": "AnyTypeAnnotation"
+                    }
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "value",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "ArrayTypeAnnotation",
+                          "elementType": {
+                            "type": "AnyTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "writeToMediaFile",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "fileUri",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "transformFile",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "BooleanTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "addListener",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "eventName",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "removeListeners",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "count",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "moduleName": "ReactNativeBlobUtil"
+    }
+  }
+}
