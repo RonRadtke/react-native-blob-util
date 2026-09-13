@@ -39,7 +39,7 @@ jobs:
       - run: npm test
 
   android:
-    name: Android build
+    name: Android build and unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -75,6 +75,11 @@ jobs:
       - run: bash ./gradlew assembleDebug --no-daemon
         working-directory: examples/ReactNativeBlobUtil/android
 
+      # The library's JVM tests. npm run test:android wraps the same task, but it
+      # starts gradlew directly and would hit the missing executable bit.
+      - run: bash ./gradlew :react-native-blob-util:testDebugUnitTest --no-daemon
+        working-directory: examples/ReactNativeBlobUtil/android
+
   ios:
     name: iOS build (${{ matrix.linkage }})
     runs-on: macos-15
@@ -82,7 +87,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        linkage: [static-libraries, static-frameworks]
+        linkage: [static-libraries, static-frameworks, dynamic-frameworks]
     steps:
       - uses: actions/checkout@v4
 
@@ -116,6 +121,13 @@ jobs:
         env:
           USE_FRAMEWORKS: static
 
+      - name: pod install (dynamic frameworks)
+        if: matrix.linkage == 'dynamic-frameworks'
+        run: pod install
+        working-directory: examples/ReactNativeBlobUtil/ios
+        env:
+          USE_FRAMEWORKS: dynamic
+
       - name: xcodebuild
         working-directory: examples/ReactNativeBlobUtil/ios
         run: >
@@ -128,3 +140,177 @@ jobs:
           -derivedDataPath build
           CODE_SIGNING_ALLOWED=NO
           build
+
+  # A throwaway app from the newest React Native template, linked to the checkout
+  # the way the example app is. This is the check that keeps apps on releases newer
+  # than react-native-windows supports working.
+  latest-android:
+    name: Newest RN, Android (${{ matrix.kotlin }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # template: the template's gradle.properties as generated, which opts out of
+        # AGP 9's built-in Kotlin. built-in: an app that turned it on, where AGP
+        # provides Kotlin and the library must not apply kotlin-android itself.
+        kotlin: [template, built-in]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: react-native-blob-util
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Create an app from the newest template
+        run: >
+          npx --yes @react-native-community/cli@latest init LatestApp
+          --version latest
+          --pm npm
+          --skip-git-init
+          --install-pods false
+
+      # Linked, not packed: the package leaves out tests/, and the JVM tests read
+      # their fixtures from there.
+      - name: Link the library from the checkout
+        run: npm install ../react-native-blob-util
+        working-directory: LatestApp
+
+      - name: Enable AGP 9 built-in Kotlin
+        if: matrix.kotlin == 'built-in'
+        working-directory: LatestApp/android
+        run: |
+          sed -i 's/^android.builtInKotlin=.*/android.builtInKotlin=true/' gradle.properties
+          grep -q '^android.builtInKotlin=true' gradle.properties || echo 'android.builtInKotlin=true' >> gradle.properties
+          # With built-in Kotlin the app must stop applying the Kotlin plugin too.
+          sed -i '/org.jetbrains.kotlin.android/d' app/build.gradle
+          cat gradle.properties
+
+      - name: Show the versions under test
+        working-directory: LatestApp
+        run: |
+          node -p "'react-native ' + require('react-native/package.json').version"
+          grep -E '^(agp|kotlin) ' node_modules/react-native/gradle/libs.versions.toml
+
+      - name: Build
+        run: bash ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon
+        working-directory: LatestApp/android
+
+      - name: Unit tests
+        run: bash ./gradlew :react-native-blob-util:testDebugUnitTest --no-daemon
+        working-directory: LatestApp/android
+
+  latest-ios:
+    name: Newest RN, iOS
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: react-native-blob-util
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Create an app from the newest template
+        run: >
+          npx --yes @react-native-community/cli@latest init LatestApp
+          --version latest
+          --pm npm
+          --skip-git-init
+          --install-pods false
+
+      - name: Link the library from the checkout
+        run: npm install ../react-native-blob-util
+        working-directory: LatestApp
+
+      - run: pod install
+        working-directory: LatestApp/ios
+
+      - name: xcodebuild
+        working-directory: LatestApp/ios
+        run: >
+          xcodebuild
+          -workspace LatestApp.xcworkspace
+          -scheme LatestApp
+          -configuration Debug
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+  # An Expo app that adds a custom CA through the library's config plugin, then
+  # builds Android and checks that prebuild put the certificate where the native
+  # code looks for it on both platforms.
+  expo-prebuild:
+    name: Expo prebuild with withCustomCACerts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: react-native-blob-util
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Pack the library
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+        working-directory: react-native-blob-util
+
+      - name: Create an Expo app
+        run: npx --yes create-expo-app@latest ExpoApp --template blank --yes
+
+      - name: Install the packed library
+        run: npm install "$RUNNER_TEMP"/react-native-blob-util-*.tgz
+        working-directory: ExpoApp
+
+      - name: Add a certificate and the config plugin
+        working-directory: ExpoApp
+        run: |
+          mkdir -p certs
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=rnbu-expo-prebuild" -keyout "$RUNNER_TEMP/ca.key" -out certs/test_ca.pem
+          node -e "
+            const fs = require('fs');
+            const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            app.expo.plugins = [...(app.expo.plugins || []), ['react-native-blob-util', {customCACerts: [{name: 'test_ca', path: './certs/test_ca.pem'}]}]];
+            app.expo.android = {...app.expo.android, package: 'com.rnbu.expoprebuild'};
+            app.expo.ios = {...app.expo.ios, bundleIdentifier: 'com.rnbu.expoprebuild'};
+            fs.writeFileSync('app.json', JSON.stringify(app, null, 2));
+          "
+
+      - name: Prebuild
+        run: npx expo prebuild --platform all --no-install --clean
+        working-directory: ExpoApp
+
+      # Android gets the certificate as DER under the bare resource name; iOS keeps
+      # the PEM and lists it as a bundle resource.
+      - name: Check the certificate landed in both native projects
+        working-directory: ExpoApp
+        run: |
+          test -s android/app/src/main/res/raw/test_ca
+          test -f ios/certs/test_ca.pem
+          grep -q 'test_ca.pem' ios/*.xcodeproj/project.pbxproj
+
+      - name: Build Android
+        run: bash ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon
+        working-directory: ExpoApp/android
