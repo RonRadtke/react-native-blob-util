@@ -5,6 +5,8 @@ name: CI
 # simulator and take far longer than a build.
 on:
   pull_request:
+    # labeled and unlabeled as well, so adding the `port` label runs the untouched job.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches:
       - master
@@ -37,6 +39,24 @@ jobs:
       # Includes the codegen schema test, which fails if a native method
       # signature in codegenSpecs/ changes.
       - run: npm test
+
+  # The native port must not change the Windows module, the codegen spec or the
+  # JavaScript API. Runs only on pull requests labelled `port`.
+  untouched:
+    name: Port leaves Windows, codegen and the JS package alone
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'port')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: node .github/scripts/check-port-untouched.js "origin/${{ github.base_ref }}"
 
   android:
     name: Android build and unit tests
