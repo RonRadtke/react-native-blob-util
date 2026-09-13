@@ -276,8 +276,19 @@ class ReactNativeBlobUtilBody extends RequestBody {
                 }
                 // base64 embedded file content
                 else {
-                    byte[] b = Base64.decode(data, 0);
-                    os.write(b);
+                    // A field whose data is not valid base64 must not sink the
+                    // whole request. The header above is already written, so
+                    // skipping just the content leaves the part in place with
+                    // an empty body - the same shape the missing-file and
+                    // bad-URI branches leave behind, and the same shape iOS
+                    // produces, where initWithBase64EncodedString: yields nil
+                    // and the append is a no-op.
+                    try {
+                        byte[] b = Base64.decode(data, 0);
+                        os.write(b);
+                    } catch (IllegalArgumentException e) {
+                        ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from base64 for field `" + name + "`, the content is not valid base64 and will be empty.");
+                    }
                 }
 
             }
@@ -389,8 +400,18 @@ class ReactNativeBlobUtilBody extends RequestBody {
                 }
                 // base64 embedded file content
                 else {
-                    byte[] bytes = Base64.decode(data, 0);
-                    total += bytes.length;
+                    // Mirrors the skip in createMultipartBodyCache. This runs
+                    // first, and throwing here aborted the body before a single
+                    // byte was written. The total it accumulates is discarded
+                    // anyway - setBody replaces contentLength with the finished
+                    // cache file's length - so all this guard has to do is not
+                    // throw.
+                    try {
+                        byte[] bytes = Base64.decode(data, 0);
+                        total += bytes.length;
+                    } catch (IllegalArgumentException e) {
+                        ReactNativeBlobUtilUtils.emitWarningEvent("Failed to estimate form data length from base64 for field `" + field.name + "`, the content is not valid base64 and will be empty.");
+                    }
                 }
             }
             // data field
