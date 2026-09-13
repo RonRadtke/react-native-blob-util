@@ -60,6 +60,14 @@ android {
         abortOnError false
     }
 
+    testOptions {
+        unitTests.all {
+            // tests/fixtures is shared with the JS unit tests. The example app
+            // depends on this package through file:../../, so projectDir is the
+            // android/ folder of this repository.
+            systemProperty 'blobUtilFixtures', file("${projectDir}/../tests/fixtures").absolutePath
+        }
+    }
 }
 
 // Pin the Kotlin bytecode target to the Java one. Left alone, Kotlin targets the
@@ -71,4 +79,9 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile).configureEach
 dependencies {
     implementation 'com.facebook.react:react-android'
     implementation 'org.apache.commons:commons-lang3:3.20.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    // android.jar only ships org.json stubs that throw on the JVM, and the
+    // payload fixtures in tests/fixtures are JSON.
+    testImplementation 'org.json:json:20240303'
 }
