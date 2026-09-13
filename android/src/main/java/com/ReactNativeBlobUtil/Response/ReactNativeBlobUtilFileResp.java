@@ -167,8 +167,8 @@ public class ReactNativeBlobUtilFileResp extends ResponseBody {
         private void reportProgress(String taskId, long bytesDownloaded, long contentLength) {
             WritableMap args = Arguments.createMap();
             args.putString("taskId", taskId);
-            args.putString("written", String.valueOf(bytesDownloaded));
-            args.putString("total", String.valueOf(contentLength));
+            args.putDouble("written", (double) bytesDownloaded);
+            args.putDouble("total", (double) contentLength);
             rctContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                     .emit(ReactNativeBlobUtilConst.EVENT_PROGRESS, args);
         }

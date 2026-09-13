@@ -438,8 +438,8 @@ class ReactNativeBlobUtilBody extends RequestBody {
         if (config != null && contentLength != 0 && config.shouldReport((float) written / contentLength)) {
             WritableMap args = Arguments.createMap();
             args.putString("taskId", mTaskId);
-            args.putString("written", String.valueOf(written));
-            args.putString("total", String.valueOf(contentLength));
+            args.putDouble("written", (double) written);
+            args.putDouble("total", (double) contentLength);
 
             // emit event to js context
             ReactNativeBlobUtilImpl.RCTContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)

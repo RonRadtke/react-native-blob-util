@@ -70,8 +70,8 @@ public class ReactNativeBlobUtilDefaultResp extends ResponseBody {
             if (reportConfig != null && cLen != 0 && reportConfig.shouldReport(cLen > 0 ? (float) bytesRead / cLen : 0)) {
                 WritableMap args = Arguments.createMap();
                 args.putString("taskId", mTaskId);
-                args.putString("written", String.valueOf(bytesRead));
-                args.putString("total", String.valueOf(contentLength()));
+                args.putDouble("written", (double) bytesRead);
+                args.putDouble("total", (double) contentLength());
                 if (isIncrement) {
                     args.putString("chunk", sink.readString(Charset.defaultCharset()));
                 } else {

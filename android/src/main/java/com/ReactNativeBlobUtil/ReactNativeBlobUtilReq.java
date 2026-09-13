@@ -222,8 +222,8 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                             if (reportConfig != null && reportConfig.shouldReport(progress /* progress */)) {
                                 WritableMap args = Arguments.createMap();
                                 args.putString("taskId", String.valueOf(taskId));
-                                args.putString("written", String.valueOf(written));
-                                args.putString("total", String.valueOf(total));
+                                args.putDouble("written", (double) written);
+                                args.putDouble("total", (double) total);
                                 args.putString("chunk", "");
                                 ReactNativeBlobUtilImpl.RCTContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                                         .emit(ReactNativeBlobUtilConst.EVENT_PROGRESS, args);

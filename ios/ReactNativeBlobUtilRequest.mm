@@ -426,16 +426,16 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
             // For chunked downloads
             body = @{
                 @"taskId": taskId,
-                @"written": [NSString stringWithFormat:@"%d", 0],
-                @"total": [NSString stringWithFormat:@"%lld", (long long) expectedBytes],
+                @"written": @(0),
+                @"total": @(expectedBytes),
                 @"chunk": chunkString,
             };
         } else {
             // For non-chunked downloads
             body = @{
                 @"taskId": taskId,
-                @"written": [NSString stringWithFormat:@"%lld", (long long) receivedBytes],
-                @"total": [NSString stringWithFormat:@"%lld", (long long) expectedBytes],
+                @"written": @(receivedBytes),
+                @"total": @(expectedBytes),
                 @"chunk": chunkString,
             };
         }
@@ -476,8 +476,8 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
         // For chunked downloads
         [self.baseModule emitEventDict:EVENT_PROGRESS body:@{
             @"taskId": taskId,
-            @"written": [NSString stringWithFormat:@"%lld", (long long) receivedBytes],
-            @"total": [NSString stringWithFormat:@"%lld", (long long) receivedBytes],
+            @"written": @(receivedBytes),
+            @"total": @(receivedBytes),
             @"chunk": @"",
         }];
     }
@@ -561,8 +561,8 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
         [self.baseModule emitEventDict:EVENT_PROGRESS_UPLOAD
          body:@{
                 @"taskId": taskId,
-                @"written": [NSString stringWithFormat:@"%ld", (long) totalBytesWritten],
-                @"total": [NSString stringWithFormat:@"%ld", (long) totalBytesExpectedToWrite]
+                @"written": @(totalBytesWritten),
+                @"total": @(totalBytesExpectedToWrite)
                 }
          ];
     }
@@ -749,8 +749,8 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
         [self.baseModule emitEventDict:EVENT_PROGRESS
          body:@{
                 @"taskId": taskId,
-                @"written": [NSString stringWithFormat:@"%lld", (long long) totalBytesWritten],
-                @"total": [NSString stringWithFormat:@"%lld", (long long) totalBytesExpectedToWrite]
+                @"written": @(totalBytesWritten),
+                @"total": @(totalBytesExpectedToWrite)
                 }
          ];
     }
