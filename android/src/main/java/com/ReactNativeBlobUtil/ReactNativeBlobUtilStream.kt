@@ -229,13 +229,13 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
          * @param callback JS context callback
          */
         @JvmStatic
-        fun writeChunk(streamId: String?, data: String, callback: Callback) {
+        fun writeChunk(streamId: String?, data: String?, callback: Callback) {
             // A stream that was closed or never opened throws here, outside the try,
             // exactly as the Java version did - and takes the app down with it. That
             // crash is known and deliberately not fixed as part of the port.
             val fs = fileStreams[streamId]!!
             val stream = fs.writeStreamInstance
-            val chunk = ReactNativeBlobUtilUtils.stringToBytes(data, fs.encoding!!)
+            val chunk = ReactNativeBlobUtilUtils.stringToBytes(data!!, fs.encoding!!)
             try {
                 stream!!.write(chunk)
                 callback.invoke()
@@ -252,11 +252,12 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
          * @param callback JS context callback
          */
         @JvmStatic
-        fun writeArrayChunk(streamId: String?, data: ReadableArray, callback: Callback) {
+        fun writeArrayChunk(streamId: String?, data: ReadableArray?, callback: Callback) {
             try {
                 val fs = fileStreams[streamId]!!
                 val stream = fs.writeStreamInstance
-                val chunk = ByteArray(data.size())
+                // A null array throws inside the try and reaches the callback, as in Java.
+                val chunk = ByteArray(data!!.size())
                 for (i in 0 until data.size()) {
                     chunk[i] = data.getInt(i).toByte()
                 }

@@ -57,7 +57,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param encoding Encoding of the string.
          * @param data     Array passed from JS context.
          */
-        @JvmStatic
         fun writeFile(path: String?, encoding: String?, data: String?, append: Boolean): Boolean {
             try {
                 val f = File(ReactNativeBlobUtilUtils.normalizePath(path))
@@ -120,7 +119,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param data     Array passed from JS context.
          * @param promise  RCT Promise
          */
-        @JvmStatic
         fun writeFile(path: String?, encoding: String?, data: String?, transformFile: Boolean, append: Boolean, promise: Promise) {
             try {
                 var written = 0
@@ -194,7 +192,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param data    Array passed from JS context.
          * @param promise RCT Promise
          */
-        @JvmStatic
         fun writeFile(path: String?, data: ReadableArray?, append: Boolean, promise: Promise) {
             try {
                 val f = File(path)
@@ -239,7 +236,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param encoding Encoding of read stream.
          * @param promise  JS promise
          */
-        @JvmStatic
         fun readFile(rawPath: String?, encoding: String?, transformFile: Boolean, promise: Promise) {
             val resolved = ReactNativeBlobUtilUtils.normalizePath(rawPath)
             val path = resolved ?: rawPath
@@ -314,7 +310,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          *
          * @param ctx React Native application context
          */
-        @JvmStatic
         fun getSystemfolders(ctx: ReactApplicationContext): Map<String, Any> {
             val res = HashMap<String, Any>()
 
@@ -357,7 +352,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          *
          * @param ctx React Native application context
          */
-        @JvmStatic
         @Suppress("DEPRECATION")
         fun getLegacySystemfolders(@Suppress("UNUSED_PARAMETER") ctx: ReactApplicationContext): Map<String, Any> {
             val res = HashMap<String, Any>()
@@ -379,28 +373,24 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             return res
         }
 
-        @JvmStatic
         fun getExternalFilesDirPath(ctx: ReactApplicationContext, type: String?): String {
             val dir = ctx.getExternalFilesDir(type)
             if (dir != null) return dir.absolutePath
             return ""
         }
 
-        @JvmStatic
         fun getFilesDirPath(ctx: ReactApplicationContext): String {
             val dir = ctx.filesDir
             if (dir != null) return dir.absolutePath
             return ""
         }
 
-        @JvmStatic
         fun getCacheDirPath(ctx: ReactApplicationContext): String {
             val dir = ctx.cacheDir
             if (dir != null) return dir.absolutePath
             return ""
         }
 
-        @JvmStatic
         fun getSDCardDir(ctx: ReactApplicationContext, promise: Promise) {
             if (Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED) {
                 try {
@@ -415,7 +405,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
 
         }
 
-        @JvmStatic
         fun getSDCardApplicationDir(ctx: ReactApplicationContext, promise: Promise) {
             if (Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED) {
                 try {
@@ -435,7 +424,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param taskId An unique string for identify
          * @return String
          */
-        @JvmStatic
         fun getTmpPath(taskId: String?): String =
             "${ReactNativeBlobUtilImpl.RCTContext.filesDir}/ReactNativeBlobUtilTmp_$taskId"
 
@@ -446,7 +434,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path     Path of target
          * @param callback JS context callback
          */
-        @JvmStatic
         fun unlink(path: String?, callback: Callback) {
             try {
                 val normalizedPath = ReactNativeBlobUtilUtils.normalizePath(path)
@@ -481,7 +468,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path    Source path
          * @param promise JS promise
          */
-        @JvmStatic
         fun mkdir(rawPath: String?, promise: Promise) {
             val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
             // A null path throws here, outside the try, as it did in Java.
@@ -510,7 +496,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param dest     Target path
          * @param callback JS context callback
          */
-        @JvmStatic
         fun cp(path: String?, rawDest: String?, callback: Callback) {
             val dest = ReactNativeBlobUtilUtils.normalizePath(rawDest)
             var input: InputStream? = null
@@ -568,7 +553,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param dest     Destination file path
          * @param callback JS context callback
          */
-        @JvmStatic
         fun mv(rawPath: String?, rawDest: String?, callback: Callback) {
             val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
             val dest = ReactNativeBlobUtilUtils.normalizePath(rawDest)
@@ -611,7 +595,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path     Path to check
          * @param callback JS context callback
          */
-        @JvmStatic
         fun exists(rawPath: String?, callback: Callback) {
             if (isAsset(rawPath)) {
                 try {
@@ -639,7 +622,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path    Target folder
          * @param promise JS context promise
          */
-        @JvmStatic
         fun ls(rawPath: String?, promise: Promise) {
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
@@ -675,7 +657,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param end    End byte offset
          * @param encode NOT IMPLEMENTED
          */
-        @JvmStatic
         fun slice(path: String?, rawDest: String?, start: Long, end: Long, @Suppress("UNUSED_PARAMETER") encode: String?, promise: Promise) {
             try {
                 val dest = ReactNativeBlobUtilUtils.normalizePath(rawDest)
@@ -719,7 +700,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             }
         }
 
-        @JvmStatic
         @Suppress("DEPRECATION")
         fun lstat(rawPath: String?, callback: Callback) {
             val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
@@ -759,7 +739,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path     Path
          * @param callback Callback
          */
-        @JvmStatic
         fun stat(rawPath: String?, callback: Callback) {
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
@@ -780,7 +759,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path Path
          * @return Stat  Result of a file or path
          */
-        @JvmStatic
         fun statFile(rawPath: String?): WritableMap? {
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
@@ -812,7 +790,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             }
         }
 
-        @JvmStatic
         fun hash(path: String?, algorithm: String?, promise: Promise) {
             try {
                 // Nullable keys, like the Java HashMap: a null algorithm is simply not found.
@@ -873,7 +850,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param encoding Encoding of initial data.
          * @param promise  Promise for Javascript
          */
-        @JvmStatic
         fun createFile(rawPath: String?, data: String?, encoding: String?, promise: Promise) {
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
@@ -919,7 +895,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param data    Content of new file
          * @param promise JS Promise
          */
-        @JvmStatic
         fun createFileASCII(rawPath: String?, data: ReadableArray?, promise: Promise) {
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
@@ -942,7 +917,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             }
         }
 
-        @JvmStatic
         fun df(callback: Callback, ctx: ReactApplicationContext) {
             val stat = StatFs(ctx.filesDir.path)
             val args = Arguments.createMap()
@@ -968,7 +942,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param paths    An array of file paths.
          * @param callback JS contest callback
          */
-        @JvmStatic
         @Suppress("DEPRECATION")
         fun removeSession(paths: ReadableArray?, callback: Callback) {
             val task = object : AsyncTask<ReadableArray?, Int, Int>() {
@@ -1028,7 +1001,6 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             return FileInputStream(File(ReactNativeBlobUtilUtils.normalizePath(p)))
         }
 
-        @JvmStatic
         fun isAsset(path: String?): Boolean =
             path != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)
     }

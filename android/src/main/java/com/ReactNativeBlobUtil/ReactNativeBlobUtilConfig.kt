@@ -13,25 +13,25 @@ import java.util.Locale
  */
 internal class ReactNativeBlobUtilConfig(options: ReadableMap?) {
 
-    @JvmField var fileCache: Boolean? = null
-    @JvmField var transformFile: Boolean? = null
-    @JvmField var path: String? = null
-    @JvmField var appendExt: String? = null
-    @JvmField var addAndroidDownloads: ReadableMap? = null
-    @JvmField var trusty: Boolean? = null
-    @JvmField var wifiOnly: Boolean? = false
-    @JvmField var targetHostIp: String? = null
-    @JvmField var key: String? = null
-    @JvmField var mime: String? = null
-    @JvmField var auto: Boolean? = null
-    @JvmField var overwrite: Boolean? = true
-    @JvmField var timeout: Long = 60000
-    @JvmField var increment: Boolean? = false
-    @JvmField var followRedirect: Boolean? = true
-    @JvmField var binaryContentTypes: ReadableArray? = null
-    @JvmField var customCACerts: MutableList<String?>? = null
-    @JvmField var pinnedHosts: MutableList<String?>? = null
-    @JvmField var trustSystemCerts: Boolean? = false
+    var fileCache: Boolean? = null
+    var transformFile: Boolean? = null
+    var path: String? = null
+    var appendExt: String? = null
+    var addAndroidDownloads: ReadableMap? = null
+    var trusty: Boolean? = null
+    var wifiOnly: Boolean? = false
+    var targetHostIp: String? = null
+    var key: String? = null
+    var mime: String? = null
+    var auto: Boolean? = null
+    var overwrite: Boolean? = true
+    var timeout: Long = 60000
+    var increment: Boolean? = false
+    var followRedirect: Boolean? = true
+    var binaryContentTypes: ReadableArray? = null
+    var customCACerts: MutableList<String?>? = null
+    var pinnedHosts: MutableList<String?>? = null
+    var trustSystemCerts: Boolean? = false
 
     init {
         if (options != null) {

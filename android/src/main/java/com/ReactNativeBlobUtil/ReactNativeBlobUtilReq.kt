@@ -988,14 +988,11 @@ class ReactNativeBlobUtilReq(
         @JvmField
         val androidDownloadManagerTaskTable = HashMap<String?, Long>()
 
-        @JvmField
-        val progressReport = HashMap<String?, ReactNativeBlobUtilProgressConfig>()
+        internal val progressReport = HashMap<String?, ReactNativeBlobUtilProgressConfig>()
 
-        @JvmField
-        val uploadProgressReport = HashMap<String?, ReactNativeBlobUtilProgressConfig>()
+        internal val uploadProgressReport = HashMap<String?, ReactNativeBlobUtilProgressConfig>()
 
-        @JvmField
-        var pool = ConnectionPool()
+        internal val pool = ConnectionPool()
 
         @JvmStatic
         fun cancelTask(taskId: String?) {
