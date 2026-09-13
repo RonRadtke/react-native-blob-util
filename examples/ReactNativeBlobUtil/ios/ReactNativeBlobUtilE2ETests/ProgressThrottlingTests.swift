@@ -67,6 +67,23 @@ final class ProgressThrottlingTests: XCTestCase {
         XCTAssertEqual(cfg.interval.doubleValue, 0.25, accuracy: 1e-6)
     }
 
+    /// A caller computing written/total with a total of 0 and a non-zero written
+    /// hands this +infinity. Objective-C saturated the conversion and reported
+    /// the event; Swift's Int(Float) traps on a non-finite value and takes the
+    /// process with it, so this has to stay in floating point.
+    func testNonFiniteProgressIsReportedRatherThanTrapping() {
+        let cfg = config(interval: 0, count: 10)
+        XCTAssertTrue(cfg.shouldReport(NSNumber(value: Float.infinity)))
+    }
+
+    /// NaN is excluded earlier by the `> 0` check, so it must not reach the
+    /// conversion either - and must not be treated as completion.
+    func testNaNProgressIsHandledWithoutTrapping() {
+        let cfg = config(interval: 0, count: 10)
+        XCTAssertTrue(cfg.shouldReport(NSNumber(value: Float.nan)),
+                      "NaN skips the count throttle, leaving only the interval check, which is 0 here")
+    }
+
     func testTypeIsRecorded() {
         XCTAssertEqual(config(interval: 0, count: 0).type, ReactNativeBlobUtilProgressType.download.rawValue)
         let upload = ReactNativeBlobUtilProgress(type: .upload, interval: 0, count: 0)

@@ -47,7 +47,13 @@ public class ReactNativeBlobUtilProgress: NSObject {
         var withinCount = true
         let countValue = count.floatValue
         if countValue > 0 && nextProgress.floatValue > 0 {
-            withinCount = Int(floor(nextProgress.floatValue * countValue)) >= tick
+            // Compared in floating point rather than through Int(). A caller
+            // dividing written by a total of 0 passes +infinity, which is > 0 and
+            // so reaches here, and Int(Float) traps on a non-finite value. The
+            // Objective-C this replaced saturated the conversion instead and
+            // reported the event, which is what this keeps doing. Identical for
+            // every finite value.
+            withinCount = floor(nextProgress.floatValue * countValue) >= Float(tick)
         }
 
         let timeStamp = Date().timeIntervalSince1970
