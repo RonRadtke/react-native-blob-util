@@ -532,6 +532,38 @@ namespace
         });
     }
 
+    // Mirrors ReactNativeBlobUtilProgressConfig.shouldReport on Android: report
+    // once at least `interval` milliseconds have passed and, when `count` is
+    // set, once the transfer has crossed into a new 1/count slice. Both default
+    // to -1, which reports on every callback.
+    struct ProgressThrottle
+    {
+        ReactNativeBlobUtilProgressConfig config;
+        int64_t lastTickMs{ 0 };
+        int64_t tick{ 0 };
+
+        bool ShouldReport(uint64_t written, uint64_t total)
+        {
+            const int64_t nowMs{ winrt::clock::now().time_since_epoch().count() / 10000 };
+            const double progress{ total > 0 ? static_cast<double>(written) / static_cast<double>(total) : 0.0 };
+
+            bool crossedSlice{ true };
+            if (config.count > 0 && progress > 0)
+            {
+                crossedSlice = static_cast<int64_t>(progress * config.count) > tick;
+            }
+
+            if (!crossedSlice || nowMs - lastTickMs <= static_cast<int64_t>(config.interval))
+            {
+                return false;
+            }
+
+            ++tick;
+            lastTickMs = nowMs;
+            return true;
+        }
+    };
+
     // A malformed URL used to take the whole process down - a fast-fail in
     // ucrtbase - rather than reporting an error, so the URL is parsed here,
     // before anything else, and a bad one is reported through the callback like
@@ -794,7 +826,65 @@ namespace winrt::ReactNativeBlobUtil
             requestMessage.Content(requestContent);
 
             winrt::Windows::Web::Http::HttpClient httpClient{ filter };
-            auto response = co_await httpClient.SendRequestAsync(requestMessage);
+            // Progress. SendRequestAsync reports both directions, so one handler
+            // covers upload and download. The config is looked up on every
+            // callback rather than once here, because fetch.js starts the
+            // request first and only then calls enableProgressReport() - at send
+            // time the entry does not exist yet. Android looks it up per chunk
+            // for the same reason. Windows sent no progress events at all before
+            // this: the only code that emitted them lives in ProcessRequestAsync,
+            // which nothing calls.
+            ProgressThrottle downloadThrottle, uploadThrottle;
+
+            auto sendOperation{ httpClient.SendRequestAsync(requestMessage) };
+            sendOperation.Progress([this, taskId, downloadThrottle, uploadThrottle](
+                auto const&, winrt::Windows::Web::Http::HttpProgress const& progress) mutable
+            {
+                const bool sending{ progress.Stage == winrt::Windows::Web::Http::HttpProgressStage::SendingContent };
+
+                // Only the two stages that move bytes. The others - resolving,
+                // connecting, negotiating TLS - would otherwise report zero-byte
+                // progress for every phase of the connection.
+                if (!sending && progress.Stage != winrt::Windows::Web::Http::HttpProgressStage::ReceivingContent)
+                {
+                    return;
+                }
+
+                {
+                    std::scoped_lock lock{ m_mutex };
+                    const auto& configs{ sending ? uploadProgressMap : downloadProgressMap };
+                    const auto entry{ configs.find(taskId) };
+                    if (entry == configs.end())
+                    {
+                        return;
+                    }
+
+                    (sending ? uploadThrottle : downloadThrottle).config = entry->second;
+                }
+
+                const uint64_t written{ sending ? progress.BytesSent : progress.BytesReceived };
+                const auto expected{ sending ? progress.TotalBytesToSend : progress.TotalBytesToReceive };
+                const int64_t total{ expected ? static_cast<int64_t>(expected.Value()) : -1 };
+
+                auto& throttle{ sending ? uploadThrottle : downloadThrottle };
+                if (!throttle.ShouldReport(written, total > 0 ? static_cast<uint64_t>(total) : 0))
+                {
+                    return;
+                }
+
+                // Numbers, matching what Android and iOS now emit, with -1 as
+                // the unknown-length sentinel they already use.
+                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit",
+                    sending ? L"ReactNativeBlobUtilProgress-upload" : L"ReactNativeBlobUtilProgress",
+                    winrt::Microsoft::ReactNative::JSValueObject{
+                        {"taskId", taskId},
+                        {"written", static_cast<int64_t>(written)},
+                        {"total", total},
+                        {"chunk", ""},
+                    });
+            });
+
+            auto response = co_await sendOperation;
 
             co_await DeliverResponseAsync(response, config, taskId, callback);
         }
@@ -915,7 +1005,65 @@ namespace winrt::ReactNativeBlobUtil
             }
 
             // Send the request
-            auto response = co_await httpClient.SendRequestAsync(requestMessage);
+            // Progress. SendRequestAsync reports both directions, so one handler
+            // covers upload and download. The config is looked up on every
+            // callback rather than once here, because fetch.js starts the
+            // request first and only then calls enableProgressReport() - at send
+            // time the entry does not exist yet. Android looks it up per chunk
+            // for the same reason. Windows sent no progress events at all before
+            // this: the only code that emitted them lives in ProcessRequestAsync,
+            // which nothing calls.
+            ProgressThrottle downloadThrottle, uploadThrottle;
+
+            auto sendOperation{ httpClient.SendRequestAsync(requestMessage) };
+            sendOperation.Progress([this, taskId, downloadThrottle, uploadThrottle](
+                auto const&, winrt::Windows::Web::Http::HttpProgress const& progress) mutable
+            {
+                const bool sending{ progress.Stage == winrt::Windows::Web::Http::HttpProgressStage::SendingContent };
+
+                // Only the two stages that move bytes. The others - resolving,
+                // connecting, negotiating TLS - would otherwise report zero-byte
+                // progress for every phase of the connection.
+                if (!sending && progress.Stage != winrt::Windows::Web::Http::HttpProgressStage::ReceivingContent)
+                {
+                    return;
+                }
+
+                {
+                    std::scoped_lock lock{ m_mutex };
+                    const auto& configs{ sending ? uploadProgressMap : downloadProgressMap };
+                    const auto entry{ configs.find(taskId) };
+                    if (entry == configs.end())
+                    {
+                        return;
+                    }
+
+                    (sending ? uploadThrottle : downloadThrottle).config = entry->second;
+                }
+
+                const uint64_t written{ sending ? progress.BytesSent : progress.BytesReceived };
+                const auto expected{ sending ? progress.TotalBytesToSend : progress.TotalBytesToReceive };
+                const int64_t total{ expected ? static_cast<int64_t>(expected.Value()) : -1 };
+
+                auto& throttle{ sending ? uploadThrottle : downloadThrottle };
+                if (!throttle.ShouldReport(written, total > 0 ? static_cast<uint64_t>(total) : 0))
+                {
+                    return;
+                }
+
+                // Numbers, matching what Android and iOS now emit, with -1 as
+                // the unknown-length sentinel they already use.
+                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit",
+                    sending ? L"ReactNativeBlobUtilProgress-upload" : L"ReactNativeBlobUtilProgress",
+                    winrt::Microsoft::ReactNative::JSValueObject{
+                        {"taskId", taskId},
+                        {"written", static_cast<int64_t>(written)},
+                        {"total", total},
+                        {"chunk", ""},
+                    });
+            });
+
+            auto response = co_await sendOperation;
 
             co_await DeliverResponseAsync(response, config, taskId, callback);
         }
