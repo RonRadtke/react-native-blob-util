@@ -110,6 +110,10 @@ function mask(value) {
         .replace(/(?:10\.0\.2\.2|127\.0\.0\.1|localhost):19076/g, '<http-server>')
         .replace(/(?:10\.0\.2\.2|127\.0\.0\.1|localhost):19077/g, '<https-server>')
         .replace(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g, '<uuid>')
+        // iOS rejects with [NSError description], which embeds heap addresses such as
+        // NSUnderlyingError=0x121f668e0 that change on every launch. Six or more hex
+        // digits, so a short literal like 0x1 in a message survives.
+        .replace(/\b0x[0-9a-fA-F]{6,}\b/g, '<ptr>')
         // Not \b: a word boundary does not fire after the "_" in ReactNativeBlobUtilTmp_<md5>.
         .replace(/(^|[^0-9a-fA-F])[0-9a-f]{32}(?![0-9a-fA-F])/g, '$1<md5>')
         .replace(/(content:\/\/[^\s"']*?\/)\d+\b/g, '$1<n>')
