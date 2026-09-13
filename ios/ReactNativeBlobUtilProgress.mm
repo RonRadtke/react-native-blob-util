@@ -44,6 +44,15 @@
     NSNumber *timeStampObj = [NSNumber numberWithDouble: timeStamp];
     float delta = [timeStampObj doubleValue] - lastTick;
     BOOL shouldReport = delta > [self.interval doubleValue] && self.enable && result;
+    // Always report completion. Otherwise the final event of a transfer is
+    // dropped whenever it lands inside the interval window, and a caller
+    // watching progress never sees 100%. Measured on Windows: the last upload
+    // event (written == total) was thrown away and the only survivor carried
+    // zero bytes.
+    if(!shouldReport && self.enable && [nextProgress floatValue] >= 1)
+    {
+        shouldReport = YES;
+    }
     if(shouldReport)
     {
         tick++;

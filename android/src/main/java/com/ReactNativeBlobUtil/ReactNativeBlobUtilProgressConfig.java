@@ -29,6 +29,14 @@ public class ReactNativeBlobUtilProgressConfig {
         if (count > 0 && progress > 0)
             checkCount = Math.floor(progress * count) > tick;
         boolean result = (System.currentTimeMillis() - lastTick > interval) && enable && checkCount;
+        // Always report completion. Otherwise the final event of a transfer is
+        // dropped whenever it lands inside the interval window, and a caller
+        // watching progress never sees 100%. Measured on Windows: the last
+        // upload event (written == total) was thrown away and the only survivor
+        // carried zero bytes.
+        if (!result && enable && progress >= 1) {
+            result = true;
+        }
         if (result) {
             tick++;
             lastTick = System.currentTimeMillis();

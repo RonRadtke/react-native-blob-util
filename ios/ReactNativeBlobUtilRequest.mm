@@ -472,8 +472,10 @@ typedef NS_ENUM(NSUInteger, ResponseFormat) {
         } else {
             errMsg = [error localizedDescription];
         }
-    } else if ([self.progressConfig shouldReport:@1] && expectedBytes == NSURLResponseUnknownLength) {
-        // For chunked downloads
+    } else if (expectedBytes == NSURLResponseUnknownLength && [self.progressConfig shouldReport:@1]) {
+        // For chunked downloads. Test the length first: shouldReport: mutates
+        // the tick and timestamp it throttles on, so asking it about a download
+        // we are not going to report would advance that state for nothing.
         [self.baseModule emitEventDict:EVENT_PROGRESS body:@{
             @"taskId": taskId,
             @"written": @(receivedBytes),

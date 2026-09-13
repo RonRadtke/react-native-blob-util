@@ -553,7 +553,13 @@ namespace
                 crossedSlice = static_cast<int64_t>(progress * config.count) > tick;
             }
 
-            if (!crossedSlice || nowMs - lastTickMs <= static_cast<int64_t>(config.interval))
+            // Always report completion. Otherwise the final event is dropped
+            // whenever it lands inside the interval window, which is what
+            // happened to the upload here: the last event (written == total)
+            // was thrown away and the only survivor carried zero bytes.
+            const bool complete{ total > 0 && written >= total };
+
+            if (!complete && (!crossedSlice || nowMs - lastTickMs <= static_cast<int64_t>(config.interval)))
             {
                 return false;
             }
