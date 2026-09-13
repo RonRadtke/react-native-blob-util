@@ -70,7 +70,9 @@ jobs:
       # The generated test CA is a build input: Android bundles it as res/raw/test_ca.
       - run: npm run e2e:certs
 
-      - run: ./gradlew assembleDebug --no-daemon
+      # Through bash: gradlew is checked in without the executable bit, so running
+      # it directly fails with "Permission denied" on Linux.
+      - run: bash ./gradlew assembleDebug --no-daemon
         working-directory: examples/ReactNativeBlobUtil/android
 
   ios:
