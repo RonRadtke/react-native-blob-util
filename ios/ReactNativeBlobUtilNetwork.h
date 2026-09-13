@@ -11,7 +11,7 @@
 
 #import <Foundation/Foundation.h>
 @class ReactNativeBlobUtilProgress;
-#import "ReactNativeBlobUtilFS.h"
+@class ReactNativeBlobUtilFS;
 #import "ReactNativeBlobUtilRequest.h"
 
 #if __has_include(<React/RCTAssert.h>)

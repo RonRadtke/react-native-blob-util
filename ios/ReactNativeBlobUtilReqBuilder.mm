@@ -10,7 +10,12 @@
 #import "ReactNativeBlobUtilReqBuilder.h"
 #import "ReactNativeBlobUtilNetwork.h"
 #import "ReactNativeBlobUtilConst.h"
-#import "ReactNativeBlobUtilFS.h"
+
+#if __has_include(<react_native_blob_util/react_native_blob_util-Swift.h>)
+#import <react_native_blob_util/react_native_blob_util-Swift.h>
+#else
+#import "react_native_blob_util-Swift.h"
+#endif
 
 #if __has_include(<React/RCTAssert.h>)
 #import <React/RCTLog.h>
@@ -226,7 +231,7 @@
                         NSString * orgPath = [content substringFromIndex:[FILE_PREFIX length]];
                         orgPath = [ReactNativeBlobUtilFS getPathOfAsset:orgPath];
 
-                        [ReactNativeBlobUtilFS readFile:orgPath encoding:nil transformFile:false onComplete:^(NSData *content, NSString* code, NSString * err) {
+                        [ReactNativeBlobUtilFS readFile:orgPath encoding:nil transformFile:false onComplete:^(id content, NSString* code, NSString * err) {
                             if(err != nil)
                             {
                                 onComplete(formData, YES);
@@ -236,7 +241,7 @@
                             [formData appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
                             [formData appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n", name, filename] dataUsingEncoding:NSUTF8StringEncoding]];
                             [formData appendData:[[NSString stringWithFormat:@"Content-Type: %@\r\n\r\n", contentType] dataUsingEncoding:NSUTF8StringEncoding]];
-                            [formData appendData:content];
+                            [formData appendData:((NSData *)content)];
                             [formData appendData:[[NSString stringWithFormat:@"\r\n"] dataUsingEncoding:NSUTF8StringEncoding]];
                             i++;
                             if(i < count)

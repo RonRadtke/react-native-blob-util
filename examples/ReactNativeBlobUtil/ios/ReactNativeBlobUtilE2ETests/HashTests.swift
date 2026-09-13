@@ -10,6 +10,7 @@
 //
 
 import XCTest
+@testable import react_native_blob_util
 
 final class HashTests: XCTestCase {
 

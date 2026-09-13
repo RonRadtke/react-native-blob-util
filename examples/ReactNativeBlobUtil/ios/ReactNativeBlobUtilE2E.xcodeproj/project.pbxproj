@@ -17,7 +17,6 @@
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		AABB001122334455DEADBEEF /* test_ca.pem in Resources */ = {isa = PBXBuildFile; fileRef = AABB001122334455DEADBEE0 /* test_ca.pem */; };
 		AC6DD6E9A9F02C8B56CC10A3 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 47B416002D05443254A6FC58 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a */; };
-		D9EF03308A7D7FFD21A20BEE /* ReactNativeBlobUtilFSRawProbe.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F739FFC1E73F5FD3646433E /* ReactNativeBlobUtilFSRawProbe.m */; };
 		DEA8D2DBA1720606EC4F1C0F /* NativePayloadFixturesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81FA5C41B649699D5372184 /* NativePayloadFixturesTests.swift */; };
 		DFF5B744EEB3161DAEF042CB /* FileSystemPinTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D98C8F69C66BB30D0C9CC0B /* FileSystemPinTests.swift */; };
 		F207C992DBB2ED75E056AFEC /* ProgressThrottlingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DF5BE40ECF4D66A5C3F5FF /* ProgressThrottlingTests.swift */; };
@@ -37,7 +36,6 @@
 /* Begin PBXFileReference section */
 		08F088B37222E94E77FB24E1 /* progress-event.json */ = {isa = PBXFileReference; includeInIndex = 1; path = "progress-event.json"; sourceTree = "<group>"; };
 		0C22660B5E8D032F054D4AB4 /* Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.release.xcconfig"; path = "Target Support Files/Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests/Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.release.xcconfig"; sourceTree = "<group>"; };
-		0F739FFC1E73F5FD3646433E /* ReactNativeBlobUtilFSRawProbe.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = ReactNativeBlobUtilFSRawProbe.m; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* ReactNativeBlobUtilE2E.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ReactNativeBlobUtilE2E.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ReactNativeBlobUtilE2E/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ReactNativeBlobUtilE2E/Info.plist; sourceTree = "<group>"; };
@@ -59,7 +57,6 @@
 		D81ABDA561D712F3E5823D78 /* ReactNativeBlobUtilE2ETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReactNativeBlobUtilE2ETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DEBDEE1D35B98032EFB72ED0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		FDF2DF5EC1214B3D28E9304D /* ReactNativeBlobUtilFSRawProbe.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = ReactNativeBlobUtilFSRawProbe.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,8 +112,6 @@
 				B81FA5C41B649699D5372184 /* NativePayloadFixturesTests.swift */,
 				1CD3A67D945C63F123763F68 /* ReactNativeBlobUtilE2ETests-Bridging-Header.h */,
 				6D98C8F69C66BB30D0C9CC0B /* FileSystemPinTests.swift */,
-				0F739FFC1E73F5FD3646433E /* ReactNativeBlobUtilFSRawProbe.m */,
-				FDF2DF5EC1214B3D28E9304D /* ReactNativeBlobUtilFSRawProbe.h */,
 			);
 			name = ReactNativeBlobUtilE2ETests;
 			path = ReactNativeBlobUtilE2ETests;
@@ -431,7 +426,6 @@
 				3CF40B7BCDFA8FE0E1D0BB90 /* HashTests.swift in Sources */,
 				DEA8D2DBA1720606EC4F1C0F /* NativePayloadFixturesTests.swift in Sources */,
 				DFF5B744EEB3161DAEF042CB /* FileSystemPinTests.swift in Sources */,
-				D9EF03308A7D7FFD21A20BEE /* ReactNativeBlobUtilFSRawProbe.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

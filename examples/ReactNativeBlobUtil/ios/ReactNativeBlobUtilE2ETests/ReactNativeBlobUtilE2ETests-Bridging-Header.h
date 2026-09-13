@@ -8,8 +8,6 @@
 //  while the umbrella stays React-free.
 //
 //  As each unit is ported, its import moves out of here and the test switches
-//  to `@testable import react_native_blob_util`.
+//  to `@testable import react_native_blob_util`. ReactNativeBlobUtilFS has made
+//  that move; the module core and the network stack follow in I2 and I3.
 //
-
-#import "ReactNativeBlobUtilFS.h"
-#import "ReactNativeBlobUtilFSRawProbe.h"

@@ -13,6 +13,7 @@
 //
 
 import XCTest
+@testable import react_native_blob_util
 
 final class FileSystemPinTests: XCTestCase {
 
@@ -131,9 +132,11 @@ final class FileSystemPinTests: XCTestCase {
 
     func testStatKeysAndTypes() throws {
         let path = try write("stat", "s.txt")
-        // NSError** imports as `throws`, so the Objective-C
-        // `+stat:error:` is `try ReactNativeBlobUtilFS.stat(_:)` here.
-        let stat = try ReactNativeBlobUtilFS.stat(path)
+        // An explicit error pointer, not `throws`: the Objective-C could return
+        // nil without setting the error, and a value while setting it, neither
+        // of which a throwing method can express. The callers check the error
+        // rather than the result, so that distinction has to survive.
+        let stat = try XCTUnwrap(ReactNativeBlobUtilFS.stat(path, error: nil))
         XCTAssertEqual(Set(stat.keys.compactMap { $0 as? String }),
                        ["size", "filename", "path", "lastModified", "type"])
         // size is a string here. fs.js parseInts it before resolving, so callers
@@ -148,14 +151,26 @@ final class FileSystemPinTests: XCTestCase {
     }
 
     func testStatOnADirectoryReportsTypeDirectory() throws {
-        let stat = try ReactNativeBlobUtilFS.stat(dir)
+        let stat = try XCTUnwrap(ReactNativeBlobUtilFS.stat(dir, error: nil))
         XCTAssertEqual(stat["type"] as? String, "directory")
     }
 
-    /// The Objective-C returns nil without filling in the error, so the bridged
-    /// throwing form surfaces it as a thrown error rather than a nil result.
-    func testStatOnAMissingPathFails() {
-        XCTAssertThrowsError(try ReactNativeBlobUtilFS.stat("\(dir)/missing"))
+    /// A missing path returns nil and leaves the error untouched. lstat relies
+    /// on exactly this: it checks the error, not the result.
+    func testStatOnAMissingPathReturnsNilWithoutSettingTheError() {
+        var error: NSError?
+        XCTAssertNil(ReactNativeBlobUtilFS.stat("\(dir)/missing", error: &error))
+        XCTAssertNil(error, "a missing path is not an error as far as this method is concerned")
+    }
+
+    /// The Objective-C cast to time_t before multiplying, so the milliseconds
+    /// always end in 000. "Improving" the precision moves ios.json.
+    func testStatLastModifiedIsTruncatedToWholeSeconds() throws {
+        let path = try write("t", "when.txt")
+        let stat = try XCTUnwrap(ReactNativeBlobUtilFS.stat(path, error: nil))
+        let millis = try XCTUnwrap((stat["lastModified"] as? NSNumber)?.int64Value)
+        XCTAssertGreaterThan(millis, 0)
+        XCTAssertEqual(millis % 1000, 0, "seconds are truncated before the multiply")
     }
 
     func testDfReportsFreeAndTotal() throws {
@@ -188,9 +203,9 @@ final class FileSystemPinTests: XCTestCase {
 
     /// readFile's completion block is (NSData?, String?, String?) - content,
     /// error code, error message.
-    private func readFile(_ path: String, _ encoding: String?, transform: Bool = false) throws -> (Data?, String?, String?) {
+    private func readFile(_ path: String, _ encoding: String?, transform: Bool = false) throws -> (Any?, String?, String?) {
         let done = expectation(description: "readFile")
-        var out: (Data?, String?, String?)?
+        var out: (Any?, String?, String?)?
         var fired = false
         ReactNativeBlobUtilFS.readFile(path, encoding: encoding, transformFile: transform) { data, code, message in
             if !fired { fired = true; out = (data, code, message); done.fulfill() }
@@ -297,13 +312,13 @@ final class FileSystemPinTests: XCTestCase {
         let path = try write("hello", "r.txt")
         let (data, code, message) = try readFile(path, "utf8")
         XCTAssertNil(code); XCTAssertNil(message)
-        XCTAssertEqual(String(data: try XCTUnwrap(data), encoding: .utf8), "hello")
+        XCTAssertEqual(String(data: try XCTUnwrap(data as? Data), encoding: .utf8), "hello")
     }
 
     func testReadFileWithoutAnEncodingReturnsTheBytes() throws {
         let path = try write("hello", "r2.txt")
         let (data, _, _) = try readFile(path, nil)
-        XCTAssertEqual(String(data: try XCTUnwrap(data), encoding: .utf8), "hello")
+        XCTAssertEqual(String(data: try XCTUnwrap(data as? Data), encoding: .utf8), "hello")
     }
 
     /// The base64 branch round-trips through a base64 string and hands back the
@@ -311,7 +326,7 @@ final class FileSystemPinTests: XCTestCase {
     func testReadFileBase64RoundTripsToTheSameBytes() throws {
         let path = try write("hello", "r3.txt")
         let (data, _, _) = try readFile(path, "base64")
-        XCTAssertEqual(String(data: try XCTUnwrap(data), encoding: .utf8), "hello")
+        XCTAssertEqual(String(data: try XCTUnwrap(data as? Data), encoding: .utf8), "hello")
     }
 
     func testReadFileMissingRejectsENOENT() throws {
@@ -370,18 +385,11 @@ final class FileSystemPinTests: XCTestCase {
     /// closure cannot be handed it at all, because the bridging thunk sends
     /// -_bridgingCopy:length: to the array and raises NSInvalidArgumentException.
     ///
-    /// Pinned here through ReactNativeBlobUtilFSRawProbe, which keeps the value
-    /// untyped. The port has to change this signature - it is not a style
-    /// question, the current one is uncallable from Swift.
+    /// The port changed that signature to `Any?`, so this now calls the Swift
+    /// method directly and the Objective-C shim the pin commit needed is gone.
     func testReadFileAsciiReturnsAnArrayOfBytesNotData() throws {
         let path = try write("abc", "ascii.txt")
-        let done = expectation(description: "ascii")
-        var content: Any?
-        var fired = false
-        ReactNativeBlobUtilFSRawProbe.readFile(path, encoding: "ascii") { value, _, _ in
-            if !fired { fired = true; content = value; done.fulfill() }
-        }
-        wait(for: [done], timeout: 5)
+        let (content, _, _) = try readFile(path, "ascii")
 
         let bytes = try XCTUnwrap(content as? [NSNumber],
                                   "ascii yields an array of per-byte numbers, despite the NSData declaration")
@@ -394,13 +402,7 @@ final class FileSystemPinTests: XCTestCase {
     func testReadFileAsciiReportsHighBytesAsNegativeNumbers() throws {
         let path = "\(dir)/high.bin"
         try Data([0x00, 0x7f, 0x80, 0xff]).write(to: URL(fileURLWithPath: path))
-        let done = expectation(description: "ascii-high")
-        var content: Any?
-        var fired = false
-        ReactNativeBlobUtilFSRawProbe.readFile(path, encoding: "ascii") { value, _, _ in
-            if !fired { fired = true; content = value; done.fulfill() }
-        }
-        wait(for: [done], timeout: 5)
+        let (content, _, _) = try readFile(path, "ascii")
 
         let bytes = try XCTUnwrap(content as? [NSNumber])
         XCTAssertEqual(bytes.map { $0.int8Value }, [0, 127, -128, -1],

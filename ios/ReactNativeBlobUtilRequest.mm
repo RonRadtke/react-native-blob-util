@@ -8,7 +8,6 @@
 
 #import "ReactNativeBlobUtilRequest.h"
 
-#import "ReactNativeBlobUtilFS.h"
 #import "ReactNativeBlobUtilConst.h"
 #import "ReactNativeBlobUtilFileTransformer.h"
 #import "ReactNativeBlobUtilNetwork.h"

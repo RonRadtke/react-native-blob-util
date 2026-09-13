@@ -5,8 +5,8 @@
 //
 
 #import "ReactNativeBlobUtil.h"
-#import "ReactNativeBlobUtilFS.h"
 #import "ReactNativeBlobUtilNetwork.h"
+#import <Photos/Photos.h>
 #import "ReactNativeBlobUtilConst.h"
 #import "ReactNativeBlobUtilReqBuilder.h"
 // The Swift half of this pod. The framework form is what the dynamic- and
@@ -30,6 +30,12 @@ dispatch_queue_t fsQueue;
 ////////////////////////////////////////
 
 #pragma mark ReactNativeBlobUtil exported methods
+
+// ReactNativeBlobUtil already implements emitEventDict:body:, which is the
+// whole of ReactNativeBlobUtilEventSink. Declared here rather than in the
+// header because the protocol lives in the generated Swift header.
+@interface ReactNativeBlobUtil () <ReactNativeBlobUtilEventSink>
+@end
 
 @implementation ReactNativeBlobUtil
 
@@ -710,7 +716,7 @@ RCT_EXPORT_METHOD(readFile:(NSString *)path
           reject:(RCTPromiseRejectBlock)reject
 {
 
-    [ReactNativeBlobUtilFS readFile:path encoding:encoding transformFile:transformFile onComplete:^(NSData * content, NSString * code, NSString * err) {
+    [ReactNativeBlobUtilFS readFile:path encoding:encoding transformFile:transformFile onComplete:^(id content, NSString * code, NSString * err) {
         if(err != nil) {
             reject(code, err, nil);
             return;
@@ -718,9 +724,9 @@ RCT_EXPORT_METHOD(readFile:(NSString *)path
         if([encoding isEqualToString:@"ascii"]) {
             resolve((NSMutableArray *)content);
         } else if([encoding isEqualToString:@"base64"]) {
-            resolve([content base64EncodedStringWithOptions:0]);
+            resolve([((NSData *)content) base64EncodedStringWithOptions:0]);
         } else {
-            resolve([[NSString alloc] initWithData:content encoding:NSUTF8StringEncoding]);
+            resolve([[NSString alloc] initWithData:((NSData *)content) encoding:NSUTF8StringEncoding]);
         }
     }];
 }
