@@ -1,171 +1,74 @@
-apply plugin: 'com.android.library'
-apply plugin: 'maven-publish'
-
-def safeExtGet(prop, fallback) {
-    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
-}
-
-repositories {
-    mavenCentral()
-    mavenLocal()
-    maven {
-        // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-        url "$rootDir/../node_modules/react-native/android"
-    }
-    maven {
-        // Android JSC is installed from npm
-        url "$rootDir/../node_modules/jsc-android/dist"
-    }
-    google()
-}
-
 buildscript {
-     // The Android Gradle plugin is only required when opening the android folder stand-alone.
-    // This avoids unnecessary downloads and potential conflicts when the library is included as a
-    // module dependency in an application project.
-    // ref: https://docs.gradle.org/current/userguide/tutorial_using_tasks.html#sec:build_script_external_dependencies
-    if (project == rootProject) {
-        repositories {
-            google()
-            mavenCentral()
-        }
-        dependencies {
-            classpath 'com.android.tools.build:gradle:7.2.1'
-        }
+    // Fallbacks for when the host app does not set these on rootProject.ext. They
+    // match React Native 0.84.1's own version catalog.
+    ext.ReactNativeBlobUtil = [
+        kotlinVersion    : '2.1.20',
+        minSdkVersion    : 24,
+        compileSdkVersion: 36,
+    ]
+
+    ext.getExtOrDefault = { prop ->
+        rootProject.ext.has(prop) ? rootProject.ext.get(prop) : ReactNativeBlobUtil[prop]
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        // noinspection DifferentKotlinGradleVersion
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
     }
 }
 
-def isNewArchitectureEnabled() {
-    return project.hasProperty("newArchEnabled") && project.newArchEnabled == "true"
+apply plugin: 'com.android.library'
+
+// AGP 9 can compile Kotlin itself. A host that turns that on already has the
+// kotlin extension, and applying the plugin a second time fails the build; a
+// host that keeps android.builtInKotlin=false (the React Native 0.87 template
+// does) needs it applied here.
+if (project.extensions.findByName('kotlin') == null) {
+    apply plugin: 'kotlin-android'
 }
 
-if (isNewArchitectureEnabled()) {
-    apply plugin: 'com.facebook.react'
-}
+// Required: the module is a TurboModule only (New Architecture), and this plugin
+// runs codegen over codegenSpecs/ to generate NativeBlobUtilsSpec.
+apply plugin: 'com.facebook.react'
 
 android {
-    def agpVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
-    if (agpVersion.tokenize('.')[0].toInteger() >= 7) {
-        namespace "com.ReactNativeBlobUtil"
-        buildFeatures {
-            buildConfig true
-        }
-    }
-    compileSdkVersion safeExtGet('compileSdkVersion', 30)
-    buildToolsVersion safeExtGet('buildToolsVersion', '28.0.3')
+    namespace 'com.ReactNativeBlobUtil'
+    compileSdkVersion getExtOrDefault('compileSdkVersion')
+
     defaultConfig {
-        minSdkVersion safeExtGet('minSdkVersion', 16)
-        targetSdkVersion safeExtGet('targetSdkVersion', 30)
-        versionCode 1
-        versionName "1.0"
-        buildConfigField("boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString())
+        minSdkVersion getExtOrDefault('minSdkVersion')
     }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
     compileOptions {
-       sourceCompatibility JavaVersion.VERSION_1_8
-       targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
-    lintOptions {
+
+    lint {
         abortOnError false
     }
-    productFlavors {
-    }
-    sourceSets {
-        main {
-            if (isNewArchitectureEnabled()) {
-                java.srcDirs += ['src/newarch']
-            } else {
-                java.srcDirs += ['src/oldarch']
-            }
-        }
-    }
+
+}
+
+// Pin the Kotlin bytecode target to the Java one. Left alone, Kotlin targets the
+// JDK that runs Gradle, and the build then fails on the Java/Kotlin mismatch.
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile).configureEach {
+    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }
 
 dependencies {
-    implementation "com.facebook.react:react-native:${safeExtGet('reactNativeVersion', '+')}"
+    implementation 'com.facebook.react:react-android'
     implementation 'org.apache.commons:commons-lang3:3.20.0'
-}
-
-afterEvaluate { project ->
-    // do this only when building this lib alone as a root project
-    if (project != rootProject) {
-        return
-    }
-
-    // some Gradle build hooks ref:
-    // https://www.oreilly.com/library/view/gradle-beyond-the/9781449373801/ch03.html
-    task androidJavadoc(type: Javadoc) {
-        source = android.sourceSets.main.java.srcDirs
-        classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
-        classpath += files(android.libraryVariants.collect { variant ->
-            variant.javaCompileProvider.get().classpath.files
-        })
-    }
-
-    task androidJavadocJar(type: Jar, dependsOn: androidJavadoc) {
-        classifier = 'javadoc'
-        from androidJavadoc.destinationDir
-    }
-
-    task androidSourcesJar(type: Jar) {
-        classifier = 'sources'
-        from android.sourceSets.main.java.sourceFiles
-    }
-
-    android.libraryVariants.all { variant ->
-        def name = variant.name.capitalize()
-        def javaCompileTask = variant.javaCompileProvider.get()
-
-        task "jar${name}"(type: Jar, dependsOn: javaCompileTask) {
-            from javaCompileTask.destinationDir
-        }
-    }
-
-    artifacts {
-        archives androidSourcesJar
-        archives androidJavadocJar
-    }
-
-    publishing {
-        publications {
-            mavenJava(MavenPublication) {
-                def packageJson = new groovy.json.JsonSlurper().parseText(file('../package.json').text)
-
-                artifactId packageJson.name
-                groupId = "com.ReactNativeBlobUtil"
-                version = packageJson.version
-
-                pom {
-                    name = packageJson.title
-                    description = packageJson.description
-                    url = packageJson.repository.baseUrl
-
-                    licenses {
-                        license {
-                            name = packageJson.license
-                            url = packageJson.repository.baseUrl + '/blob/master/' + packageJson.licenseFilename
-                            distribution = 'repo'
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id = packageJson.author.username
-                            name = packageJson.author.name
-                        }
-                    }
-                }
-            }
-        }
-        repositories {
-            maven {
-                url = "file://${projectDir}/../android/maven"
-            }
-        }
-    }
 }
