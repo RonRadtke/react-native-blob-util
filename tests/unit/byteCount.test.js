@@ -1,25 +1,22 @@
+import {readFileSync} from 'node:fs';
 import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 import toByteCount from '../../utils/byteCount.js';
 
-// Payloads exactly as each native layer emits them, so the fixtures fail if a
-// platform ever changes shape:
-//   android/.../ReactNativeBlobUtilReq.java     args.putString("written", String.valueOf(written))
-//   ios/ReactNativeBlobUtilRequest.mm           [NSString stringWithFormat:@"%lld", ...]
-//   windows/.../ReactNativeBlobUtil.cpp:1806    { "written", int64_t(totalRead) }, total may be null
-const NATIVE_PAYLOADS = [
-    {platform: 'android', written: '900', total: '1000', expected: [900, 1000]},
-    {platform: 'ios', written: '900', total: '1000', expected: [900, 1000]},
-    {platform: 'windows', written: 900, total: 1000, expected: [900, 1000]},
-    {platform: 'android (chunked, unknown length)', written: '900', total: '-1', expected: [900, -1]},
-    {platform: 'ios (chunked, unknown length)', written: '900', total: '-1', expected: [900, -1]},
-    {platform: 'windows (unknown length)', written: 900, total: null, expected: [900, -1]},
-];
+// The byte counts exactly as each native layer emits them: the numbers every
+// platform sends today, plus the strings Android and iOS sent up to 0.24.x,
+// which the JS keeps accepting. The fixture is shared with the native unit
+// tests, which check that each layer still emits its current shape - so a
+// native change that alters the payload fails there, not in an app.
+const {cases: NATIVE_PAYLOADS} = JSON.parse(
+    readFileSync(new URL('../fixtures/native-payloads/progress-event.json', import.meta.url), 'utf8'),
+);
 
 describe('toByteCount', () => {
     describe('accepts every shape native actually emits', () => {
-        for (const {platform, written, total, expected} of NATIVE_PAYLOADS) {
-            it(`${platform}: ${JSON.stringify(written)}/${JSON.stringify(total)} -> ${expected.join('/')}`, () => {
+        for (const {platform, current, written, total, expected} of NATIVE_PAYLOADS) {
+            const label = current ? platform : `${platform} (0.24.x and earlier)`;
+            it(`${label}: ${JSON.stringify(written)}/${JSON.stringify(total)} -> ${expected.join('/')}`, () => {
                 assert.deepEqual([toByteCount(written), toByteCount(total)], expected);
             });
         }

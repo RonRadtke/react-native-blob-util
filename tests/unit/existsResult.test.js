@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -5,20 +6,19 @@ import toExistsResult from '../../utils/existsResult.js';
 
 /**
  * Fixtures mirror what each native layer actually passes to the callback, so
- * they fail if a platform ever changes shape.
+ * they fail if a platform ever changes shape. They are shared with the native
+ * unit tests, which check each layer still passes exactly these arguments.
  */
-test('toExistsResult', async (t) => {
-    await t.test('reads the two arguments Android and iOS pass', () => {
-        assert.deepEqual(toExistsResult(true, false), {exists: true, isDirectory: false});
-        assert.deepEqual(toExistsResult(true, true), {exists: true, isDirectory: true});
-        assert.deepEqual(toExistsResult(false, false), {exists: false, isDirectory: false});
-    });
+const {cases: NATIVE_CALLBACKS} = JSON.parse(
+    readFileSync(new URL('../fixtures/native-payloads/exists-callback.json', import.meta.url), 'utf8'),
+);
 
-    await t.test('reads the single array Windows passes', () => {
-        assert.deepEqual(toExistsResult([true, false]), {exists: true, isDirectory: false});
-        assert.deepEqual(toExistsResult([true, true]), {exists: true, isDirectory: true});
-        assert.deepEqual(toExistsResult([false, false]), {exists: false, isDirectory: false});
-    });
+test('toExistsResult', async (t) => {
+    for (const {platform, args, expected} of NATIVE_CALLBACKS) {
+        await t.test(`reads what ${platform} passes: ${JSON.stringify(args)}`, () => {
+            assert.deepEqual(toExistsResult(...args), expected);
+        });
+    }
 
     await t.test('always returns real booleans', () => {
         for (const result of [toExistsResult(1, 0), toExistsResult([1, 0]), toExistsResult(undefined)]) {

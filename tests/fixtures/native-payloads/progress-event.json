@@ -1,0 +1,85 @@
+{
+  "description": "The written/total byte counts of the ReactNativeBlobUtilProgress and ReactNativeBlobUtilProgress-upload events, as each native layer emits them. utils/byteCount.js normalises them; the JS tests check it accepts every shape here, and the native unit tests check each layer still emits its own current shape.",
+  "cases": [
+    {
+      "platform": "android",
+      "current": true,
+      "source": "ReactNativeBlobUtilReq.java, ReactNativeBlobUtilBody.java, Response/*.java: args.putDouble(\"written\", (double) n)",
+      "written": 900,
+      "total": 1000,
+      "expected": [900, 1000]
+    },
+    {
+      "platform": "android",
+      "current": true,
+      "note": "chunked response, unknown length: OkHttp reports contentLength() as -1",
+      "written": 900,
+      "total": -1,
+      "expected": [900, -1]
+    },
+    {
+      "platform": "ios",
+      "current": true,
+      "source": "ReactNativeBlobUtilRequest.mm: @\"written\": @(receivedBytes), sent as a JSON string body",
+      "written": 900,
+      "total": 1000,
+      "expected": [900, 1000]
+    },
+    {
+      "platform": "ios",
+      "current": true,
+      "note": "chunked response, unknown length: NSURLResponseUnknownLength is -1",
+      "written": 900,
+      "total": -1,
+      "expected": [900, -1]
+    },
+    {
+      "platform": "windows",
+      "current": true,
+      "source": "ReactNativeBlobUtil.cpp: { \"written\", int64_t(totalRead) }",
+      "written": 900,
+      "total": 1000,
+      "expected": [900, 1000]
+    },
+    {
+      "platform": "windows",
+      "current": true,
+      "note": "unknown length: total is null",
+      "written": 900,
+      "total": null,
+      "expected": [900, -1]
+    },
+    {
+      "platform": "android",
+      "current": false,
+      "note": "0.24.x and earlier: args.putString(\"written\", String.valueOf(written)). Apps can still run an old native build against newer JS during a reload, so the JS keeps accepting it.",
+      "written": "900",
+      "total": "1000",
+      "expected": [900, 1000]
+    },
+    {
+      "platform": "android",
+      "current": false,
+      "note": "0.24.x and earlier, chunked response",
+      "written": "900",
+      "total": "-1",
+      "expected": [900, -1]
+    },
+    {
+      "platform": "ios",
+      "current": false,
+      "note": "0.24.x and earlier: [NSString stringWithFormat:@\"%lld\", ...]",
+      "written": "900",
+      "total": "1000",
+      "expected": [900, 1000]
+    },
+    {
+      "platform": "ios",
+      "current": false,
+      "note": "0.24.x and earlier, chunked response",
+      "written": "900",
+      "total": "-1",
+      "expected": [900, -1]
+    }
+  ]
+}
