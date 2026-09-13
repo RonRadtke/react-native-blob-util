@@ -308,10 +308,9 @@ final class RequestBuilderPinTests: XCTestCase {
         let declared = Int(try XCTUnwrap(req.value(forHTTPHeaderField: "Content-Length")))
         XCTAssertEqual(declared, body.utf8.count)
 
-        // The bodyLength reported to the caller is not the same number: it is
-        // the length of the form data *before* the closing delimiter, which is
-        // what the progress total ends up being.
-        XCTAssertEqual(declared, 147)
+        // Deliberately not asserting an absolute number: it would encode the
+        // digit count of the boundary, which is derived from a timestamp and is
+        // masked in the parity signatures. The structure above is the contract.
     }
 
     // MARK: - the TLS trust decision
