@@ -1,14 +1,16 @@
 const {runFilesystemScenario} = require('./filesystem');
 const {runNetworkScenario} = require('./network');
 const {runTlsScenario} = require('./tls');
+const {runParityScenario} = require('./parity');
 
 const SCENARIOS = {
     filesystem: runFilesystemScenario,
     network: runNetworkScenario,
     tls: runTlsScenario,
+    parity: runParityScenario,
 };
 
-const DEFAULT_SCENARIOS = ['filesystem', 'network', 'tls'];
+const DEFAULT_SCENARIOS = ['filesystem', 'network', 'tls', 'parity'];
 
 const resolveScenarioNames = (rawScenarios) => {
     if (!rawScenarios) {

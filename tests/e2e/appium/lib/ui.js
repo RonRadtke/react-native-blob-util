@@ -59,6 +59,8 @@ const panelForTestId = (testId) => {
 
     if (testId.startsWith('tls-')) return 'tls';
 
+    if (testId.startsWith('parity-')) return 'parity';
+
     if (testId.startsWith('write-stream-') || testId.startsWith('append-stream-')) return 'writeStream';
     if (testId.startsWith('write-') || testId.startsWith('append-')) return 'write';
 

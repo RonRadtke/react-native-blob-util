@@ -11,6 +11,7 @@ import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, Vie
 // import {Picker} from '@react-native-picker/picker'; Need to remove this package as it is not supported in Windows New Architecture
 
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import {PARITY_CASES, runParityCase} from './parity/cases';
 
 // Was imported from react-native/Libraries/NewAppScreen, a private path that
 // React Native removed after 0.79. Only these few values were ever used, so
@@ -111,6 +112,7 @@ const App: () => React$Node = () => {
     const [readEncodeStreamParam, setReadStreamEncodeParam] = useState('utf8');
 
     const [activeE2ePanel, setActiveE2ePanel] = useState('base');
+    const [parityCaseParam, setParityCaseParam] = useState('');
 
     const e2eRoot = ReactNativeBlobUtil.fs.dirs.DocumentDir + '/e2e';
     const imageToUploadPath = ReactNativeBlobUtil.fs.dirs.DocumentDir + '/ImageToUpload.jpg';
@@ -876,6 +878,25 @@ const App: () => React$Node = () => {
                 notify('tls-bogus-cert', 'PASS: ' + err.message);
             });
     };
+    // Behavioural parity cases - see parity/cases.js and
+    // tests/e2e/appium/scenarios/parity.js. The RUNNING marker is logged first so
+    // the harness, which on iOS sees only the newest entry, can never take an
+    // earlier case's result for this one.
+    const parityListCall = () => {
+        const ids = PARITY_CASES.filter((c) => c.platforms.includes(Platform.OS)).map((c) => c.id);
+        appendLog('parity-list: RESULT ' + JSON.stringify(ids));
+    };
+
+    const parityRunCall = async () => {
+        const id = parityCaseParam.trim();
+        appendLog(`parity-${id}: RUNNING`);
+        const line = await runParityCase(id, {
+            url: buildUrl,
+            httpsUrl: (path) => `${HTTPS_BASE_URL}${path}`,
+        });
+        appendLog(`parity-${id}: ${line}`);
+    };
+
     return (
         <View style={styles.body}>
             <View style={styles.e2eContainer}>
@@ -897,6 +918,7 @@ const App: () => React$Node = () => {
                         ['readStream', 'RStream'],
                         ['network', 'Net'],
                         ['tls', 'TLS'],
+                        ['parity', 'Parity'],
                     ].map(([panel, title]) => (
                         <E2EPanelTab
                             key={panel}
@@ -1070,6 +1092,16 @@ const App: () => React$Node = () => {
                         <E2EButton id="tls-system-certs-button" title="System Certs" color="#3498db" onPress={tlsTrustSystemCertsCall} />
                         <E2EButton id="tls-trusty-button" title="Trusty (regression)" color="#f39c12" onPress={tlsTrustyRegressionCall} />
                         <E2EButton id="tls-bogus-cert-button" title="Bogus CA (fail)" color="#e74c3c" onPress={tlsBogusCertNameCall} />
+                    </View>
+                ) : null}
+
+                {activeE2ePanel === 'parity' ? (
+                    <View>
+                        <TextInput style={styles.input} placeholder="Parity case id" onChangeText={setParityCaseParam} placeholderTextColor="#9a73ef" autoCapitalize="none" autoCorrect={false} {...e2eId('parity-case-input')} />
+                        <View style={styles.buttonGroup}>
+                            <E2EButton id="parity-run-button" title="Run Case" color="#9a73ef" onPress={parityRunCall} />
+                            <E2EButton id="parity-list-button" title="List Cases" color="#9a73ef" onPress={parityListCall} />
+                        </View>
                     </View>
                 ) : null}
 
