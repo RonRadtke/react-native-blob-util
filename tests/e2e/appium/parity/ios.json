@@ -1,0 +1,1231 @@
+{
+  "constants": {
+    "ApplicationSupportDir": "<ApplicationSupportDir>",
+    "CacheDir": "<CacheDir>",
+    "DCIMDir": "",
+    "DocumentDir": "<DocumentDir>",
+    "DownloadDir": "<DownloadDir>",
+    "LegacyDCIMDir": "",
+    "LegacyDownloadDir": "",
+    "LegacyMovieDir": "",
+    "LegacyMusicDir": "",
+    "LegacyPictureDir": "",
+    "LegacySDCardDir": "",
+    "LibraryDir": "<LibraryDir>",
+    "MainBundleDir": "<MainBundleDir>",
+    "MovieDir": "<MovieDir>",
+    "MusicDir": "<MusicDir>",
+    "PictureDir": "<PictureDir>",
+    "SDCardApplicationDir": "",
+    "SDCardDir": ""
+  },
+  "cp-mv": {
+    "cp": {
+      "resolved": true
+    },
+    "cpIntoMissingDir": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "The file “file.txt” doesn’t exist.",
+        "name": "Error"
+      }
+    },
+    "listing": [
+      "file.txt",
+      "moved.txt"
+    ],
+    "mv": {
+      "resolved": true
+    },
+    "mvIntoMissingDir": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "“moved.txt” couldn’t be moved to “nested2” because either the former doesn’t exist, or the folder containing the latter doesn’t exist.",
+        "name": "Error"
+      }
+    },
+    "nested": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/cp-mv/nested'",
+        "name": "Error"
+      }
+    },
+    "nested2": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/cp-mv/nested2'",
+        "name": "Error"
+      }
+    }
+  },
+  "df": {
+    "free": "number",
+    "total": "number"
+  },
+  "errors-read": {
+    "hashDir": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/errors-read' is a directory",
+        "name": "Error"
+      }
+    },
+    "hashMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
+        "name": "Error"
+      }
+    },
+    "hashUnknownAlgorithm": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Invalid algorithm 'sha999', must be one of md5, sha1, sha224, sha256, sha384, sha512",
+        "name": "Error"
+      }
+    },
+    "lsFile": {
+      "rejected": {
+        "code": "ENOTDIR",
+        "message": "Not a directory '<DocumentDir>/parity/errors-read/file.txt'",
+        "name": "Error"
+      }
+    },
+    "lsMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
+        "name": "Error"
+      }
+    },
+    "lstatMissing": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "failed to lstat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
+        "name": "Error"
+      }
+    },
+    "readFileDir": {
+      "resolved": ""
+    },
+    "readFileMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
+        "name": "Error"
+      }
+    },
+    "readStreamMissing": {
+      "chunkCount": 0,
+      "chunkKinds": [],
+      "chunkLengths": [],
+      "outcome": {
+        "error": {
+          "code": "ENOENT",
+          "message": "File does not exist at path <DocumentDir>/parity/errors-read/missing.txt",
+          "name": "Error"
+        }
+      }
+    },
+    "sliceMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
+        "name": "Error"
+      }
+    },
+    "statMissing": {
+      "rejected": {
+        "code": "<undefined>",
+        "message": "failed to stat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
+        "name": "Error"
+      }
+    }
+  },
+  "errors-write": {
+    "afterwards": {
+      "bad": {
+        "resolved": ""
+      },
+      "file": {
+        "resolved": "x"
+      },
+      "other": {
+        "resolved": "y"
+      }
+    },
+    "cpMissing": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "The file “missing.txt” couldn’t be opened because there is no such file.",
+        "name": "Error"
+      }
+    },
+    "cpOntoExisting": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "“file.txt” couldn’t be copied to “errors-write” because an item with the same name already exists.",
+        "name": "Error"
+      }
+    },
+    "createFileExisting": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "File '<DocumentDir>/parity/errors-write/file.txt' already exists",
+        "name": "Error"
+      }
+    },
+    "createFileUriMissing": {
+      "resolved": [
+        null
+      ]
+    },
+    "mkdirExistingDir": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "Directory '<DocumentDir>/parity/errors-write' already exists",
+        "name": "Error"
+      }
+    },
+    "mkdirExistingFile": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "File '<DocumentDir>/parity/errors-write/file.txt' already exists",
+        "name": "Error"
+      }
+    },
+    "mvMissing": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "“missing.txt” couldn’t be moved to “errors-write” because either the former doesn’t exist, or the folder containing the latter doesn’t exist.",
+        "name": "Error"
+      }
+    },
+    "unlinkMissing": {
+      "resolved": "<undefined>"
+    },
+    "writeFileOntoDir": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
+        "name": "Error"
+      }
+    },
+    "writeInvalidBase64": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Data for '<DocumentDir>/parity/errors-write/bad.bin' is not valid base64",
+        "name": "Error"
+      }
+    },
+    "writeStreamOntoDir": "<skipped: iOS invokes the callback twice>"
+  },
+  "exists-isdir": {
+    "dirExists": true,
+    "dirIsDir": true,
+    "fileExists": true,
+    "fileIsDir": false,
+    "missingExists": false,
+    "missingIsDir": false
+  },
+  "fetch-binary-base64": {
+    "base64MatchesBytes": true,
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "256"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/binary"
+      ],
+      "respType": "blob",
+      "rnfbEncode": "base64",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "length": 344,
+    "type": "base64"
+  },
+  "fetch-cancel": {
+    "isCanceledFetchError": true,
+    "rejected": {
+      "code": "<undefined>",
+      "message": "canceled",
+      "name": "ReactNativeBlobUtilCanceledFetch"
+    }
+  },
+  "fetch-chunked": {
+    "info": {
+      "headers": {
+        "content-type": {
+          "key": "Content-Type",
+          "value": "text/plain"
+        },
+        "transfer-encoding": {
+          "key": "Transfer-Encoding",
+          "value": "string"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/chunked"
+      ],
+      "respType": "text",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "knownTotalReported": true,
+    "text": "chunk-1\nchunk-2\nchunk-3\n"
+  },
+  "fetch-cookies": {
+    "cookieSentBack": true
+  },
+  "fetch-errors": {
+    "invalidUrl": {
+      "rejected": {
+        "code": "<undefined>",
+        "message": "Could not connect to the server.",
+        "name": "Error"
+      }
+    },
+    "refused": {
+      "rejected": {
+        "code": "<undefined>",
+        "message": "Could not connect to the server.",
+        "name": "Error"
+      }
+    }
+  },
+  "fetch-file-cache": {
+    "contentMatches": true,
+    "existsAfterFlush": false,
+    "extension": "bin",
+    "flush": {
+      "resolved": "<undefined>"
+    },
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "256"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/binary"
+      ],
+      "respType": "blob",
+      "rnfbEncode": "path",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "path": "<DocumentDir>/ReactNativeBlobUtil_tmp/ReactNativeBlobUtilTmp_<uuid>.bin",
+    "size": 256,
+    "type": "path"
+  },
+  "fetch-json": {
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "11"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/health"
+      ],
+      "respType": "json",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "json": {
+      "ok": true
+    },
+    "type": "utf8"
+  },
+  "fetch-key-cache": {
+    "firstPath": "<DocumentDir>/ReactNativeBlobUtil_tmp/ReactNativeBlobUtilTmp_<md5>",
+    "firstType": "path",
+    "samePath": true,
+    "secondInfo": {
+      "headers": {},
+      "keys": [
+        "rnfbEncode"
+      ],
+      "redirects": "<undefined>",
+      "respType": "<undefined>",
+      "rnfbEncode": "path",
+      "state": "<undefined>",
+      "status": "<undefined>",
+      "taskId": "undefined"
+    },
+    "secondType": "path"
+  },
+  "fetch-path": {
+    "exists": true,
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "256"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/binary"
+      ],
+      "respType": "blob",
+      "rnfbEncode": "path",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "path": "<DocumentDir>/parity/fetch-path/nested/download.bin",
+    "size": 256,
+    "type": "path"
+  },
+  "fetch-redirect": {
+    "follow": {
+      "resolved": {
+        "redirects": [
+          "http://<http-server>/redirect-twice",
+          "http://<http-server>/redirect",
+          "http://<http-server>/health"
+        ],
+        "status": 200,
+        "text": "{\"ok\":true}"
+      }
+    },
+    "noFollow": {
+      "resolved": {
+        "headers": {
+          "content-length": {
+            "key": "Content-Length",
+            "value": "0"
+          },
+          "location": {
+            "key": "Location",
+            "value": "string"
+          }
+        },
+        "redirects": [
+          "http://<http-server>/redirect"
+        ],
+        "status": 302,
+        "text": ""
+      }
+    }
+  },
+  "fetch-state-change": {
+    "firstState": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "11"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/health"
+      ],
+      "respType": "json",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "11"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/health"
+      ],
+      "respType": "json",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "sawStateChange": true
+  },
+  "fetch-status": {
+    "s201": {
+      "resolved": {
+        "respType": "json",
+        "status": 201,
+        "text": "{\"status\":201}"
+      }
+    },
+    "s404": {
+      "resolved": {
+        "respType": "json",
+        "status": 404,
+        "text": "{\"status\":404}"
+      }
+    },
+    "s500": {
+      "resolved": {
+        "respType": "json",
+        "status": 500,
+        "text": "{\"status\":500}"
+      }
+    }
+  },
+  "fetch-text": {
+    "dataType": "string",
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "17"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "text/plain"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/text"
+      ],
+      "respType": "text",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "text": "héllo wörld ✓",
+    "type": "utf8"
+  },
+  "fetch-timeout": {
+    "gaveUpBeforeServerAnswered": true,
+    "result": {
+      "rejected": {
+        "code": "<undefined>",
+        "message": "The request timed out.",
+        "name": "Error"
+      }
+    }
+  },
+  "hash-algorithms": {
+    "md5": {
+      "bytes": {
+        "resolved": "e2c865db4162bed963bfaa9ef6ac18f0"
+      },
+      "empty": {
+        "resolved": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "sha1": {
+      "bytes": {
+        "resolved": "4916d6bdb7f78e6803698cab32d1586ea457dfc8"
+      },
+      "empty": {
+        "resolved": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+      }
+    },
+    "sha224": {
+      "bytes": {
+        "resolved": "88702e63237824c4eb0d0fcfe41469a462493e8beb2a75bbe5981734"
+      },
+      "empty": {
+        "resolved": "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"
+      }
+    },
+    "sha256": {
+      "bytes": {
+        "resolved": "40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880"
+      },
+      "empty": {
+        "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "sha384": {
+      "bytes": {
+        "resolved": "ffdaebff65ed05cf400f0221c4ccfb4b2104fb6a51f87e40be6c4309386bfdec2892e9179b34632331a59592737db5c5"
+      },
+      "empty": {
+        "resolved": "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"
+      }
+    },
+    "sha512": {
+      "bytes": {
+        "resolved": "1e7b80bc8edc552c8feeb2780e111477e5bc70465fac1a77b29b35980c3f0ce4a036a6c9462036824bd56801e62af7e9feba5c22ed8a5af877bf7de117dcac6d"
+      },
+      "empty": {
+        "resolved": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+      }
+    },
+    "upperCaseName": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Invalid algorithm 'SHA256', must be one of md5, sha1, sha224, sha256, sha384, sha512",
+        "name": "Error"
+      }
+    }
+  },
+  "ios-misc": {
+    "excludeFromBackupKey": {
+      "resolved": [
+        null
+      ]
+    },
+    "excludeMissing": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "Error Domain=NSCocoaErrorDomain Code=4 \"The file “missing.txt” doesn’t exist.\" UserInfo={NSURL=file://<DocumentDir>/parity/ios-misc/missing.txt, NSFilePath=<DocumentDir>/parity/ios-misc/missing.txt, NSUnderlyingError=<ptr> {Error Domain=NSPOSIXErrorDomain Code=2 \"No such file or directory\"}}",
+        "name": "Error"
+      }
+    },
+    "pathForAppGroup": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "could not find path for app group",
+        "name": "Error"
+      }
+    },
+    "syncPathAppGroup": {
+      "resolved": ""
+    }
+  },
+  "ls-dir": {
+    "elementTypes": [
+      "string"
+    ],
+    "kind": "array",
+    "sorted": [
+      "a.txt",
+      "b.txt",
+      "sub"
+    ]
+  },
+  "lstat-dir": {
+    "entries": [
+      {
+        "filename": "a.txt",
+        "keys": [
+          "filename",
+          "lastModified",
+          "path",
+          "size",
+          "type"
+        ],
+        "lastModified": "number:epoch-ms",
+        "path": "<DocumentDir>/parity/lstat-dir/a.txt",
+        "size": [
+          "string",
+          "2"
+        ],
+        "type": "file"
+      },
+      {
+        "filename": "b.txt",
+        "keys": [
+          "filename",
+          "lastModified",
+          "path",
+          "size",
+          "type"
+        ],
+        "lastModified": "number:epoch-ms",
+        "path": "<DocumentDir>/parity/lstat-dir/b.txt",
+        "size": [
+          "string",
+          "3"
+        ],
+        "type": "file"
+      },
+      {
+        "filename": "sub",
+        "keys": [
+          "filename",
+          "lastModified",
+          "path",
+          "size",
+          "type"
+        ],
+        "lastModified": "number:epoch-ms",
+        "path": "<DocumentDir>/parity/lstat-dir/sub",
+        "size": "string",
+        "type": "directory"
+      }
+    ],
+    "kind": "array"
+  },
+  "read-encodings": {
+    "ascii": {
+      "resolved": [
+        104,
+        -61,
+        -87,
+        0,
+        -1,
+        65
+      ]
+    },
+    "base64": {
+      "resolved": "aMOpAP9B"
+    },
+    "utf8CodePoints": {
+      "rejected": {
+        "code": "<undefined>",
+        "message": "Cannot convert undefined value to object",
+        "name": "TypeError"
+      }
+    }
+  },
+  "readstream-ascii": {
+    "buffer1000": {
+      "check": {
+        "elementTypes": [
+          "number"
+        ],
+        "flattenedAreFileBytes": false
+      },
+      "chunkCount": 3,
+      "chunkKinds": [
+        "array"
+      ],
+      "chunkLengths": [
+        1000,
+        1000,
+        1000
+      ],
+      "outcome": "end"
+    }
+  },
+  "readstream-base64": {
+    "buffer1000": {
+      "check": {
+        "concatenationIsFileBase64": false,
+        "decodedChunksAreFileBytes": true
+      },
+      "chunkCount": 3,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        1336,
+        1336,
+        1336
+      ],
+      "outcome": "end"
+    },
+    "buffer1002": {
+      "check": {
+        "concatenationIsFileBase64": true,
+        "decodedChunksAreFileBytes": true
+      },
+      "chunkCount": 3,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        1336,
+        1336,
+        1328
+      ],
+      "outcome": "end"
+    },
+    "buffer4096": {
+      "check": {
+        "concatenationIsFileBase64": true,
+        "decodedChunksAreFileBytes": true
+      },
+      "chunkCount": 1,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        4000
+      ],
+      "outcome": "end"
+    }
+  },
+  "readstream-utf8": {
+    "buffer1001": {
+      "check": {
+        "joinedIsText": false,
+        "replacementCharacters": 0
+      },
+      "chunkCount": 0,
+      "chunkKinds": [],
+      "chunkLengths": [],
+      "outcome": {
+        "error": {
+          "code": "EUNSPECIFIED",
+          "message": "Failed to convert data to 'utf8' encoded string, this might due to the source data is not able to convert using this encoding. source = *** -[__NSPlaceholderDictionary initWithObjects:forKeys:count:]: attempt to insert nil object from objects[2]",
+          "name": "Error"
+        }
+      }
+    },
+    "buffer4096": {
+      "check": {
+        "joinedIsText": true,
+        "replacementCharacters": 0
+      },
+      "chunkCount": 1,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        703
+      ],
+      "outcome": "end"
+    }
+  },
+  "session-dispose": {
+    "aExists": false,
+    "bExists": false,
+    "dispose": {
+      "resolved": "<undefined>"
+    },
+    "disposeMissing": {
+      "rejected": {
+        "code": "<undefined>",
+        "message": "failed to remove session path at <DocumentDir>/parity/session-dispose/never.txt",
+        "name": "Error"
+      }
+    },
+    "listed": [
+      "<DocumentDir>/parity/session-dispose/a.txt",
+      "<DocumentDir>/parity/session-dispose/b.txt"
+    ]
+  },
+  "slice": {
+    "empty": {
+      "content": {
+        "resolved": ""
+      },
+      "result": {
+        "resolved": "<DocumentDir>/parity/slice/empty.txt"
+      }
+    },
+    "middle": {
+      "content": {
+        "resolved": "cde"
+      },
+      "result": {
+        "resolved": "<DocumentDir>/parity/slice/middle.txt"
+      }
+    },
+    "negativeStart": {
+      "content": {
+        "resolved": "hij"
+      },
+      "result": {
+        "resolved": "<DocumentDir>/parity/slice/negative.txt"
+      }
+    },
+    "pastEnd": {
+      "content": {
+        "resolved": "fghij"
+      },
+      "result": {
+        "resolved": "<DocumentDir>/parity/slice/past-end.txt"
+      }
+    }
+  },
+  "stat-dir": {
+    "filename": "stat-dir",
+    "keys": [
+      "filename",
+      "lastModified",
+      "path",
+      "size",
+      "type"
+    ],
+    "lastModified": "number:epoch-ms",
+    "path": "<DocumentDir>/parity/stat-dir",
+    "size": "number",
+    "type": "directory"
+  },
+  "stat-file": {
+    "filename": "a.txt",
+    "keys": [
+      "filename",
+      "lastModified",
+      "path",
+      "size",
+      "type"
+    ],
+    "lastModified": "number:epoch-ms",
+    "path": "<DocumentDir>/parity/stat-file/a.txt",
+    "size": 4,
+    "type": "file"
+  },
+  "upload-bodies": {
+    "chunked": {
+      "resolved": {
+        "bytes": 12,
+        "contentLength": "12",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "aebd30e0419b5ad096bbf0fd326b6abdbffbee6340c4e21548b2f22314b9d319",
+        "text": "chunked body",
+        "transferEncoding": null
+      }
+    },
+    "emptyPost": {
+      "resolved": {
+        "bytes": 0,
+        "contentLength": "0",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "text": "",
+        "transferEncoding": null
+      }
+    },
+    "octetBase64": {
+      "resolved": {
+        "bytes": 4,
+        "contentLength": "4",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�",
+        "transferEncoding": null
+      }
+    },
+    "plainNoHeaders": {
+      "resolved": {
+        "bytes": 14,
+        "contentLength": "14",
+        "contentType": "application/octet-stream",
+        "custom": "hello",
+        "method": "POST",
+        "parts": null,
+        "sha256": "9ef7211d5c0e0e8489b219edc2a03174f97d2aeeaaab35a394164bf739b66e39",
+        "text": "plain body ✓",
+        "transferEncoding": null
+      }
+    },
+    "put": {
+      "resolved": {
+        "bytes": 8,
+        "contentLength": "8",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "PUT",
+        "parts": null,
+        "sha256": "33aa76280a862e6fc895818d0f0274b3f2770f9d38e92cb91cec7faeefd0eaf9",
+        "text": "put body",
+        "transferEncoding": null
+      }
+    },
+    "textPlainBase64": {
+      "resolved": {
+        "bytes": 8,
+        "contentLength": "8",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "c4b988394e642e17fb80759e38bea055c3efbbc5f449e9502bb5ac450ad0fc78",
+        "text": "AAEC/w==",
+        "transferEncoding": null
+      }
+    },
+    "wrappedFile": {
+      "resolved": {
+        "bytes": 13,
+        "contentLength": "13",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "c03f0dd7888b1b9d1736bd2cf4638b9b400563eb75dee079972a6796125ed11e",
+        "text": "file body ✓",
+        "transferEncoding": null
+      }
+    }
+  },
+  "upload-multipart": {
+    "bytes": "<multipart>",
+    "contentLength": "string",
+    "contentType": "multipart/form-data; boundary=<boundary>",
+    "custom": null,
+    "method": "POST",
+    "parts": [
+      {
+        "bytes": 11,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "text",
+        "sha256": "084625ce30df55c4e7c6380351f78751679bccac7a3f8584fdfc831d442b556e",
+        "text": "plain value"
+      },
+      {
+        "bytes": 7,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "json",
+        "sha256": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862",
+        "text": "{\"a\":1}"
+      },
+      {
+        "bytes": 4,
+        "contentType": "application/octet-stream",
+        "filename": "bytes.bin",
+        "name": "base64file",
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�"
+      },
+      {
+        "bytes": 20,
+        "contentType": "text/plain",
+        "filename": "wrapped.txt",
+        "name": "wrapped",
+        "sha256": "1791fc1208901b760ad1766a2fc5249e79ece2166acacc87efdb66b63a36c9fb",
+        "text": "wrapped file content"
+      },
+      {
+        "bytes": 4,
+        "contentType": "application/octet-stream",
+        "filename": "untyped.dat",
+        "name": "untyped",
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�"
+      },
+      {
+        "bytes": 10,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "unicode",
+        "sha256": "5657cdef8a85a584e0e961e6f8247cf5d3f8ed21496ed6fdbcfd43a761e94245",
+        "text": "héllo ✓"
+      }
+    ],
+    "sha256": "<multipart>",
+    "text": "<multipart>",
+    "transferEncoding": null
+  },
+  "write-returns": {
+    "appendAscii": {
+      "resolved": 1
+    },
+    "appendBase64": {
+      "resolved": 1
+    },
+    "appendUri": {
+      "resolved": 7
+    },
+    "appendUtf8": {
+      "resolved": 1
+    },
+    "contents": {
+      "a": {
+        "resolved": [
+          104,
+          105,
+          33
+        ]
+      },
+      "b": {
+        "resolved": "AAECAwQ="
+      },
+      "c2": {
+        "resolved": "c"
+      },
+      "c3": {
+        "resolved": "c"
+      },
+      "c4": {
+        "resolved": "c"
+      },
+      "copy": {
+        "resolved": "héllo!héllo!"
+      },
+      "nested": {
+        "resolved": "z"
+      },
+      "u": {
+        "resolved": "héllo!"
+      }
+    },
+    "createAscii": {
+      "resolved": [
+        null
+      ]
+    },
+    "createBase64": {
+      "resolved": [
+        null
+      ]
+    },
+    "createUri": {
+      "resolved": [
+        null
+      ]
+    },
+    "createUtf8": {
+      "resolved": [
+        null
+      ]
+    },
+    "writeAscii": {
+      "resolved": 2
+    },
+    "writeBase64": {
+      "resolved": 4
+    },
+    "writeNested": {
+      "resolved": 1
+    },
+    "writeUri": {
+      "resolved": 7
+    },
+    "writeUtf8": {
+      "resolved": 6
+    }
+  },
+  "writestream": {
+    "asciiContent": {
+      "resolved": "AQID"
+    },
+    "asciiNonArray": {
+      "rejected": {
+        "code": "<undefined>",
+        "message": "ascii input data must be an Array",
+        "name": "Error"
+      }
+    },
+    "asciiWrite": {
+      "resolved": true
+    },
+    "base64Content": {
+      "resolved": "AAEC"
+    },
+    "nestedParents": {
+      "resolved": "nested"
+    },
+    "utf8Close": {
+      "resolved": "<undefined>"
+    },
+    "utf8Content": {
+      "resolved": "abcdef"
+    },
+    "utf8Write": {
+      "resolved": true
+    }
+  }
+}
