@@ -708,6 +708,11 @@ const App: () => React$Node = () => {
     };
 
     const MakeRequestWithProgress = () => {
+        // Recorded by the callbacks, reported once the request completes - see
+        // the note at the notify below.
+        let sawDownloadComplete = false;
+        let sawUploadComplete = false;
+
         ReactNativeBlobUtil.config({
             fileCache: true,
         })
@@ -744,17 +749,25 @@ const App: () => React$Node = () => {
                 ],
             )
             .uploadProgress({interval: 250}, (written, total) => {
-                if (e2eEnabled && total > 0 && written === total) {
-                    appendLog('progress upload: 100%');
+                if (total > 0 && written === total) {
+                    sawUploadComplete = true;
                 }
             })
             .progress({count: 10, interval: -1}, (received, total) => {
-                if (e2eEnabled && total > 0 && received === total) {
-                    appendLog('progress download: 100%');
+                if (total > 0 && received === total) {
+                    sawDownloadComplete = true;
                 }
             })
             .then((res) => {
                 notify('progress', res.text());
+
+                // After the completion entry, not from inside the callbacks:
+                // iOS exposes only the newest log entry, so a marker written
+                // while the request is still running is overwritten by this
+                // notify and never reaches the harness. Logging it last makes
+                // what the callbacks saw the line that survives.
+                appendLog('progress events: download100=' + sawDownloadComplete +
+                    ' upload100=' + sawUploadComplete);
             })
             .catch((err) => {
                 notifyError(err);
