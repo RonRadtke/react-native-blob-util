@@ -161,6 +161,18 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
+      # The XCTest target runs hosted in the example app on a simulator. Its header
+      # search paths are proven under both static linkages; dynamic frameworks only
+      # build. The runner image's simulator names change with Xcode releases, so the
+      # first available iPhone is used instead of a fixed name, picked the same way
+      # e2e-mobile.yml picks its fallback device.
+      - name: Unit tests
+        if: matrix.linkage != 'dynamic-frameworks'
+        run: |
+          simulator=$(xcrun simctl list devices available | sed -n 's/^[[:space:]]*\(iPhone[^()]*\) (.*/\1/p' | head -n 1 | xargs)
+          echo "Simulator: $simulator"
+          IOS_SIMULATOR_NAME="$simulator" npm run test:ios
+
   # A throwaway app from the newest React Native template, linked to the checkout
   # the way the example app is. This is the check that keeps apps on releases newer
   # than react-native-windows supports working.
