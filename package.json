@@ -7,6 +7,7 @@
         "lint": "eslint \"*.js\" class utils polyfill components",
         "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/unit/*.test.js\"",
         "test:android": "node tests/native/run-android-unit-tests.js",
+        "test:ios": "node tests/native/run-ios-unit-tests.js",
         "e2e:certs": "node tests/e2e/certs/generate.js",
         "e2e:server": "node tests/e2e/server.js",
         "e2e:android": "node tests/e2e/run-all.js --platforms android",

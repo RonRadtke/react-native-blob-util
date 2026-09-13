@@ -31,6 +31,11 @@ target 'ReactNativeBlobUtilE2E' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+  # The unit tests link against the app, so they need the same pods it does.
+  target 'ReactNativeBlobUtilE2ETests' do
+    inherit! :complete
+  end
+
   post_install do |installer|
     react_native_post_install(
       installer,

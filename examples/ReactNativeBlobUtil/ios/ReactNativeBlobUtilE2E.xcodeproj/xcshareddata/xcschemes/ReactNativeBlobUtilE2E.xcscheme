@@ -38,6 +38,26 @@
                ReferencedContainer = "container:ReactNativeBlobUtilE2E.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "360922C9E1308C475E4EA7AB"
+               BuildableName = "ReactNativeBlobUtilE2ETests.xctest"
+               BlueprintName = "ReactNativeBlobUtilE2ETests"
+               ReferencedContainer = "container:ReactNativeBlobUtilE2E.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "26E6EAC438B95E279B233762"
+               BuildableName = "ReactNativeBlobUtilE2ETests.xctest"
+               BlueprintName = "ReactNativeBlobUtilE2ETests"
+               ReferencedContainer = "container:ReactNativeBlobUtilE2E.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

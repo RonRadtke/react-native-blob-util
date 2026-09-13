@@ -9,7 +9,11 @@
 #ifndef ReactNativeBlobUtilFS_h
 #define ReactNativeBlobUtilFS_h
 
-#import "ReactNativeBlobUtil.h"
+// Forward declared rather than imported: only a pointer is needed here, and
+// importing the module header drags in the codegen spec, which must be
+// compiled as Objective-C++. That makes this header unusable from anything
+// compiled as plain Objective-C - a Swift bridging header, for instance.
+@class ReactNativeBlobUtil;
 #import <Foundation/Foundation.h>
 
 #if __has_include(<React/RCTAssert.h>)
