@@ -18,12 +18,21 @@ const rnwPath = fs.realpathSync(
  * single RegExp - metro-config used to export an exclusionList helper to combine
  * several, but only from src/ internals current versions no longer expose.
  *
+ * The Android build output is excluded for the same reason. Without Watchman,
+ * Metro's fallback watcher walks android/app/.cxx while CMake creates and deletes
+ * its probe directories there, and the server dies with ENOENT on a directory
+ * that existed a moment earlier.
+ *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
+const toPattern = (dir) => dir.replace(/[/\\]/g, '[/\\\\]');
+
 const blocked = [
-    new RegExp(`${path.resolve(appDir, 'windows').replace(/[/\\]/g, '[/\\\\]')}.*`),
-    new RegExp(`${rnwPath.replace(/[/\\]/g, '[/\\\\]')}[/\\\\](build|target)[/\\\\].*`),
+    new RegExp(`${toPattern(path.resolve(appDir, 'windows'))}.*`),
+    new RegExp(`${toPattern(rnwPath)}[/\\\\](build|target)[/\\\\].*`),
     /.*\.ProjectImports\.zip/,
+    new RegExp(`${toPattern(path.resolve(appDir, 'android'))}[/\\\\](app[/\\\\])?(\\.cxx|build|\\.gradle)[/\\\\].*`),
+    new RegExp(`${toPattern(path.resolve(repoRoot, 'android'))}[/\\\\](\\.cxx|build|\\.gradle)[/\\\\].*`),
 ];
 
 /**
