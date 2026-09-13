@@ -157,7 +157,11 @@
                             [mheaders setValue:ncType forKey:@"content-type"];
                         if([mheaders valueForKey:@"Content-Type"] != nil)
                             [mheaders setValue:ncType forKey:@"Content-Type"];
-                        blobData = [[NSData alloc] initWithBase64EncodedString:body options:0];
+                        // Same leniency as the multipart path below. options:0
+                        // rejects the newlines in column-wrapped base64, which
+                        // left the request with a nil body and a size of 0, with
+                        // nothing said about why.
+                        blobData = [[NSData alloc] initWithBase64EncodedString:body options:NSDataBase64DecodingIgnoreUnknownCharacters];
                         [request setHTTPBody:blobData];
                         size = [blobData length];
                     }
@@ -250,12 +254,18 @@
                     }
                     else
                     {
-                        blobData = [[NSData alloc] initWithBase64EncodedString:content options:0];
-                        // Undecodable base64 yields nil, and the append below is
-                        // then a no-op, so the part still goes out with its
-                        // headers and an empty body. That is survivable but
-                        // silent: say so, the way the missing-name branch above
-                        // does, and the way Android now does for the same input.
+                        // Ignore unknown characters. Base64 arrives wrapped at 64
+                        // or 76 columns often enough to matter, and options:0
+                        // rejects the embedded newlines outright, so content that
+                        // Android uploaded fine went out from here as an empty
+                        // part. Android's decoder strips whitespace; this is what
+                        // makes the two agree.
+                        blobData = [[NSData alloc] initWithBase64EncodedString:content options:NSDataBase64DecodingIgnoreUnknownCharacters];
+                        // What still fails is genuinely malformed. It yields nil,
+                        // and the append below is then a no-op, so the part goes
+                        // out with its headers and an empty body: survivable, but
+                        // silent unless we say so - the way the missing-name
+                        // branch above does, and the way Android now does.
                         if(blobData == nil)
                         {
                             RCTLogWarn(@"ReactNativeBlobUtil multipart request builder could not decode the `data` of field `%@` as base64, the field will be sent with an empty body.", name);
