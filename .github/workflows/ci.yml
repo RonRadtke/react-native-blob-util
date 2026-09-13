@@ -1,0 +1,128 @@
+name: CI
+
+# Runs on every pull request and on pushes to the long-lived branches. The e2e
+# suites stay in e2e-mobile.yml on manual dispatch: they need an emulator or a
+# simulator and take far longer than a build.
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+      - 'feature/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # npm test needs Node 22 or newer for its built-in test runner features.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      # Includes the codegen schema test, which fails if a native method
+      # signature in codegenSpecs/ changes.
+      - run: npm test
+
+  android:
+    name: Android build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            examples/ReactNativeBlobUtil/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      # The example app depends on the library through file:../../, so this
+      # builds the checked-out sources, not a published release.
+      - run: npm ci
+        working-directory: examples/ReactNativeBlobUtil
+
+      # The generated test CA is a build input: Android bundles it as res/raw/test_ca.
+      - run: npm run e2e:certs
+
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: examples/ReactNativeBlobUtil/android
+
+  ios:
+    name: iOS build (${{ matrix.linkage }})
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        linkage: [static-libraries, static-frameworks]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            examples/ReactNativeBlobUtil/package-lock.json
+
+      - run: npm ci
+
+      - run: npm ci
+        working-directory: examples/ReactNativeBlobUtil
+
+      # The generated test CA is a build input: iOS bundles it as test_ca.pem.
+      - run: npm run e2e:certs
+
+      # The Podfile switches to frameworks only when USE_FRAMEWORKS is set at all,
+      # so the static-library leg must not set it, not even to an empty string.
+      - name: pod install (static libraries)
+        if: matrix.linkage == 'static-libraries'
+        run: pod install
+        working-directory: examples/ReactNativeBlobUtil/ios
+
+      - name: pod install (static frameworks)
+        if: matrix.linkage == 'static-frameworks'
+        run: pod install
+        working-directory: examples/ReactNativeBlobUtil/ios
+        env:
+          USE_FRAMEWORKS: static
+
+      - name: xcodebuild
+        working-directory: examples/ReactNativeBlobUtil/ios
+        run: >
+          xcodebuild
+          -workspace ReactNativeBlobUtilE2E.xcworkspace
+          -scheme ReactNativeBlobUtilE2E
+          -configuration Debug
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          build
