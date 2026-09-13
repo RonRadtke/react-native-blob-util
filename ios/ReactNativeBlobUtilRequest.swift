@@ -61,7 +61,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     }
 
     private func shouldTransformFile() -> Bool {
-        (options?[CONFIG_TRANSFORM_FILE] as? NSNumber)?.boolValue ?? false
+        (options?[ReactNativeBlobUtilConst.configTransformFile] as? NSNumber)?.boolValue ?? false
     }
 
     // MARK: - sending
@@ -100,8 +100,8 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         default: responseFormat = .auto
         }
 
-        let path = self.options?[CONFIG_FILE_PATH] as? String
-        let key = self.options?[CONFIG_KEY] as? String
+        let path = self.options?[ReactNativeBlobUtilConst.configFilePath] as? String
+        let key = self.options?[ReactNativeBlobUtilConst.configKey] as? String
 
         bodyLength = contentLength
 
@@ -116,14 +116,14 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             configuration.timeoutIntervalForRequest = TimeInterval(timeout / 1000)
         }
 
-        if let wifiOnly = options?[CONFIG_WIFI_ONLY] as? NSNumber, wifiOnly.boolValue {
+        if let wifiOnly = options?[ReactNativeBlobUtilConst.configWifiOnly] as? NSNumber, wifiOnly.boolValue {
             configuration.allowsCellularAccess = false
         }
 
         configuration.httpMaximumConnectionsPerHost = 10
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: operationQueue)
 
-        if path != nil || self.options?[CONFIG_USE_TEMP] != nil {
+        if path != nil || self.options?[ReactNativeBlobUtilConst.configUseTemp] != nil {
             respFile = true
 
             var cacheKey = taskId ?? ""
@@ -132,9 +132,9 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                 if cacheKey.isEmpty { cacheKey = taskId ?? "" }
 
                 destPath = ReactNativeBlobUtilFS.getTempPath(cacheKey,
-                                                             withExtension: self.options?[CONFIG_FILE_EXT] as? String)
+                                                             withExtension: self.options?[ReactNativeBlobUtilConst.configFileExt] as? String)
                 if FileManager.default.fileExists(atPath: destPath) {
-                    callback?([NSNull(), RESP_TYPE_PATH, destPath])
+                    callback?([NSNull(), ReactNativeBlobUtilConst.respTypePath, destPath])
                     return
                 }
             }
@@ -143,7 +143,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                 destPath = path
             } else {
                 destPath = ReactNativeBlobUtilFS.getTempPath(cacheKey,
-                                                             withExtension: self.options?[CONFIG_FILE_EXT] as? String)
+                                                             withExtension: self.options?[ReactNativeBlobUtilConst.configFileExt] as? String)
             }
 
             // Still needed as a placeholder while the transform is deferred.
@@ -166,7 +166,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             task = dataTask
         }
 
-        if let indicator = options?[CONFIG_INDICATOR] as? NSNumber, indicator.boolValue {
+        if let indicator = options?[ReactNativeBlobUtilConst.configIndicator] as? NSNumber, indicator.boolValue {
             DispatchQueue.main.async {
                 UIApplication.shared.isNetworkActivityIndicatorVisible = true
             }
@@ -268,7 +268,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
 
         if isServerPush {
             if let partBuffer = partBuffer {
-                baseModule?.emitEventDict(EVENT_SERVER_PUSH, body: [
+                baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventServerPush, body: [
                     "taskId": taskId ?? "",
                     "chunk": partBuffer.base64EncodedString(options: []),
                 ])
@@ -281,7 +281,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         }
 
         if let respCType = respCType {
-            let extraBlobCTypes = options?[CONFIG_EXTRA_BLOB_CTYPE] as? [String]
+            let extraBlobCTypes = options?[ReactNativeBlobUtilConst.configExtraBlobCtype] as? [String]
             if respCType.contains("text/") {
                 respType = "text"
             } else if respCType.contains("application/json") {
@@ -313,7 +313,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             }
         }
 
-        baseModule?.emitEventDict(EVENT_STATE_CHANGE, body: [
+        baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventStateChange, body: [
             "taskId": taskId ?? "",
             "state": "2",
             "headers": headerDict,
@@ -360,7 +360,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             } else {
                 body = ["taskId": taskId ?? "", "written": receivedBytes, "total": expectedBytes, "chunk": chunkString]
             }
-            baseModule?.emitEventDict(EVENT_PROGRESS, body: body)
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgress, body: body)
         }
     }
 
@@ -370,7 +370,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         var respStr: String?
         var rnfbRespType: String?
 
-        if let indicator = options?[CONFIG_INDICATOR] as? NSNumber, indicator.boolValue {
+        if let indicator = options?[ReactNativeBlobUtilConst.configIndicator] as? NSNumber, indicator.boolValue {
             DispatchQueue.main.async {
                 UIApplication.shared.isNetworkActivityIndicatorVisible = false
             }
@@ -387,7 +387,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             // shouldReport: mutates the tick and timestamp it throttles on, so
             // asking about a download we will not report advances that state
             // for nothing.
-            baseModule?.emitEventDict(EVENT_PROGRESS, body: [
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgress, body: [
                 "taskId": taskId ?? "", "written": receivedBytes, "total": receivedBytes, "chunk": "",
             ])
         }
@@ -396,7 +396,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             if shouldTransformFile() {
                 guard let transformer = ReactNativeBlobUtilFileTransformer.getFileTransformer() else {
                     errMsg = "Transform file specified but file transfomer not set"
-                    finish(task: task, errMsg: errMsg, rnfbRespType: RESP_TYPE_PATH, respStr: destPath, session: session)
+                    finish(task: task, errMsg: errMsg, rnfbRespType: ReactNativeBlobUtilConst.respTypePath, respStr: destPath, session: session)
                     return
                 }
                 let transformed = transformer.onWriteFile((respData ?? NSMutableData()) as Data) ?? Data()
@@ -406,24 +406,24 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                 }
             }
             writeStream?.close()
-            rnfbRespType = RESP_TYPE_PATH
+            rnfbRespType = ReactNativeBlobUtilConst.respTypePath
             respStr = destPath
         } else {
             // #73: try UTF-8 first so unicode survives, and fall back to base64.
             let utf8 = String(data: (respData ?? NSMutableData()) as Data, encoding: .utf8)
             switch responseFormat {
             case .base64:
-                rnfbRespType = RESP_TYPE_BASE64
+                rnfbRespType = ReactNativeBlobUtilConst.respTypeBase64
                 respStr = (respData ?? NSMutableData()).base64EncodedString(options: [])
             case .utf8:
-                rnfbRespType = RESP_TYPE_UTF8
+                rnfbRespType = ReactNativeBlobUtilConst.respTypeUtf8
                 respStr = utf8
             case .auto:
                 if let utf8 = utf8 {
-                    rnfbRespType = RESP_TYPE_UTF8
+                    rnfbRespType = ReactNativeBlobUtilConst.respTypeUtf8
                     respStr = utf8
                 } else {
-                    rnfbRespType = RESP_TYPE_BASE64
+                    rnfbRespType = ReactNativeBlobUtilConst.respTypeBase64
                     respStr = (respData ?? NSMutableData()).base64EncodedString(options: [])
                 }
             }
@@ -457,7 +457,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         if totalBytesExpectedToSend == 0 { return }
         let now = NSNumber(value: Float(totalBytesSent) / Float(totalBytesExpectedToSend))
         if uploadProgressConfig?.shouldReport(now) == true {
-            baseModule?.emitEventDict(EVENT_PROGRESS_UPLOAD, body: [
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgressUpload, body: [
                 "taskId": taskId ?? "", "written": totalBytesSent, "total": totalBytesExpectedToSend,
             ])
         }
@@ -524,7 +524,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         if totalBytesExpectedToWrite == 0 { return }
         let now = NSNumber(value: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
         if progressConfig?.shouldReport(now) == true {
-            baseModule?.emitEventDict(EVENT_PROGRESS, body: [
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgress, body: [
                 "taskId": taskId ?? "", "written": totalBytesWritten, "total": totalBytesExpectedToWrite,
             ])
         }
@@ -549,16 +549,16 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     public func urlSession(_ session: URLSession,
                            didReceive challenge: URLAuthenticationChallenge,
                            completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        if let trusty = options?[CONFIG_TRUSTY] as? NSNumber, trusty.boolValue {
+        if let trusty = options?[ReactNativeBlobUtilConst.configTrusty] as? NSNumber, trusty.boolValue {
             completionHandler(.useCredential, challenge.protectionSpace.serverTrust.map { URLCredential(trust: $0) })
             return
         }
 
-        let customCACerts = options?[CONFIG_CUSTOM_CA_CERTS] as? [String]
+        let customCACerts = options?[ReactNativeBlobUtilConst.configCustomCaCerts] as? [String]
         if let customCACerts = customCACerts, !customCACerts.isEmpty,
            challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
 
-            if let pinnedHosts = options?[CONFIG_PINNED_HOSTS] as? [String], !pinnedHosts.isEmpty {
+            if let pinnedHosts = options?[ReactNativeBlobUtilConst.configPinnedHosts] as? [String], !pinnedHosts.isEmpty {
                 let host = challenge.protectionSpace.host
                 if !pinnedHosts.contains(host) {
                     completionHandler(.performDefaultHandling, nil)
@@ -590,7 +590,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
 
             SecTrustSetAnchorCertificates(serverTrust, anchorCerts as CFArray)
 
-            let trustSystemCerts = (options?[CONFIG_TRUST_SYSTEM_CERTS] as? NSNumber)?.boolValue ?? false
+            let trustSystemCerts = (options?[ReactNativeBlobUtilConst.configTrustSystemCerts] as? NSNumber)?.boolValue ?? false
             SecTrustSetAnchorCertificatesOnly(serverTrust, !trustSystemCerts)
 
             var trustError: CFError?

@@ -21,6 +21,8 @@ import CommonCrypto
 public typealias RNBUResolve = (Any?) -> Void
 public typealias RNBUReject = (String?, String?, Error?) -> Void
 public typealias RNBUCallback = ([Any]?) -> Void
+/// The adapter always has an array to give; only the RCT block type is optional.
+public typealias RNBUCallbackNonNull = ([Any]) -> Void
 
 @objc(ReactNativeBlobUtilFS)
 public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
@@ -106,8 +108,8 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
     /// is handed back untouched.
     @objc(getPathOfAsset:)
     public static func getPathOfAsset(_ assetURI: String) -> String {
-        guard assetURI.hasPrefix(ASSET_PREFIX) else { return assetURI }
-        let relative = assetURI.replacingOccurrences(of: ASSET_PREFIX, with: "")
+        guard assetURI.hasPrefix(ReactNativeBlobUtilConst.assetPrefix) else { return assetURI }
+        let relative = assetURI.replacingOccurrences(of: ReactNativeBlobUtilConst.assetPrefix, with: "")
         let name = (relative as NSString).deletingPathExtension
         let ext = (relative as NSString).pathExtension
         // Returning nil here would be a behaviour change: the Objective-C
@@ -118,7 +120,7 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
 
     @objc(getPathFromUri:completionHandler:)
     public static func getPathFromUri(_ uri: String, completionHandler onComplete: @escaping (String?, PHAsset?) -> Void) {
-        if uri.hasPrefix(AL_PREFIX) {
+        if uri.hasPrefix(ReactNativeBlobUtilConst.alPrefix) {
             guard let assetURL = URL(string: uri) else { return onComplete(nil, nil) }
             let assets = PHAsset.fetchAssets(withALAssetURLs: [assetURL], options: nil)
             if let asset = assets.firstObject {
@@ -167,9 +169,9 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
 
             if let path = path, !path.isEmpty {
                 if !FileManager.default.fileExists(atPath: path) {
-                    baseModule?.emitEventDict(EVENT_FILESYSTEM, body: [
+                    baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
                         "streamId": streamId,
-                        "event": FS_EVENT_ERROR,
+                        "event": ReactNativeBlobUtilConst.fsEventError,
                         "code": "ENOENT",
                         "detail": "File does not exist at path \(path)",
                     ])
@@ -192,9 +194,9 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
                     try? FileManager.default.removeItem(atPath: tempPath)
                 }
             } else {
-                baseModule?.emitEventDict(EVENT_FILESYSTEM, body: [
+                baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
                     "streamId": streamId,
-                    "event": FS_EVENT_ERROR,
+                    "event": ReactNativeBlobUtilConst.fsEventError,
                     "code": "EINVAL",
                     "detail": "Unable to resolve URI",
                 ])
@@ -202,9 +204,9 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
 
             // The Objective-C sent this from an @finally, so it follows every
             // path above, including the ones that already reported an error.
-            baseModule?.emitEventDict(EVENT_FILESYSTEM, body: [
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
                 "streamId": streamId,
-                "event": FS_EVENT_END,
+                "event": ReactNativeBlobUtilConst.fsEventEnd,
                 "detail": "",
             ])
         }
@@ -226,24 +228,24 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             // the raise is reproduced rather than the wording copied out.
             let text = String(data: data, encoding: .utf8)
             let raised = ReactNativeBlobUtilExceptionCatch.buildStreamPayload(
-                withStreamId: streamId, event: FS_EVENT_DATA, detail: text
+                withStreamId: streamId, event: ReactNativeBlobUtilConst.fsEventData, detail: text
             ) { payload in
-                baseModule?.emitEventDict(EVENT_FILESYSTEM, body: payload)
+                baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: payload)
             }
             if let raised = raised {
                 reportChunkFailure(encoding: encoding, streamId: streamId,
                                    baseModule: baseModule, detail: raised)
             }
         } else if lowered == "base64" {
-            baseModule?.emitEventDict(EVENT_FILESYSTEM, body: [
-                "streamId": streamId, "event": FS_EVENT_DATA,
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
+                "streamId": streamId, "event": ReactNativeBlobUtilConst.fsEventData,
                 "detail": data.base64EncodedString(),
             ])
         } else if lowered == "ascii" {
             // Signed, via numberWithChar: - a byte above 0x7f reaches JS negative.
             let bytes = data.map { NSNumber(value: Int8(bitPattern: $0)) }
-            baseModule?.emitEventDict(EVENT_FILESYSTEM, body: [
-                "streamId": streamId, "event": FS_EVENT_DATA, "detail": bytes,
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
+                "streamId": streamId, "event": ReactNativeBlobUtilConst.fsEventData, "detail": bytes,
             ])
         }
     }
@@ -254,11 +256,11 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
                                            detail: String) {
         let message = "Failed to convert data to '\(encoding ?? "")' encoded string, " +
             "this might due to the source data is not able to convert using this encoding. source = \(detail)"
-        baseModule?.emitEventDict(EVENT_FILESYSTEM, body: [
-            "streamId": streamId, "event": MSG_EVENT_ERROR, "detail": message,
+        baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
+            "streamId": streamId, "event": ReactNativeBlobUtilConst.msgEventError, "detail": message,
         ])
-        baseModule?.emitEventDict(MSG_EVENT, body: [
-            "streamId": streamId, "event": MSG_EVENT_WARN, "detail": message,
+        baseModule?.emitEventDict(ReactNativeBlobUtilConst.msgEvent, body: [
+            "streamId": streamId, "event": ReactNativeBlobUtilConst.msgEventWarn, "detail": message,
         ])
     }
 

@@ -156,7 +156,7 @@ final class RequestBuilderPinTests: XCTestCase {
         try "from disk".write(toFile: path, atomically: true, encoding: .utf8)
         let (request, length) = try buildOctet(method: "POST",
                                                headers: ["content-type": "text/plain"],
-                                               body: FILE_PREFIX + path)
+                                               body: ReactNativeBlobUtilConst.filePrefix + path)
         let req = try XCTUnwrap(request)
         XCTAssertEqual(String(data: try XCTUnwrap(req.httpBody), encoding: .utf8), "from disk")
         XCTAssertEqual(length, 9, "the length comes from the file's size")
@@ -169,7 +169,7 @@ final class RequestBuilderPinTests: XCTestCase {
         let (request, _) = try buildOctet(method: "POST",
                                           headers: ["content-type": "text/plain",
                                                     "transfer-encoding": "chunked"],
-                                          body: FILE_PREFIX + path)
+                                          body: ReactNativeBlobUtilConst.filePrefix + path)
         let req = try XCTUnwrap(request)
         XCTAssertNotNil(req.httpBodyStream, "a chunked body is streamed")
         XCTAssertNil(req.httpBody, "and not loaded into memory")
@@ -222,7 +222,7 @@ final class RequestBuilderPinTests: XCTestCase {
         let path = "\(dir)/part.txt"
         try "on disk".write(toFile: path, atomically: true, encoding: .utf8)
         let (request, _) = try buildMultipart(form: [
-            ["name": "upload", "filename": "part.txt", "data": FILE_PREFIX + path],
+            ["name": "upload", "filename": "part.txt", "data": ReactNativeBlobUtilConst.filePrefix + path],
         ])
         let body = try XCTUnwrap(String(data: try XCTUnwrap(try XCTUnwrap(request).httpBody), encoding: .utf8))
         XCTAssertTrue(body.contains("on disk"), body)

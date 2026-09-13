@@ -4,13 +4,8 @@
 //  Created by wkh237 on 2016/4/28.
 //
 
-//XXX: DO NO REMOVE THIS LINE IF YOU'RE USING IT ON RN > 0.40 PROJECT
-
-
-
 #ifndef ReactNativeBlobUtil_h
 #define ReactNativeBlobUtil_h
-
 
 #if __has_include(<React/RCTAssert.h>)
 #import <React/RCTLog.h>
@@ -27,25 +22,18 @@
 #endif
 
 #import <UIKit/UIKit.h>
-
 #import <ReactNativeBlobUtilSpec/ReactNativeBlobUtilSpec.h>
 
-
-@interface ReactNativeBlobUtil : RCTEventEmitter <RCTBridgeModule, UIDocumentInteractionControllerDelegate> {
-
-    NSString * filePathPrefix;
-
-}
-
-@property (nonatomic) NSString * filePathPrefix;
-@property (retain) UIDocumentInteractionController * documentController;
+/// The adapter. Everything this module does lives in Swift, in
+/// ReactNativeBlobUtilModuleCore; what is here is what cannot: the module
+/// macro, the RCTEventEmitter subclass, the TurboModule hook, and one
+/// forwarding method per spec method that converts React's block types into
+/// the closures the Swift takes.
+@interface ReactNativeBlobUtil : RCTEventEmitter <RCTBridgeModule, NativeBlobUtilsSpec>
 
 -(void) emitEvent:(NSString *)name body:(NSString *) body;
 -(void) emitEventDict:(NSString *)name body:(NSDictionary *) body;
 
-@end
-
-@interface ReactNativeBlobUtil () <NativeBlobUtilsSpec>
 @end
 
 #endif /* ReactNativeBlobUtil_h */

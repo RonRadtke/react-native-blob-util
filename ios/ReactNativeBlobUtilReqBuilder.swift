@@ -121,9 +121,9 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
 
             contentType = contentType ?? "application/octet-stream"
 
-            if content!.hasPrefix(FILE_PREFIX) {
+            if content!.hasPrefix(ReactNativeBlobUtilConst.filePrefix) {
                 let orgPath = ReactNativeBlobUtilFS.getPathOfAsset(
-                    String(content!.dropFirst(FILE_PREFIX.count)))
+                    String(content!.dropFirst(ReactNativeBlobUtilConst.filePrefix.count)))
                 ReactNativeBlobUtilFS.readFile(orgPath, encoding: nil, transformFile: false) { fileContent, _, err in
                     if err != nil {
                         return onComplete(formData, true)
@@ -185,11 +185,11 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
                     mheaders["Content-Type"] = "application/octet-stream"
                 }
 
-                if body.hasPrefix(FILE_PREFIX) {
-                    var orgPath = ReactNativeBlobUtilFS.getPathOfAsset(String(body.dropFirst(FILE_PREFIX.count)))
+                if body.hasPrefix(ReactNativeBlobUtilConst.filePrefix) {
+                    var orgPath = ReactNativeBlobUtilFS.getPathOfAsset(String(body.dropFirst(ReactNativeBlobUtilConst.filePrefix.count)))
                     orgPath = URL(string: orgPath)?.path ?? orgPath
 
-                    if orgPath.hasPrefix(AL_PREFIX) {
+                    if orgPath.hasPrefix(ReactNativeBlobUtilConst.alPrefix) {
                         ReactNativeBlobUtilFS.readFile(orgPath, encoding: nil, transformFile: false) { content, _, err in
                             if err != nil { return onComplete(nil, 0) }
                             let data = content as? Data

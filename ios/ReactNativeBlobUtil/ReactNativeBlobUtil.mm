@@ -1,1029 +1,289 @@
 //
-//  ReactNativeBlobUtil.m
+//  ReactNativeBlobUtil.mm
 //
 //  Created by wkh237 on 2016/4/28.
 //
+//  The adapter. The logic moved to ReactNativeBlobUtilModuleCore in Swift; what
+//  is left is what needs React or C++: the module macro, the RCTEventEmitter
+//  subclass, getTurboModule, and one forwarding method per spec method.
+//
+//  Every method here converts argument types and calls straight through. If a
+//  forwarding method grows a branch, it belongs in the Swift instead.
+//
 
 #import "ReactNativeBlobUtil.h"
-#import <Photos/Photos.h>
-#import "ReactNativeBlobUtilConst.h"
-// The Swift half of this pod. The framework form is what the dynamic- and
-// static-framework linkages produce; the quoted form is what a plain static
-// library build produces.
+
 #if __has_include(<react_native_blob_util/react_native_blob_util-Swift.h>)
 #import <react_native_blob_util/react_native_blob_util-Swift.h>
 #else
 #import "react_native_blob_util-Swift.h"
 #endif
 
-#import <ReactNativeBlobUtilSpec/ReactNativeBlobUtilSpec.h>
-
 dispatch_queue_t commonTaskQueue;
-dispatch_queue_t fsQueue;
 
-////////////////////////////////////////
-//
-//  Exported native methods
-//
-////////////////////////////////////////
-
-#pragma mark ReactNativeBlobUtil exported methods
-
-// ReactNativeBlobUtil already implements emitEventDict:body:, which is the
-// whole of ReactNativeBlobUtilEventSink. Declared here rather than in the
-// header because the protocol lives in the generated Swift header.
 @interface ReactNativeBlobUtil () <ReactNativeBlobUtilEventSink>
+@property (nonatomic, strong) ReactNativeBlobUtilModuleCore *core;
 @end
 
 @implementation ReactNativeBlobUtil
 
-@synthesize filePathPrefix;
-@synthesize documentController;
-@synthesize bridge;
 static bool hasListeners = NO;
-
-- (NSArray<NSString*> *)supportedEvents {
-     return @[@"ReactNativeBlobUtilState", @"ReactNativeBlobUtilServerPush", @"ReactNativeBlobUtilProgress", @"ReactNativeBlobUtilProgress-upload", @"ReactNativeBlobUtilExpire", @"ReactNativeBlobUtilMessage", @"ReactNativeBlobUtilFilesystem", @"log", @"warn", @"error", @"data", @"end", @"reportProgress", @"reportUploadProgress"];
- }
-
-// Will be called when this module's first listener is added.
--(void)startObserving {
-    hasListeners = YES;
-    // Set up any upstream listeners or background tasks as necessary
-}
-
-// Will be called when this module's last listener is removed, or on dealloc.
--(void)stopObserving {
-    hasListeners = NO;
-    // Remove upstream listeners, stop unnecessary background tasks
-}
-
-- (void)emitEvent:(NSString *)name body:(NSString *) body
-{
-  if (hasListeners) {// Only send events if anyone is listening
-    [self sendEventWithName:name body:body];
-  }
-}
-- (void)emitEventDict:(NSString *)name body:(NSDictionary *) body
-{
-    NSError *error;
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:body
-                                                       options:NSJSONWritingPrettyPrinted
-                                                         error:&error];
-
-    if (error) {
-        NSLog(@"Got an error: %@", error);
-    } else {
-        NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-        [self emitEvent:name body:jsonString];
-    }
-}
-
-- (dispatch_queue_t) methodQueue {
-    if(commonTaskQueue == nil)
-        commonTaskQueue = dispatch_queue_create("ReactNativeBlobUtil.queue", DISPATCH_QUEUE_SERIAL);
-    return commonTaskQueue;
-}
-
-
-+ (BOOL)requiresMainQueueSetup {
-    return NO;
-}
 
 RCT_EXPORT_MODULE();
 
 - (id) init {
     self = [super init];
-    self.filePathPrefix = FILE_PREFIX;
-    if(commonTaskQueue == nil)
-        commonTaskQueue = dispatch_queue_create("ReactNativeBlobUtil.queue", DISPATCH_QUEUE_SERIAL);
-    if(fsQueue == nil)
-        fsQueue = dispatch_queue_create("ReactNativeBlobUtil.fs.queue", DISPATCH_QUEUE_SERIAL);
-    BOOL isDir;
-    // if temp folder not exists, create one
-    if(![[NSFileManager defaultManager] fileExistsAtPath: [ReactNativeBlobUtilFS getTempPath] isDirectory:&isDir]) {
-        [[NSFileManager defaultManager] createDirectoryAtPath:[ReactNativeBlobUtilFS getTempPath] withIntermediateDirectories:YES attributes:nil error:NULL];
+    if (self) {
+        _core = [[ReactNativeBlobUtilModuleCore alloc] init];
+        _core.eventSink = self;
+        // Plain UIKit rather than a React helper, but only the adapter is in a
+        // position to reach for it, so the Swift takes it as a provider.
+        _core.presentingViewController = ^UIViewController * _Nullable {
+            return [[[[UIApplication sharedApplication] delegate] window] rootViewController];
+        };
+        if (commonTaskQueue == nil)
+            commonTaskQueue = dispatch_queue_create("ReactNativeBlobUtil.queue", DISPATCH_QUEUE_SERIAL);
     }
-
     return self;
 }
 
-- (NSDictionary *)getConstants {
-  return self.constantsToExport;
+#pragma mark - module plumbing
+
+- (NSArray<NSString*> *)supportedEvents {
+    return @[@"ReactNativeBlobUtilState", @"ReactNativeBlobUtilServerPush", @"ReactNativeBlobUtilProgress", @"ReactNativeBlobUtilProgress-upload", @"ReactNativeBlobUtilExpire", @"ReactNativeBlobUtilMessage", @"ReactNativeBlobUtilFilesystem", @"log", @"warn", @"error", @"data", @"end", @"reportProgress", @"reportUploadProgress"];
 }
 
-- (NSDictionary *)constantsToExport
-{
-    return @{
-             @"CacheDir" : [ReactNativeBlobUtilFS getCacheDir],
-             @"DocumentDir": [ReactNativeBlobUtilFS getDocumentDir],
-             @"DownloadDir" : [ReactNativeBlobUtilFS getDownloadDir],
-             @"LibraryDir" : [ReactNativeBlobUtilFS getLibraryDir],
-             @"MainBundleDir" : [ReactNativeBlobUtilFS getMainBundleDir],
-             @"MovieDir" : [ReactNativeBlobUtilFS getMovieDir],
-             @"MusicDir" : [ReactNativeBlobUtilFS getMusicDir],
-             @"PictureDir" : [ReactNativeBlobUtilFS getPictureDir],
-             @"ApplicationSupportDir" : [ReactNativeBlobUtilFS getApplicationSupportDir],
-             // Android only. For the new architecture, we have a single spec for both platforms.
-             @"RingtoneDir": @"",
-             @"SDCardDir": @"",
-             @"SDCardApplicationDir": @"",
-             @"DCIMDir": @"",
-             // Android only legacy constants
-             @"LegacyDCIMDir": @"",
-             @"LegacyPictureDir": @"",
-             @"LegacyMusicDir": @"",
-             @"LegacyDownloadDir": @"",
-             @"LegacyMovieDir": @"",
-             @"LegacyRingtoneDir": @"",
-             @"LegacySDCardDir": @"",
-             };
+- (void)startObserving { hasListeners = YES; }
+- (void)stopObserving { hasListeners = NO; }
+
+- (dispatch_queue_t) methodQueue {
+    if (commonTaskQueue == nil)
+        commonTaskQueue = dispatch_queue_create("ReactNativeBlobUtil.queue", DISPATCH_QUEUE_SERIAL);
+    return commonTaskQueue;
 }
 
-// Fetch blob data request
-RCT_EXPORT_METHOD(fetchBlobForm:(NSDictionary *)options
-                  taskId:(NSString *)taskId
-                  method:(NSString *)method
-                  url:(NSString *)url
-                  headers:(NSDictionary *)headers
-                  form:(NSArray *)form
-                  callback:(RCTResponseSenderBlock)callback)
-{
++ (BOOL)requiresMainQueueSetup { return NO; }
 
-    [ReactNativeBlobUtilReqBuilder buildMultipartRequest:options
-                                          taskId:taskId
-                                          method:method
-                                             url:url
-                                         headers:headers
-                                            form:form
-                                      onComplete:^(__weak NSURLRequest *req, long bodyLength)
-    {
-        // something went wrong when building the request body
-        if(req == nil)
-        {
-            callback(@[@"ReactNativeBlobUtil.fetchBlobForm failed to create request body"]);
-        }
-        // send HTTP request
-        else
-        {
-            [[ReactNativeBlobUtilNetwork sharedInstance] sendRequest:options
-                                               contentLength:bodyLength
-                                                      baseModule:self
-                                                      taskId:taskId
-                                                 withRequest:req
-                                                    callback:callback];
-        }
-    }];
+- (NSDictionary *)getConstants { return [ReactNativeBlobUtilModuleCore constantsToExport]; }
+- (NSDictionary *)constantsToExport { return [ReactNativeBlobUtilModuleCore constantsToExport]; }
 
-}
+#pragma mark - events
 
-
-// Fetch blob data request
-RCT_EXPORT_METHOD(fetchBlob:(NSDictionary *)options
-                  taskId:(NSString *)taskId
-                  method:(NSString *)method
-                  url:(NSString *)url
-                  headers:(NSDictionary *)headers
-                  body:(NSString *)body
-                  callback:(RCTResponseSenderBlock)callback)
-{
-    [ReactNativeBlobUtilReqBuilder buildOctetRequest:options
-                                      taskId:taskId
-                                      method:method
-                                         url:url
-                                     headers:headers
-                                        body:body
-                                  onComplete:^(NSURLRequest *req, long bodyLength)
-    {
-        // something went wrong when building the request body
-        if(req == nil)
-        {
-            callback(@[@"ReactNativeBlobUtil.fetchBlob failed to create request body"]);
-        }
-        // send HTTP request
-        else
-        {
-            [[ReactNativeBlobUtilNetwork sharedInstance] sendRequest:options
-                                               contentLength:bodyLength
-                                                      baseModule:self
-                                                      taskId:taskId
-                                                 withRequest:req
-                                                    callback:callback];
-        }
-    }];
-}
-
-#pragma mark - fs.createFile
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(createFile:(NSString *)path
-                  data:(NSString *)data
-                  encoding:(NSString *)encoding
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self createFile:path data:data encoding:encoding resolve:resolve reject:reject];
-}
-
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)createFile:(NSString *)path
-              data:(NSString *)data
-          encoding:(NSString *)encoding
-           resolve:(RCTPromiseResolveBlock)resolve
-            reject:(RCTPromiseRejectBlock)reject
-{
-    NSFileManager * fm = [NSFileManager defaultManager];
-    NSData * fileContent = nil;
-
-    if([[encoding lowercaseString] isEqualToString:@"utf8"]) {
-        fileContent = [[NSData alloc] initWithData:[data dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES]];
-    }
-    else if([[encoding lowercaseString] isEqualToString:@"base64"]) {
-        fileContent = [[NSData alloc] initWithBase64EncodedString:data options:0];
-    }
-    else if([[encoding lowercaseString] isEqualToString:@"uri"]) {
-        NSString * orgPath = [data stringByReplacingOccurrencesOfString:FILE_PREFIX withString:@""];
-        fileContent = [[NSData alloc] initWithContentsOfFile:orgPath];
-    }
-    else {
-        fileContent = [[NSData alloc] initWithData:[data dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES]];
-    }
-
-    if ([fm fileExistsAtPath:path]) {
-        reject(@"EEXIST", [NSString stringWithFormat:@"File '%@' already exists", path], nil);
-    }
-    else {
-        BOOL success = [fm createFileAtPath:path contents:fileContent attributes:NULL];
-        if(success == YES)
-            resolve(@[[NSNull null]]);
-        else
-            reject(@"EUNSPECIFIED", [NSString stringWithFormat:@"Failed to create new file at path '%@', please ensure the folder exists", path], nil);
+- (void)emitEvent:(NSString *)name body:(NSString *)body {
+    if (hasListeners) {
+        [self sendEventWithName:name body:body];
     }
 }
 
-#pragma mark - fs.createFileASCII
-// method for create file with ASCII content
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(createFileASCII:(NSString *)path
-                  data:(NSArray *)dataArray
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self createFileASCII:path data:dataArray resolve:resolve reject:reject];
-}
-
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)createFileASCII:(NSString *)path
-                   data:(NSArray *)data
-                resolve:(RCTPromiseResolveBlock)resolve
-                 reject:(RCTPromiseRejectBlock)reject
-{
-    NSFileManager * fm = [NSFileManager defaultManager];
-    NSMutableData * fileContent = [NSMutableData alloc];
-    // prevent stack overflow, alloc on heap
-    char * bytes = (char*) malloc([data count]);
-
-    for(int i = 0; i < data.count; i++) {
-        bytes[i] = [[data objectAtIndex:i] charValue];
-    }
-
-    [fileContent appendBytes:bytes length:data.count];
-
-    if ([fm fileExistsAtPath:path]) {
-        reject(@"EEXIST", [NSString stringWithFormat:@"File '%@' already exists", path], nil);
-    }
-    else {
-        BOOL success = [fm createFileAtPath:path contents:fileContent attributes:NULL];
-        if(success == YES)
-            resolve(@[[NSNull null]]);
-        else
-            reject(@"EUNSPECIFIED", [NSString stringWithFormat:@"failed to create new file at path '%@', please ensure the folder exists", path], nil);
-    }
-
-    free(bytes);
-}
-
-#pragma mark - fs.pathForAppGroup
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(pathForAppGroup:(NSString *)groupName
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self pathForAppGroup:groupName resolve:resolve reject:reject];
-}
-
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)pathForAppGroup:(NSString *)groupName
-                resolve:(RCTPromiseResolveBlock)resolve
-                 reject:(RCTPromiseRejectBlock)reject
-{
-    NSString * path = [ReactNativeBlobUtilFS getPathForAppGroup:groupName];
-
-    if(path) {
-        resolve(path);
+/// Events reach JS as a JSON *string*, not an object. fs.js parses it.
+- (void)emitEventDict:(NSString *)name body:(NSDictionary *)body {
+    NSError *error;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:body
+                                                       options:NSJSONWritingPrettyPrinted
+                                                         error:&error];
+    if (error) {
+        NSLog(@"Got an error: %@", error);
     } else {
-        reject(@"EUNSPECIFIED", @"could not find path for app group", nil);
+        [self emitEvent:name body:[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding]];
     }
 }
 
-#pragma mark - fs.syncPathAppGroup
+#pragma mark - fetch
+
+RCT_EXPORT_METHOD(fetchBlobForm:(NSDictionary *)options taskId:(NSString *)taskId method:(NSString *)method url:(NSString *)url headers:(NSDictionary *)headers form:(NSArray *)form callback:(RCTResponseSenderBlock)callback) {
+    [self.core fetchBlobForm:options taskId:taskId method:method url:url headers:headers form:form callback:callback];
+}
+
+RCT_EXPORT_METHOD(fetchBlob:(NSDictionary *)options taskId:(NSString *)taskId method:(NSString *)method url:(NSString *)url headers:(NSDictionary *)headers body:(NSString *)body callback:(RCTResponseSenderBlock)callback) {
+    [self.core fetchBlob:options taskId:taskId method:method url:url headers:headers body:body callback:callback];
+}
+
+#pragma mark - file system
+
+- (void)createFile:(NSString *)path data:(NSString *)data encoding:(NSString *)encoding resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core createFile:path data:data encoding:encoding resolve:resolve reject:reject];
+}
+
+- (void)createFileASCII:(NSString *)path data:(NSArray *)data resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core createFileASCII:path data:data resolve:resolve reject:reject];
+}
+
+- (void)pathForAppGroup:(NSString *)groupName resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core pathForAppGroup:groupName resolve:resolve reject:reject];
+}
+
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(syncPathAppGroup:(NSString *)groupName) {
-    NSURL *pathUrl = [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:groupName];
-    NSString *path = [pathUrl path];
-
-    if(path) {
-        return path;
-    } else {
-        return @"";
-    }
+    return [self.core syncPathAppGroup:groupName];
 }
 
-#pragma mark - fs.exists
 RCT_EXPORT_METHOD(exists:(NSString *)path callback:(RCTResponseSenderBlock)callback) {
-    [ReactNativeBlobUtilFS exists:path callback:callback];
+    [self.core exists:path callback:callback];
 }
 
-#pragma mark - fs.writeFile
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(writeFile:(NSString *)path
-    encoding:(NSString *)encoding
-    data:(NSString *)data
-    transformFile:(BOOL)transformFile
-    append:(BOOL)append
-    resolver:(RCTPromiseResolveBlock)resolve
-    rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self writeFile:path encoding:encoding data:data transformFile:transformFile append:append resolve:resolve reject:reject];
+- (void)writeFile:(NSString *)path encoding:(NSString *)encoding data:(NSString *)data transformFile:(BOOL)transformFile append:(BOOL)append resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core writeFile:path encoding:encoding data:data transformFile:transformFile append:append resolve:resolve reject:reject];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)writeFile:(NSString *)path
-         encoding:(NSString *)encoding
-             data:(NSString *)data
-    transformFile:(BOOL)transformFile
-           append:(BOOL)append
-          resolve:(RCTPromiseResolveBlock)resolve
-           reject:(RCTPromiseRejectBlock)reject;
-{
-    [ReactNativeBlobUtilFS writeFile:path encoding:[NSString stringWithString:encoding] data:data transformFile:transformFile append:append resolver:resolve rejecter:reject];
+- (void)writeFileArray:(NSString *)path data:(NSArray *)data append:(BOOL)append resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core writeFileArray:path data:data append:append resolve:resolve reject:reject];
 }
 
-#pragma mark - fs.writeArray
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(writeFileArray:(NSString *)path
-    data:(NSArray *)data
-    append:(BOOL)append
-    resolver:(RCTPromiseResolveBlock)resolve
-    rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self writeFileArray:path data:data append:append resolve:resolve reject:reject];
+RCT_EXPORT_METHOD(writeStream:(NSString *)path withEncoding:(NSString *)encoding appendData:(BOOL)append callback:(RCTResponseSenderBlock)callback) {
+    [self.core writeStream:path withEncoding:encoding appendData:append callback:callback];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)writeFileArray:(NSString *)path
-                  data:(NSArray *)data
-                append:(BOOL)append
-               resolve:(RCTPromiseResolveBlock)resolve
-                reject:(RCTPromiseRejectBlock)reject
-{
-    [ReactNativeBlobUtilFS writeFileArray:path data:data append:append resolver:resolve rejecter:reject];
+RCT_EXPORT_METHOD(writeArrayChunk:(NSString *)streamId withArray:(NSArray *)dataArray callback:(RCTResponseSenderBlock)callback) {
+    [self.core writeArrayChunk:streamId withArray:dataArray callback:callback];
 }
 
-#pragma mark - fs.writeStream
-RCT_EXPORT_METHOD(writeStream:(NSString *)path
-    withEncoding:(NSString *)encoding
-    appendData:(BOOL)append
-    callback:(RCTResponseSenderBlock)callback)
-{
-    ReactNativeBlobUtilFS * fileStream = [[ReactNativeBlobUtilFS alloc] init];
-    NSFileManager * fm = [NSFileManager defaultManager];
-    NSString * folder = [path stringByDeletingLastPathComponent];
-    NSError* err = nil;
-    BOOL isDir = NO;
-    BOOL exists = [fm fileExistsAtPath:path isDirectory: &isDir];
-
-    // Each of these has to return. Without it the method carried on to
-    // openWithPath: - opening a stream on a path it had just reported as
-    // unusable - and then invoked the callback a second time. React Native
-    // treats a second invocation of an RCTResponseSenderBlock as fatal, so the
-    // app died rather than surfacing the error the caller was handed.
-    if(!exists) {
-        [fm createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:NULL error:&err];
-        if(err != nil) {
-            callback(@[@"ENOTDIR", [NSString stringWithFormat:@"Failed to create parent directory of '%@'; error: %@", path, [err description]]]);
-            return;
-        }
-        if(![fm createFileAtPath:path contents:nil attributes:nil]) {
-            callback(@[@"ENOENT", [NSString stringWithFormat:@"File '%@' does not exist and could not be created", path]]);
-            return;
-        }
-    }
-    else if(isDir) {
-        callback(@[@"EISDIR", [NSString stringWithFormat:@"Expecting a file but '%@' is a directory", path]]);
-        return;
-    }
-
-    NSString * streamId = [fileStream openWithPath:path encode:encoding appendData:append];
-    callback(@[[NSNull null], [NSNull null], streamId]);
+RCT_EXPORT_METHOD(writeChunk:(NSString *)streamId withData:(NSString *)data callback:(RCTResponseSenderBlock)callback) {
+    [self.core writeChunk:streamId withData:data callback:callback];
 }
 
-#pragma mark - fs.writeArrayChunk
-RCT_EXPORT_METHOD(writeArrayChunk:(NSString *)streamId
-    withArray:(NSArray *)dataArray
-    callback:(RCTResponseSenderBlock) callback)
-{
-    ReactNativeBlobUtilFS *fs = [[ReactNativeBlobUtilFS getFileStreams] valueForKey:streamId];
-    char * bytes = (char *) malloc([dataArray count]);
-    for(int i = 0; i < dataArray.count; i++) {
-        bytes[i] = [[dataArray objectAtIndex:i] charValue];
-    }
-    NSMutableData * data = [NSMutableData alloc];
-    [data appendBytes:bytes length:dataArray.count];
-    [fs write:data];
-    free(bytes);
-    callback(@[[NSNull null]]);
+RCT_EXPORT_METHOD(closeStream:(NSString *)streamId callback:(RCTResponseSenderBlock)callback) {
+    [self.core closeStream:streamId callback:callback];
 }
 
-#pragma mark - fs.writeChunk
-RCT_EXPORT_METHOD(writeChunk:(NSString *)streamId
-    withData:(NSString *)data
-    callback:(RCTResponseSenderBlock) callback)
-{
-    ReactNativeBlobUtilFS *fs = [[ReactNativeBlobUtilFS getFileStreams] valueForKey:streamId];
-    [fs writeEncodeChunk:data];
-    callback(@[[NSNull null]]);
+RCT_EXPORT_METHOD(unlink:(NSString *)path callback:(RCTResponseSenderBlock)callback) {
+    [self.core unlink:path callback:callback];
 }
 
-#pragma mark - fs.closeStream
-RCT_EXPORT_METHOD(closeStream:(NSString *)streamId callback:(RCTResponseSenderBlock) callback)
-{
-    ReactNativeBlobUtilFS *fs = [[ReactNativeBlobUtilFS getFileStreams] valueForKey:streamId];
-    [fs closeOutStream];
-    callback(@[[NSNull null], @YES]);
+RCT_EXPORT_METHOD(removeSession:(NSArray *)paths callback:(RCTResponseSenderBlock)callback) {
+    [self.core removeSession:paths callback:callback];
 }
 
-#pragma mark - unlink
-RCT_EXPORT_METHOD(unlink:(NSString *)path callback:(RCTResponseSenderBlock) callback)
-{
-    NSError * error = nil;
-    [[NSFileManager defaultManager] removeItemAtPath:path error:&error];
-    if(error == nil || [[NSFileManager defaultManager] fileExistsAtPath:path] == NO)
-        callback(@[[NSNull null]]);
-    else
-        callback(@[[NSString stringWithFormat:@"failed to unlink file or path at %@", path]]);
+- (void)ls:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core ls:path resolve:resolve reject:reject];
 }
 
-#pragma mark - fs.removeSession
-RCT_EXPORT_METHOD(removeSession:(NSArray *)paths callback:(RCTResponseSenderBlock) callback)
-{
-    NSError * error = nil;
-
-    for(NSString * path in paths) {
-        [[NSFileManager defaultManager] removeItemAtPath:path error:&error];
-        if(error != nil) {
-            callback(@[[NSString stringWithFormat:@"failed to remove session path at %@", path]]);
-            return;
-        }
-    }
-    callback(@[[NSNull null]]);
-
+RCT_EXPORT_METHOD(stat:(NSString *)target callback:(RCTResponseSenderBlock)callback) {
+    [self.core stat:target callback:callback];
 }
 
-#pragma mark - fs.ls
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(ls:(NSString *)path resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self ls:path resolve:resolve reject:reject];
+RCT_EXPORT_METHOD(lstat:(NSString *)path callback:(RCTResponseSenderBlock)callback) {
+    [self.core lstat:path callback:callback];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)ls:(NSString *)path
-   resolve:(RCTPromiseResolveBlock)resolve
-    reject:(RCTPromiseRejectBlock)reject
-{
-    NSFileManager* fm = [NSFileManager defaultManager];
-    BOOL exist = NO;
-    BOOL isDir = NO;
-    exist = [fm fileExistsAtPath:path isDirectory:&isDir];
-    if(exist == NO) {
-        return reject(@"ENOENT", [NSString stringWithFormat:@"No such file '%@'", path], nil);
-    }
-    if(isDir == NO) {
-        return reject(@"ENOTDIR", [NSString stringWithFormat:@"Not a directory '%@'", path], nil);
-    }
-    NSError * error = nil;
-    NSArray * result = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:path error:&error];
-
-    if(error == nil)
-        resolve(result);
-    else
-        reject(@"EUNSPECIFIED", [error description], nil);
+- (void)cp:(NSString *)src dest:(NSString *)dest callback:(RCTResponseSenderBlock)callback {
+    [self.core cp:src dest:dest callback:callback];
 }
 
-#pragma mark - fs.stat
-RCT_EXPORT_METHOD(stat:(NSString *)target callback:(RCTResponseSenderBlock) callback)
-{
-
-    [ReactNativeBlobUtilFS getPathFromUri:target completionHandler:^(NSString *path, PHAsset *asset) {
-        __block NSMutableDictionary * result;
-        if(path != nil)
-        {
-            NSFileManager* fm = [NSFileManager defaultManager];
-            BOOL exist = NO;
-            BOOL isDir = NO;
-            NSError * error = nil;
-
-            exist = [fm fileExistsAtPath:path isDirectory:&isDir];
-            if(exist == NO) {
-                callback(@[[NSString stringWithFormat:@"failed to stat path `%@` because it does not exist or it is not a folder", path]]);
-                return ;
-            }
-            result = [ReactNativeBlobUtilFS stat:path error:&error].mutableCopy;
-
-            if(error == nil)
-                callback(@[[NSNull null], result]);
-            else
-                callback(@[[error localizedDescription], [NSNull null]]);
-
-        }
-        else if(asset != nil)
-        {
-            // For PHAsset, get basic metadata
-            NSMutableDictionary *assetInfo = [NSMutableDictionary dictionary];
-            [assetInfo setValue:[NSNumber numberWithLong:asset.pixelWidth] forKey:@"width"];
-            [assetInfo setValue:[NSNumber numberWithLong:asset.pixelHeight] forKey:@"height"];
-            [assetInfo setValue:[NSNumber numberWithLong:asset.duration] forKey:@"duration"];
-            [assetInfo setValue:[NSDate date] forKey:@"lastModified"];
-            [assetInfo setValue:@"asset" forKey:@"type"];
-            [assetInfo setValue:@"PHAsset" forKey:@"filename"];
-            
-            // Get actual file size by requesting image data
-            PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
-            options.synchronous = YES;
-            options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
-            options.resizeMode = PHImageRequestOptionsResizeModeNone;
-            
-            [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
-                if (imageData) {
-                    [assetInfo setValue:[NSNumber numberWithLong:imageData.length] forKey:@"size"];
-                } else {
-                    [assetInfo setValue:[NSNumber numberWithLong:0] forKey:@"size"];
-                }
-                callback(@[[NSNull null], assetInfo]);
-            }];
-        }
-        else
-        {
-            callback(@[@"failed to stat path, could not resolve URI", [NSNull null]]);
-        }
-    }];
+- (void)mv:(NSString *)path dest:(NSString *)dest callback:(RCTResponseSenderBlock)callback {
+    [self.core mv:path dest:dest callback:callback];
 }
 
-#pragma mark - fs.lstat
-RCT_EXPORT_METHOD(lstat:(NSString *)path callback:(RCTResponseSenderBlock) callback)
-{
-    NSFileManager* fm = [NSFileManager defaultManager];
-    BOOL exist = NO;
-    BOOL isDir = NO;
-
-    path = [ReactNativeBlobUtilFS getPathOfAsset:path];
-
-    exist = [fm fileExistsAtPath:path isDirectory:&isDir];
-    if(exist == NO) {
-        callback(@[[NSString stringWithFormat:@"failed to lstat path `%@` because it does not exist or it is not a folder", path]]);
-        return ;
-    }
-    NSError * error = nil;
-    NSMutableArray * res = [[NSMutableArray alloc] init];
-
-    if(isDir == YES) {
-        NSArray * files = [fm contentsOfDirectoryAtPath:path error:&error];
-        for(NSString * p in files) {
-            NSString * filePath = [NSString stringWithFormat:@"%@/%@", path, p];
-            [res addObject:[ReactNativeBlobUtilFS stat:filePath error:&error]];
-        }
-    }
-    else {
-        // Only a directory is enumerated. This used to call
-        // contentsOfDirectoryAtPath: before looking at isDir, and on a regular file
-        // that call fails and fills in `error` - so the check below reported the
-        // whole lstat as failed even though the file's own stat had succeeded, and
-        // fs.lstat() rejected for every file path on iOS while Android resolved.
-        [res addObject:[ReactNativeBlobUtilFS stat:path error:&error]];
-    }
-
-    if(error == nil)
-        callback(@[[NSNull null], res == nil ? [NSNull null] :res ]);
-    else
-        callback(@[[error localizedDescription], [NSNull null]]);
-
+- (void)mkdir:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core mkdir:path resolve:resolve reject:reject];
 }
 
-#pragma mark - fs.cp
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(cp:(NSString*)src toPath:(NSString *)dest callback:(RCTResponseSenderBlock) callback)
-{
-    [self cp:src dest:dest callback:callback];
+- (void)readFile:(NSString *)path encoding:(NSString *)encoding transformFile:(BOOL)transformFile resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core readFile:path encoding:encoding transformFile:transformFile resolve:resolve reject:reject];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)cp:(NSString *)src
-      dest:(NSString *)dest
-  callback:(RCTResponseSenderBlock)callback
-{
-//    path = [ReactNativeBlobUtilFS getPathOfAsset:path];
-    [ReactNativeBlobUtilFS getPathFromUri:src completionHandler:^(NSString *path, PHAsset *asset) {
-        NSError * error = nil;
-        if(path == nil)
-        {
-            [ReactNativeBlobUtilFS writeAssetToPath:asset dest:dest];
-            callback(@[[NSNull null], @YES]);
-        }
-        else
-        {
-            // If the destination exists there will be an error
-            BOOL result = [[NSFileManager defaultManager] copyItemAtURL:[NSURL fileURLWithPath:path] toURL:[NSURL fileURLWithPath:dest] error:&error];
-
-            if(error == nil)
-                callback(@[[NSNull null], @YES]);
-            else
-                callback(@[[error localizedDescription], @NO]);
-        }
-    }];
+- (void)hash:(NSString *)path algorithm:(NSString *)algorithm resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core hash:path algorithm:algorithm resolve:resolve reject:reject];
 }
 
-#pragma mark - fs.mv
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(mv:(NSString *)path toPath:(NSString *)dest callback:(RCTResponseSenderBlock) callback)
-{
-    [self mv:path dest:dest callback:callback];
+- (void)slice:(NSString *)src dest:(NSString *)dest start:(double)start end:(double)end resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core slice:src dest:dest start:start end:end resolve:resolve reject:reject];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)mv:(NSString *)path
-      dest:(NSString *)dest
-  callback:(RCTResponseSenderBlock)callback
-{
-    NSError * error = nil;
-    BOOL result = [[NSFileManager defaultManager] moveItemAtURL:[NSURL fileURLWithPath:path] toURL:[NSURL fileURLWithPath:dest] error:&error];
-
-    if(error == nil)
-        callback(@[[NSNull null], @YES]);
-    else
-        callback(@[[error localizedDescription], @NO]);
-
+RCT_EXPORT_METHOD(readStream:(NSString *)path encoding:(NSString *)encoding bufferSize:(double)bufferSize tick:(double)tick streamId:(NSString *)streamId) {
+    [self.core readStream:path encoding:encoding bufferSize:bufferSize tick:tick streamId:streamId];
 }
 
-#pragma mark - fs.mkdir
-RCT_EXPORT_METHOD(mkdir:(NSString *)path resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self mkdir:path resolve:resolve reject:reject];
+RCT_EXPORT_METHOD(getEnvironmentDirs:(RCTResponseSenderBlock)callback) {
+    [self.core getEnvironmentDirs:callback];
 }
 
-- (void)mkdir:(NSString *)path
-      resolve:(RCTPromiseResolveBlock)resolve
-       reject:(RCTPromiseRejectBlock)reject
-{
-    [ReactNativeBlobUtilFS mkdir:path resolver:resolve rejecter:reject];
+RCT_EXPORT_METHOD(df:(RCTResponseSenderBlock)callback) {
+    [self.core df:callback];
 }
 
-#pragma mark - fs.readFile
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(readFile:(NSString *)path
-                  encoding:(NSString *)encoding
-                  transformFile:(BOOL) transformFile
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self readFile:path encoding:encoding transformFile:transformFile resolve:resolve reject:reject];
+- (void)excludeFromBackupKey:(NSString *)url resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core excludeFromBackupKey:url resolve:resolve reject:reject];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)readFile:(NSString *)path
-        encoding:(NSString *)encoding
-   transformFile:(BOOL)transformFile
-         resolve:(RCTPromiseResolveBlock)resolve
-          reject:(RCTPromiseRejectBlock)reject
-{
+#pragma mark - network
 
-    [ReactNativeBlobUtilFS readFile:path encoding:encoding transformFile:transformFile onComplete:^(id content, NSString * code, NSString * err) {
-        if(err != nil) {
-            reject(code, err, nil);
-            return;
-        }
-        if([encoding isEqualToString:@"ascii"]) {
-            resolve((NSMutableArray *)content);
-        } else if([encoding isEqualToString:@"base64"]) {
-            resolve([((NSData *)content) base64EncodedStringWithOptions:0]);
-        } else {
-            resolve([[NSString alloc] initWithData:((NSData *)content) encoding:NSUTF8StringEncoding]);
-        }
-    }];
-}
-
-#pragma mark - fs.hash
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(hash:(NSString *)path
-                  algorithm:(NSString *)algorithm
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self hash:path algorithm:algorithm resolve:resolve reject:reject];
-}
-
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)hash:(NSString *)path
-   algorithm:(NSString *)algorithm
-     resolve:(RCTPromiseResolveBlock)resolve
-      reject:(RCTPromiseRejectBlock)reject
-{
-    [ReactNativeBlobUtilFS hash:path algorithm:[NSString stringWithString:algorithm] resolver:resolve rejecter:reject];
-}
-
-#pragma mark - fs.readStream
-RCT_EXPORT_METHOD(readStream:(NSString *)path encoding:(NSString *)encoding bufferSize:(double)bufferSize tick:(double)tick streamId:(NSString *)streamId)
-{
-    if(bufferSize == 0) {
-        if([[encoding lowercaseString] isEqualToString:@"base64"])
-            bufferSize = 4095;
-        else
-            bufferSize = 4096;
-    }
-
-    dispatch_async(fsQueue, ^{
-        [ReactNativeBlobUtilFS readStream:path encoding:encoding bufferSize:bufferSize tick:tick streamId:streamId baseModule:self];
-    });
-}
-
-#pragma mark - fs.getEnvironmentDirs
-RCT_EXPORT_METHOD(getEnvironmentDirs:(RCTResponseSenderBlock) callback)
-{
-
-    callback(@[
-               [ReactNativeBlobUtilFS getDocumentDir],
-               [ReactNativeBlobUtilFS getCacheDir],
-               ]);
-}
-
-#pragma mark - net.cancelRequest
 RCT_EXPORT_METHOD(cancelRequest:(NSString *)taskId callback:(RCTResponseSenderBlock)callback) {
-    [[ReactNativeBlobUtilNetwork sharedInstance] cancelRequest:taskId];
-    callback(@[[NSNull null], taskId]);
-
+    [self.core cancelRequest:taskId callback:callback];
 }
 
-#pragma mark - net.enableProgressReport
-RCT_EXPORT_METHOD(enableProgressReport:(NSString *)taskId interval:(double)interval count:(double)count)
-{
-    NSNumber *intervalNumber = [NSNumber numberWithDouble:interval];
-    NSNumber *countNumber = [NSNumber numberWithInteger:count];
-
-    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:ReactNativeBlobUtilProgressTypeDownload interval:intervalNumber count:countNumber];
-    [[ReactNativeBlobUtilNetwork sharedInstance] enableProgressReport:taskId config:cfg];
+RCT_EXPORT_METHOD(enableProgressReport:(NSString *)taskId interval:(double)interval count:(double)count) {
+    [self.core enableProgressReport:taskId interval:interval count:count];
 }
 
-#pragma mark - net.enableUploadProgressReport
-RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(nonnull NSNumber*)interval count:(nonnull NSNumber*)count)
-{
-    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:ReactNativeBlobUtilProgressTypeUpload interval:interval count:count];
-    [[ReactNativeBlobUtilNetwork sharedInstance] enableUploadProgress:taskId config:cfg];
+RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(double)interval count:(double)count) {
+    [self.core enableUploadProgressReport:taskId interval:interval count:count];
 }
 
-#pragma mark - fs.slice
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(slice:(NSString *)src dest:(NSString *)dest start:(nonnull NSNumber *)start end:(nonnull NSNumber *)end resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self slice:src dest:dest start:start.doubleValue end:end.doubleValue resolve:resolve reject:reject];
+RCT_EXPORT_METHOD(emitExpiredEvent:(RCTResponseSenderBlock)callback) {
+    [self.core emitExpiredEvent:callback];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)slice:(NSString *)src
-         dest:(NSString *)dest
-        start:(double)start
-          end:(double)end
-      resolve:(RCTPromiseResolveBlock)resolve
-       reject:(RCTPromiseRejectBlock)reject
-{
-    [ReactNativeBlobUtilFS slice:src dest:dest start:@(start) end:@(end) encode:@"" resolver:resolve rejecter:reject];
+#pragma mark - document menus
+
+- (void)presentOptionsMenu:(NSString *)uri scheme:(NSString *)scheme resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core presentOptionsMenu:uri scheme:scheme resolve:resolve reject:reject];
 }
 
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(presentOptionsMenu:(NSString*)uri scheme:(NSString *)scheme resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self presentOptionsMenu:uri scheme:scheme resolve:resolve reject:reject];
+- (void)presentOpenInMenu:(NSString *)uri scheme:(NSString *)scheme resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core presentOpenInMenu:uri scheme:scheme resolve:resolve reject:reject];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)presentOptionsMenu:(NSString *)uri
-                    scheme:(NSString *)scheme
-                   resolve:(RCTPromiseResolveBlock)resolve
-                    reject:(RCTPromiseRejectBlock)reject
-{
-    NSString * utf8uri = [uri stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
-    NSURL * url = [[NSURL alloc] initWithString:utf8uri];
-    // NSURL * url = [[NSURL alloc] initWithString:uri];
-    documentController = [UIDocumentInteractionController interactionControllerWithURL:url];
-    UIViewController *rootCtrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
-    documentController.delegate = self;
-    if(scheme == nil || [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:scheme]]) {
-      CGRect rect = CGRectMake(0.0, 0.0, 0.0, 0.0);
-      dispatch_sync(dispatch_get_main_queue(), ^{
-          [documentController  presentOptionsMenuFromRect:rect inView:rootCtrl.view animated:YES];
-      });
-        resolve(@[[NSNull null]]);
-    } else {
-        reject(@"EINVAL", @"scheme is not supported", nil);
-    }
+- (void)presentPreview:(NSString *)uri scheme:(NSString *)scheme resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core presentPreview:uri scheme:scheme resolve:resolve reject:reject];
 }
 
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(presentOpenInMenu:(NSString*)uri scheme:(NSString *)scheme resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self presentOpenInMenu:uri scheme:scheme resolve:resolve reject:reject];
+#pragma mark - Android only
+
+- (void)actionViewIntent:(NSString *)path mime:(NSString *)mime chooserTitle:(NSString *)chooserTitle resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core actionViewIntent:path mime:mime chooserTitle:chooserTitle resolve:resolve reject:reject];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)presentOpenInMenu:(NSString *)uri
-                   scheme:(NSString *)scheme
-                  resolve:(RCTPromiseResolveBlock)resolve
-                   reject:(RCTPromiseRejectBlock)reject
-{
-    NSString * utf8uri = [uri stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
-    NSURL * url = [[NSURL alloc] initWithString:utf8uri];
-    documentController = [UIDocumentInteractionController interactionControllerWithURL:url];
-    UIViewController *rootCtrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
-    documentController.delegate = self;
-    if(scheme == nil || [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:scheme]]) {
-      CGRect rect = CGRectMake(0.0, 0.0, 0.0, 0.0);
-      dispatch_sync(dispatch_get_main_queue(), ^{
-          [documentController  presentOpenInMenuFromRect:rect inView:rootCtrl.view animated:YES];
-      });
-        resolve(@[[NSNull null]]);
-    } else {
-        reject(@"EINVAL", @"scheme is not supported", nil);
-    }
+- (void)addCompleteDownload:(NSDictionary *)config resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core addCompleteDownload:config resolve:resolve reject:reject];
 }
 
-# pragma mark - open file with UIDocumentInteractionController and delegate
-// Signature for the Old Architecture
-RCT_EXPORT_METHOD(presentPreview:(NSString*)uri scheme:(NSString *)scheme resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self presentPreview:uri scheme:scheme resolve:resolve reject:reject];
+- (void)copyToInternal:(NSString *)contentUri destpath:(NSString *)destpath resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core copyToInternal:contentUri destpath:destpath resolve:resolve reject:reject];
 }
 
-// Signature for the New Architecture. Codegen can't change the resolve/reject param names and
-// If we change the RCT_EXPORT_METHOD we are going to introduce braking changes we may avoid.
-- (void)presentPreview:(NSString *)uri
-                scheme:(NSString *)scheme
-               resolve:(RCTPromiseResolveBlock)resolve
-                reject:(RCTPromiseRejectBlock)reject
-{
-    NSString * utf8uri = [uri stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
-    NSURL * url = [[NSURL alloc] initWithString:utf8uri];
-    // NSURL * url = [[NSURL alloc] initWithString:uri];
-    documentController = [UIDocumentInteractionController interactionControllerWithURL:url];
-    documentController.delegate = self;
-
-    if(scheme == nil || [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:scheme]]) {
-        dispatch_sync(dispatch_get_main_queue(), ^{
-            if([documentController presentPreviewAnimated:YES]) {
-                resolve(@[[NSNull null]]);
-            } else {
-                reject(@"EINVAL", @"document is not supported", nil);
-            }
-        });
-    } else {
-        reject(@"EINVAL", @"scheme is not supported", nil);
-    }
+- (void)copyToMediaStore:(NSDictionary *)filedata mt:(NSString *)mt path:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core copyToMediaStore:filedata mt:mt path:path resolve:resolve reject:reject];
 }
 
-# pragma mark - exclude from backup key
-
-RCT_EXPORT_METHOD(excludeFromBackupKey:(NSString *)url resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-{
-    [self excludeFromBackupKey:url resolve:resolve reject:reject];
+- (void)createMediaFile:(NSDictionary *)filedata mt:(NSString *)mt resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core createMediaFile:filedata mt:mt resolve:resolve reject:reject];
 }
 
-- (void)excludeFromBackupKey:(NSString *)url
-                     resolve:(RCTPromiseResolveBlock)resolve
-                      reject:(RCTPromiseRejectBlock)reject
-{
-    NSError *error = nil;
-    [ [NSURL URLWithString:url] setResourceValue:[NSNumber numberWithBool:YES] forKey:NSURLIsExcludedFromBackupKey error:&error];
-    if(!error)
-    {
-        resolve(@[[NSNull null]]);
-    } else {
-        reject(@"EUNSPECIFIED", [error description], nil);
-    }
-
+- (void)getBlob:(NSString *)contentUri encoding:(NSString *)encoding resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core getBlob:contentUri encoding:encoding resolve:resolve reject:reject];
 }
 
-
-RCT_EXPORT_METHOD(df:(RCTResponseSenderBlock)callback)
-{
-    [ReactNativeBlobUtilFS df:callback];
+- (void)getContentIntent:(NSString *)mime resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core getContentIntent:mime resolve:resolve reject:reject];
 }
 
-- (UIViewController *)documentInteractionControllerViewControllerForPreview: (UIDocumentInteractionController *) controller
-{
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    return window.rootViewController;
+- (void)getSDCardDir:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core getSDCardDir:resolve reject:reject];
 }
 
-# pragma mark - Android Only methods
-// These methods are required because in the New Arch we have a single spec for both platforms
-- (void)actionViewIntent:(NSString *) path
-                    mime:(NSString *) mime
-            chooserTitle:(NSString *) chooserTitle
-                 resolve:(RCTPromiseResolveBlock)resolve
-                  reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
+- (void)getSDCardApplicationDir:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core getSDCardApplicationDir:resolve reject:reject];
 }
 
-- (void)addCompleteDownload:(NSDictionary *)config
-                    resolve:(RCTPromiseResolveBlock)resolve
-                     reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
+- (void)scanFile:(NSArray *)pairs callback:(RCTResponseSenderBlock)callback {
+    [self.core scanFile:pairs callback:callback];
 }
 
-- (void)copyToInternal:(NSString *)contentUri
-              destpath:(NSString *) destpath
-               resolve:(RCTPromiseResolveBlock)resolve
-                reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
-}
-- (void)copyToMediaStore:(NSDictionary *)filedata
-                      mt:(NSString *) mt
-                    path:(NSString *) path
-                 resolve:(RCTPromiseResolveBlock)resolve
-                  reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
+- (void)writeToMediaFile:(NSString *)fileUri path:(NSString *)path transformFile:(BOOL)transformFile resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core writeToMediaFile:fileUri path:path transformFile:transformFile resolve:resolve reject:reject];
 }
 
-- (void)createMediaFile:(NSDictionary *)filedata
-                    mt:(NSString *) mt
-               resolve:(RCTPromiseResolveBlock)resolve
-                reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
-}
+#pragma mark - New Architecture
 
-- (void)getBlob:(NSString *)contentUri
-       encoding:(NSString *)encoding
-        resolve:(RCTPromiseResolveBlock)resolve
-         reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
-}
-
-- (void)getContentIntent:(NSString *)mime
-                 resolve:(RCTPromiseResolveBlock)resolve
-                  reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
-}
-- (void)getSDCardDir:(RCTPromiseResolveBlock)resolve
-              reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
-}
-- (void)getSDCardApplicationDir:(RCTPromiseResolveBlock)resolve
-              reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
-}
-- (void)scanFile:(NSArray *)pairs
-        callback:(RCTResponseSenderBlock)callback
-{
-    callback(@[@"Scan file method not supported in iOS"]);
-}
-- (void)writeToMediaFile:(NSString *)fileUri
-                    path:(NSString *)path
-           transformFile:(BOOL)transformFile
-                 resolve:(RCTPromiseResolveBlock)resolve
-                  reject:(RCTPromiseRejectBlock)reject
-{
-    reject(@"ENOT_SUPPORTED", @"This method is not supported on iOS", nil);
-}
-
-# pragma mark - New Architecture
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {

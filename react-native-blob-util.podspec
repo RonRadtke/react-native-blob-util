@@ -17,7 +17,6 @@ Pod::Spec.new do |s|
   # generates is what Swift imports as the underlying module, and a React
   # header inside it is not modular from Swift's point of view.
   s.public_header_files = [
-    'ios/ReactNativeBlobUtilConst.h',
     'ios/ReactNativeBlobUtilExceptionCatch.h',
     'ios/ReactNativeBlobUtilFileTransformer.h',
   ]
