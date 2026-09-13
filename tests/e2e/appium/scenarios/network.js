@@ -31,12 +31,21 @@ const runNetworkScenario = async (context) => {
     // the marker is asserted: on iOS just the newest log entry reaches the page
     // source, so whatever is checked has to be last.
     //
-    // download100 is the real signal. upload100 is reported but not asserted:
-    // the 250ms interval throttles the final upload event away on Android and
-    // Windows, which is what ReactNativeBlobUtilProgressConfig.shouldReport
-    // does by design.
+    // An earlier version of this comment blamed the 250ms interval for the
+    // missing upload completion on Android. That was wrong: Android emitted no
+    // upload events at all, because one undecodable base64 field aborted the
+    // whole multipart body and nothing was ever written. With that fixed and
+    // the completion flush in shouldReport, both halves now reach 100%.
+    //
+    // Windows is held to download100 only: it has not been re-measured since
+    // the flush landed. Tighten it to the full marker once it has been.
     await tap(context, 'progress-button');
-    await waitForLogContains(context, 'progress events: download100=true');
+    await waitForLogContains(
+        context,
+        platform === 'windows'
+            ? 'progress events: download100=true'
+            : 'progress events: download100=true upload100=true',
+    );
 
     await clearLog(context);
 };
