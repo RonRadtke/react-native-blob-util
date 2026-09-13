@@ -508,12 +508,7 @@ define('errors-write', async () => {
         createFileExisting: await settle(() => fs.createFile(file, 'z', 'utf8')),
         createFileUriMissing: await settle(() => fs.createFile(`${dir}/from-uri.txt`, missing, 'uri')),
         writeFileOntoDir: await settle(() => fs.writeFile(dir, 'z', 'utf8')),
-        // iOS invokes the writeStream callback twice on this path - once with the
-        // error, then again after falling through - and React Native reports the
-        // second call as an error of its own. Skipped there until that is fixed.
-        writeStreamOntoDir: Platform.OS === 'ios'
-            ? '<skipped: iOS invokes the callback twice>'
-            : await settle(() => fs.writeStream(dir, 'utf8', false)),
+        writeStreamOntoDir: await settle(() => fs.writeStream(dir, 'utf8', false)),
         writeInvalidBase64: await settle(() => fs.writeFile(`${dir}/bad.bin`, '@@@@', 'base64')),
         afterwards: {
             other: await settle(() => fs.readFile(other, 'utf8')),

@@ -397,17 +397,25 @@ RCT_EXPORT_METHOD(writeStream:(NSString *)path
     BOOL isDir = NO;
     BOOL exists = [fm fileExistsAtPath:path isDirectory: &isDir];
 
+    // Each of these has to return. Without it the method carried on to
+    // openWithPath: - opening a stream on a path it had just reported as
+    // unusable - and then invoked the callback a second time. React Native
+    // treats a second invocation of an RCTResponseSenderBlock as fatal, so the
+    // app died rather than surfacing the error the caller was handed.
     if(!exists) {
         [fm createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:NULL error:&err];
         if(err != nil) {
             callback(@[@"ENOTDIR", [NSString stringWithFormat:@"Failed to create parent directory of '%@'; error: %@", path, [err description]]]);
+            return;
         }
         if(![fm createFileAtPath:path contents:nil attributes:nil]) {
             callback(@[@"ENOENT", [NSString stringWithFormat:@"File '%@' does not exist and could not be created", path]]);
+            return;
         }
     }
     else if(isDir) {
         callback(@[@"EISDIR", [NSString stringWithFormat:@"Expecting a file but '%@' is a directory", path]]);
+        return;
     }
 
     NSString * streamId = [fileStream openWithPath:path encode:encoding appendData:append];

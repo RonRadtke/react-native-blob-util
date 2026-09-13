@@ -219,7 +219,13 @@
         "name": "Error"
       }
     },
-    "writeStreamOntoDir": "<skipped: iOS invokes the callback twice>"
+    "writeStreamOntoDir": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
+        "name": "Error"
+      }
+    }
   },
   "exists-isdir": {
     "dirExists": true,
