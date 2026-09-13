@@ -37,14 +37,13 @@ const runNetworkScenario = async (context) => {
     // whole multipart body and nothing was ever written. With that fixed and
     // the completion flush in shouldReport, both halves now reach 100%.
     //
-    // Windows is held to download100 only: it has not been re-measured since
-    // the flush landed. Tighten it to the full marker once it has been.
+    // All three platforms are held to the full marker. Windows was the last to
+    // be measured, and it is the one that matters most here: the dropped final
+    // upload event that the flush exists to fix was a Windows fault.
     await tap(context, 'progress-button');
     await waitForLogContains(
         context,
-        platform === 'windows'
-            ? 'progress events: download100=true'
-            : 'progress events: download100=true upload100=true',
+        'progress events: download100=true upload100=true',
     );
 
     await clearLog(context);
