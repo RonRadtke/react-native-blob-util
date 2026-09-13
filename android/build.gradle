@@ -78,7 +78,6 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile).configureEach
 
 dependencies {
     implementation 'com.facebook.react:react-android'
-    implementation 'org.apache.commons:commons-lang3:3.20.0'
 
     testImplementation 'junit:junit:4.13.2'
     // android.jar only ships org.json stubs that throw on the JVM, and the

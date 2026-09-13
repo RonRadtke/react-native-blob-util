@@ -1,0 +1,270 @@
+package com.ReactNativeBlobUtil
+
+import android.content.Context
+import android.net.Uri
+import android.util.Base64
+import com.ReactNativeBlobUtil.Utils.PathResolver
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.modules.core.DeviceEventManagerModule
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.OkHttpClient
+import java.io.BufferedReader
+import java.io.ByteArrayInputStream
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.nio.charset.Charset
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.security.cert.Certificate
+import java.security.cert.CertificateFactory
+import java.util.Locale
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
+
+/**
+ * A class with a companion rather than an object, so the public members keep the
+ * shape apps already use from Java and Kotlin: `ReactNativeBlobUtilUtils.sharedTrustManager = ...`.
+ */
+class ReactNativeBlobUtilUtils {
+
+    companion object {
+
+        /**
+         * Trust manager for requests made with `trusty: true`. The library ships
+         * none; an app that needs trusty sets its own (see the README).
+         */
+        @JvmField
+        var sharedTrustManager: X509TrustManager? = null
+
+        private val SCHEME = Regex("\\w+\\:.*")
+
+        @JvmStatic
+        fun getMD5(input: String?): String? {
+            if (input == null) {
+                return null
+            }
+            return try {
+                val md = MessageDigest.getInstance("MD5")
+                md.update(input.toByteArray())
+                md.digest().joinToString("") { String.format(Locale.ROOT, "%02x", it.toInt() and 0xff) }
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+                null
+            }
+        }
+
+        @JvmStatic
+        fun emitWarningEvent(data: String?) {
+            val args = Arguments.createMap()
+            args.putString("event", "warn")
+            args.putString("detail", data)
+
+            // emit event to js context
+            ReactNativeBlobUtilImpl.RCTContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(ReactNativeBlobUtilConst.EVENT_MESSAGE, args)
+        }
+
+        @JvmStatic
+        fun getUnsafeOkHttpClient(client: OkHttpClient): OkHttpClient.Builder {
+            try {
+                val trustManager = sharedTrustManager
+                    ?: throw IllegalStateException("Use of own trust manager but none defined")
+
+                val trustAllCerts = arrayOf<TrustManager>(trustManager)
+
+                // Install the all-trusting trust manager
+                val sslContext = SSLContext.getInstance("SSL")
+                sslContext.init(null, trustAllCerts, SecureRandom())
+                // Create an ssl socket factory with our all-trusting manager
+                val sslSocketFactory = sslContext.socketFactory
+
+                val builder = client.newBuilder()
+                builder.sslSocketFactory(sslSocketFactory, trustManager)
+                builder.hostnameVerifier(HostnameVerifier { _, _ -> true })
+
+                return builder
+            } catch (e: Exception) {
+                throw RuntimeException(e)
+            }
+        }
+
+        /**
+         * Whether a request to [url] should use the custom CA trust store.
+         *
+         * When pinnedHosts is set the custom CA only covers those hosts; anything else
+         * falls through to the platform trust store, which is what the README documents
+         * and what iOS does by returning NSURLSessionAuthChallengePerformDefaultHandling.
+         */
+        @JvmStatic
+        fun customCACertsApplyTo(certNames: List<String?>?, pinnedHosts: List<String?>?, url: String?): Boolean {
+            if (certNames.isNullOrEmpty()) return false
+            if (pinnedHosts.isNullOrEmpty()) return true
+
+            val parsed = url?.toHttpUrlOrNull() ?: return false
+
+            return pinnedHosts.contains(parsed.host)
+        }
+
+        @JvmStatic
+        fun getCustomCACertOkHttpClient(
+            client: OkHttpClient,
+            context: Context,
+            certNames: List<String?>,
+            trustSystemCerts: Boolean,
+        ): OkHttpClient.Builder {
+            try {
+                val cf = CertificateFactory.getInstance("X.509")
+                val keyStore = KeyStore.getInstance(KeyStore.getDefaultType())
+                keyStore.load(null, null)
+
+                if (trustSystemCerts) {
+                    val defaultTmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                    defaultTmf.init(null as KeyStore?)
+                    var systemIndex = 0
+                    for (tm in defaultTmf.trustManagers) {
+                        if (tm is X509TrustManager) {
+                            for (cert in tm.acceptedIssuers) {
+                                keyStore.setCertificateEntry("system_${systemIndex++}", cert)
+                            }
+                        }
+                    }
+                }
+
+                var loaded = 0
+                for (certName in certNames) {
+                    val cert = loadCertificateFromResources(context, cf, certName)
+                    if (cert != null) {
+                        keyStore.setCertificateEntry(certName, cert)
+                        loaded++
+                    }
+                }
+
+                // Fail closed. Without this the keystore is empty, every connection fails
+                // trust evaluation, and the developer sees a generic handshake error rather
+                // than the actual problem: the certificate is not in res/raw under that name.
+                if (loaded == 0) {
+                    throw IllegalStateException("customCACerts: none of $certNames could be loaded from res/raw")
+                }
+
+                val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                tmf.init(keyStore)
+
+                val customTrustManager = tmf.trustManagers.firstOrNull { it is X509TrustManager } as X509TrustManager?
+                    ?: throw IllegalStateException("No X509TrustManager found")
+
+                val sslContext = SSLContext.getInstance("TLS")
+                sslContext.init(null, arrayOf<TrustManager>(customTrustManager), SecureRandom())
+
+                val builder = client.newBuilder()
+                builder.sslSocketFactory(sslContext.socketFactory, customTrustManager)
+
+                // No hostnameVerifier override: the default verifier still applies, so a
+                // certificate is only accepted for the names it actually carries. Scoping to
+                // pinnedHosts happens before this client is built - see ReactNativeBlobUtilReq.
+
+                return builder
+            } catch (e: Exception) {
+                throw RuntimeException("Failed to configure custom CA certificates", e)
+            }
+        }
+
+        private fun loadCertificateFromResources(context: Context, cf: CertificateFactory, certName: String?): Certificate? {
+            var resId = context.resources.getIdentifier(certName, "raw", context.packageName)
+            if (resId == 0) {
+                for (suffix in arrayOf("_pem", "_der", "_cer")) {
+                    resId = context.resources.getIdentifier(certName + suffix, "raw", context.packageName)
+                    if (resId != 0) break
+                }
+            }
+            if (resId == 0) return null
+
+            try {
+                context.resources.openRawResource(resId).use { return cf.generateCertificate(it) }
+            } catch (e: Exception) {
+                // DER parsing failed — try PEM-to-DER conversion
+            }
+
+            try {
+                context.resources.openRawResource(resId).use {
+                    val derBytes = pemToDer(it)
+                    if (derBytes != null) {
+                        return cf.generateCertificate(ByteArrayInputStream(derBytes))
+                    }
+                }
+            } catch (e: Exception) {
+                // PEM conversion also failed
+            }
+
+            return null
+        }
+
+        private fun pemToDer(input: InputStream): ByteArray? {
+            return try {
+                val reader = BufferedReader(InputStreamReader(input))
+                val base64 = StringBuilder()
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (line.startsWith("-----")) continue
+                    // Java's String.trim: only characters up to ' ', unlike Kotlin's trim().
+                    base64.append(line.trim { it <= ' ' })
+                }
+                Base64.decode(base64.toString(), Base64.DEFAULT)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /**
+         * String to byte converter method
+         *
+         * @param data     Raw data in string format
+         * @param encoding Decoder name
+         * @return Converted data byte array
+         */
+        @JvmStatic
+        fun stringToBytes(data: String, encoding: String): ByteArray {
+            if (encoding.equals("ascii", ignoreCase = true)) {
+                return data.toByteArray(Charset.forName("US-ASCII"))
+            } else if (encoding.lowercase(Locale.ROOT).contains("base64")) {
+                return Base64.decode(data, Base64.NO_WRAP)
+            } else if (encoding.equals("utf8", ignoreCase = true)) {
+                return data.toByteArray(Charset.forName("UTF-8"))
+            }
+            return data.toByteArray(Charset.forName("US-ASCII"))
+        }
+
+        /**
+         * Normalize the path, remove URI scheme (xxx://) so that we can handle it.
+         *
+         * @param path URI string.
+         * @return Normalized string
+         */
+        @JvmStatic
+        fun normalizePath(path: String?): String? {
+            if (path == null) return null
+            if (!SCHEME.matches(path)) return path
+            if (path.startsWith("file://")) {
+                return path.replace("file://", "")
+            }
+
+            return if (path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {
+                path
+            } else {
+                PathResolver.getRealPathFromURI(ReactNativeBlobUtilImpl.RCTContext, Uri.parse(path))
+            }
+        }
+
+        @JvmStatic
+        fun isAsset(path: String?): Boolean =
+            path != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)
+
+        @JvmStatic
+        fun isContentUri(path: String?): Boolean =
+            path != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_CONTENT)
+    }
+}
