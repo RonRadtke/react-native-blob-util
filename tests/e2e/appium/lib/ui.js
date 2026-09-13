@@ -5,7 +5,13 @@ const {sleep, byId} = require('./utils');
 const safeIsExisting = async (element) => element.isExisting().catch(() => false);
 const safeIsDisplayed = async (element) => element.isDisplayed().catch(() => false);
 
-const waitForAppReady = async (context, timeout = 30000) => {
+// A debug build fetches and executes the whole bundle from Metro before it
+// renders anything, and a cold start on a busy machine can outrun 30s - the
+// Windows app measured ~40s after a fresh deploy. Raise it per run with
+// E2E_APP_READY_TIMEOUT rather than editing this file.
+const APP_READY_TIMEOUT = Number(process.env.E2E_APP_READY_TIMEOUT || 30000);
+
+const waitForAppReady = async (context, timeout = APP_READY_TIMEOUT) => {
     const {driver} = context;
 
     await driver.waitUntil(
