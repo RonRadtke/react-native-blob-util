@@ -12,7 +12,11 @@
 #import <Foundation/Foundation.h>
 
 @class ReactNativeBlobUtilProgress;
-#import "ReactNativeBlobUtil.h"
+// Forward declared rather than imported: only a pointer is needed, and the
+// module header drags in the codegen spec, which must be compiled as
+// Objective-C++ - so importing it here makes this header unusable from
+// anything compiled as plain Objective-C, a Swift bridging header included.
+@class ReactNativeBlobUtil;
 
 #if __has_include(<React/RCTAssert.h>)
 #import <React/RCTBridgeModule.h>
