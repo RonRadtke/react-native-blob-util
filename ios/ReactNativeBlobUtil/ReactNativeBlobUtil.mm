@@ -9,11 +9,16 @@
 #import "ReactNativeBlobUtilNetwork.h"
 #import "ReactNativeBlobUtilConst.h"
 #import "ReactNativeBlobUtilReqBuilder.h"
-#import "ReactNativeBlobUtilProgress.h"
-
-#if RCT_NEW_ARCH_ENABLED
-#import <ReactNativeBlobUtilSpec/ReactNativeBlobUtilSpec.h>
+// The Swift half of this pod. The framework form is what the dynamic- and
+// static-framework linkages produce; the quoted form is what a plain static
+// library build produces.
+#if __has_include(<react_native_blob_util/react_native_blob_util-Swift.h>)
+#import <react_native_blob_util/react_native_blob_util-Swift.h>
+#else
+#import "react_native_blob_util-Swift.h"
 #endif
+
+#import <ReactNativeBlobUtilSpec/ReactNativeBlobUtilSpec.h>
 
 dispatch_queue_t commonTaskQueue;
 dispatch_queue_t fsQueue;
@@ -778,14 +783,14 @@ RCT_EXPORT_METHOD(enableProgressReport:(NSString *)taskId interval:(double)inter
     NSNumber *intervalNumber = [NSNumber numberWithDouble:interval];
     NSNumber *countNumber = [NSNumber numberWithInteger:count];
 
-    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:Download interval:intervalNumber count:countNumber];
+    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:ReactNativeBlobUtilProgressTypeDownload interval:intervalNumber count:countNumber];
     [[ReactNativeBlobUtilNetwork sharedInstance] enableProgressReport:taskId config:cfg];
 }
 
 #pragma mark - net.enableUploadProgressReport
 RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(nonnull NSNumber*)interval count:(nonnull NSNumber*)count)
 {
-    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:Upload interval:interval count:count];
+    ReactNativeBlobUtilProgress * cfg = [[ReactNativeBlobUtilProgress alloc] initWithType:ReactNativeBlobUtilProgressTypeUpload interval:interval count:count];
     [[ReactNativeBlobUtilNetwork sharedInstance] enableUploadProgress:taskId config:cfg];
 }
 
@@ -1015,12 +1020,10 @@ RCT_EXPORT_METHOD(df:(RCTResponseSenderBlock)callback)
 }
 
 # pragma mark - New Architecture
-#if RCT_NEW_ARCH_ENABLED
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {
     return std::make_shared<facebook::react::NativeBlobUtilsSpecJSI>(params);
 }
-#endif
 
 @end

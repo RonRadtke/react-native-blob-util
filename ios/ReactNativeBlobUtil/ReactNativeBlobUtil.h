@@ -28,9 +28,7 @@
 
 #import <UIKit/UIKit.h>
 
-#if RCT_NEW_ARCH_ENABLED
 #import <ReactNativeBlobUtilSpec/ReactNativeBlobUtilSpec.h>
-#endif
 
 
 @interface ReactNativeBlobUtil : RCTEventEmitter <RCTBridgeModule, UIDocumentInteractionControllerDelegate> {
@@ -47,9 +45,7 @@
 
 @end
 
-#if RCT_NEW_ARCH_ENABLED
 @interface ReactNativeBlobUtil () <NativeBlobUtilsSpec>
 @end
-#endif
 
 #endif /* ReactNativeBlobUtil_h */

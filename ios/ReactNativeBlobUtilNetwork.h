@@ -10,7 +10,7 @@
 #define ReactNativeBlobUtilNetwork_h
 
 #import <Foundation/Foundation.h>
-#import "ReactNativeBlobUtilProgress.h"
+@class ReactNativeBlobUtilProgress;
 #import "ReactNativeBlobUtilFS.h"
 #import "ReactNativeBlobUtilRequest.h"
 

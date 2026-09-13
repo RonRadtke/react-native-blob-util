@@ -14,6 +14,15 @@
 #import "ReactNativeBlobUtilNetwork.h"
 #import "ReactNativeBlobUtilReqBuilder.h"
 
+// The Swift half of this pod. The framework form is what the dynamic- and
+// static-framework linkages produce; the quoted form is what a plain static
+// library build produces.
+#if __has_include(<react_native_blob_util/react_native_blob_util-Swift.h>)
+#import <react_native_blob_util/react_native_blob_util-Swift.h>
+#else
+#import "react_native_blob_util-Swift.h"
+#endif
+
 #import <CommonCrypto/CommonDigest.h>
 #import <Security/Security.h>
 
