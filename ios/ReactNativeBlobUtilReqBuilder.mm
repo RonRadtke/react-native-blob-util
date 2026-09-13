@@ -249,7 +249,18 @@
                         return ;
                     }
                     else
+                    {
                         blobData = [[NSData alloc] initWithBase64EncodedString:content options:0];
+                        // Undecodable base64 yields nil, and the append below is
+                        // then a no-op, so the part still goes out with its
+                        // headers and an empty body. That is survivable but
+                        // silent: say so, the way the missing-name branch above
+                        // does, and the way Android now does for the same input.
+                        if(blobData == nil)
+                        {
+                            RCTLogWarn(@"ReactNativeBlobUtil multipart request builder could not decode the `data` of field `%@` as base64, the field will be sent with an empty body.", name);
+                        }
+                    }
                 }
                 NSString * filename = [field valueForKey:@"filename"];
                 [formData appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
