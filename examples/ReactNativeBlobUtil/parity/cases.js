@@ -770,6 +770,41 @@ define('fetch-cancel', async (ctx) => {
     }
 });
 
+/**
+ * The native task registry after a task has finished. Both of these reach a
+ * native method with a taskId it no longer knows about - cancelRequest and
+ * enableProgressReport - which nothing else in this suite exercises. Neither
+ * should throw, and neither should affect the response that already arrived.
+ */
+define('net-after-completion', async (ctx) => {
+    // cancelRequest for a task the native registry has already dropped. Nothing
+    // else in this suite reaches it: fetch-cancel cancels a task that is still
+    // running. It must not throw, and must not disturb the response that has
+    // already arrived.
+    //
+    // enableProgressReport for an unknown task is deliberately absent. The task
+    // object only carries `progress` while the request is in flight - once the
+    // promise has settled, `typeof task.progress` is "undefined" - so there is
+    // no route to that native method through the public API, and reaching it
+    // another way would not describe anything an app can do.
+    const task = ReactNativeBlobUtil.fetch('GET', ctx.url('/text'));
+    const res = await task;
+
+    return {
+        status: res.info().status,
+        cancelAfterFinish: await settle(async () => {
+            task.cancel();
+            return 'returned';
+        }),
+        // A second cancel of the same finished task.
+        cancelTwice: await settle(async () => {
+            task.cancel();
+            return 'returned';
+        }),
+        textStillReadable: await settle(() => res.text()),
+    };
+});
+
 define('fetch-chunked', async (ctx) => {
     const totals = new Set();
     const res = await ReactNativeBlobUtil.fetch('GET', ctx.url('/chunked')).progress((written, total) => totals.add(total));
