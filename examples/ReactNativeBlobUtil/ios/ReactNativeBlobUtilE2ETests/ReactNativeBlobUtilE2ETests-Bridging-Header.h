@@ -12,3 +12,4 @@
 //
 
 #import "ReactNativeBlobUtilFS.h"
+#import "ReactNativeBlobUtilFSRawProbe.h"
