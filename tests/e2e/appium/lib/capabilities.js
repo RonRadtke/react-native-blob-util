@@ -23,6 +23,28 @@ const buildMobileCaps = (platform) => {
 
     if (isAndroid) {
         caps['appium:autoGrantPermissions'] = true;
+
+        // UiAutomator2 gives every adb command 20s. On a memory-starved emulator a
+        // plain `pm clear` measured 25s, and the session then fails before a single
+        // step has run, reading like a broken app. Raise the adb budgets per run
+        // with E2E_ANDROID_ADB_TIMEOUT (milliseconds) instead of editing this file.
+        const adbTimeout = Number(process.env.E2E_ANDROID_ADB_TIMEOUT || 0);
+        if (adbTimeout > 0) {
+            caps['appium:adbExecTimeout'] = adbTimeout;
+            caps['appium:androidInstallTimeout'] = adbTimeout;
+            caps['appium:uiautomator2ServerInstallTimeout'] = adbTimeout;
+            caps['appium:uiautomator2ServerLaunchTimeout'] = adbTimeout;
+        }
+
+        // By default the driver clears the app's data before every session, so a
+        // debug build cold-starts and must fetch and evaluate the whole bundle from
+        // Metro again - on a memory-starved emulator that outran a 120s app-ready
+        // wait with nothing rendered. The suite resets its own fixtures, so keeping
+        // the app's data is safe: E2E_ANDROID_NO_RESET=1 attaches to the app as it is.
+        if (['1', 'true', 'yes'].includes(String(process.env.E2E_ANDROID_NO_RESET || '').toLowerCase())) {
+            caps['appium:noReset'] = true;
+        }
+
         if (process.env.ANDROID_APP_PACKAGE) {
             caps['appium:appPackage'] = process.env.ANDROID_APP_PACKAGE;
         }
