@@ -740,6 +740,20 @@ namespace winrt::ReactNativeBlobUtil
         constants.MovieDir = to_string(UserDataPaths::GetDefault().Videos());
         constants.DownloadDir = to_string(UserDataPaths::GetDefault().Downloads());
         constants.MainBundleDir = to_string(Package::Current().InstalledLocation().Path());
+        constants.LibraryDir = to_string(ApplicationData::Current().LocalFolder().Path());
+        constants.ApplicationSupportDir = to_string(ApplicationData::Current().RoamingFolder().Path());
+        constants.DCIMDir = to_string(UserDataPaths::GetDefault().CameraRoll());
+        // Android only: "" rather than a missing key, as on iOS.
+        constants.RingtoneDir = "";
+        constants.SDCardDir = "";
+        constants.SDCardApplicationDir = "";
+        constants.LegacyDCIMDir = "";
+        constants.LegacyPictureDir = "";
+        constants.LegacyMusicDir = "";
+        constants.LegacyDownloadDir = "";
+        constants.LegacyMovieDir = "";
+        constants.LegacyRingtoneDir = "";
+        constants.LegacySDCardDir = "";
         return constants;
     }
 
@@ -1582,8 +1596,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray 
             if (pathValue)
             {
                 std::string path = pathValue.AsString();
-                auto folder = co_await winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(winrt::to_hstring(path));
-                auto file = co_await folder.GetFileAsync(winrt::to_hstring(path));
+                if (!std::filesystem::exists(path))
+                {
+                    continue;
+                }
+                auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(winrt::to_hstring(path));
                 co_await file.DeleteAsync();
             }
         }
@@ -1616,10 +1633,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::ls(
             promise.Reject(rejection("ENOTDIR", "Not a directory '" + path + "'"));
             co_return;
         }
-        winrt::hstring directoryPath, fileName;
-        splitPath(path, directoryPath, fileName);
-
-        auto folder = co_await Windows::Storage::StorageFolder::GetFolderFromPathAsync(directoryPath);
+        auto folder = co_await Windows::Storage::StorageFolder::GetFolderFromPathAsync(winrt::to_hstring(path));
         auto items = co_await folder.GetItemsAsync();
 
         ::React::JSValueArray results;
@@ -2112,35 +2126,53 @@ winrt::fire_and_forget ReactNativeBlobUtil::slice(
 {
     try
     {
-        winrt::hstring srcDirectoryPath, srcFileName, destDirectoryPath, destFileName;
-        splitPath(src, srcDirectoryPath, srcFileName);
-        splitPath(src, destDirectoryPath, destFileName);
-
-        StorageFolder srcFolder{ co_await StorageFolder::GetFolderFromPathAsync(srcDirectoryPath) };
-        StorageFolder destFolder{ co_await StorageFolder::GetFolderFromPathAsync(destDirectoryPath) };
-
-        StorageFile srcFile{ co_await srcFolder.GetFileAsync(srcFileName) };
-        StorageFile destFile{ co_await destFolder.CreateFileAsync(destFileName, CreationCollisionOption::OpenIfExists) };
-
-        uint64_t uStart = static_cast<uint64_t>(start);
-        uint64_t uEnd = static_cast<uint64_t>(end);
-        uint32_t length = static_cast<uint32_t>(uEnd > uStart ? uEnd - uStart : 0);
-
-        if (length == 0) {
-            promise.Reject("Invalid slice range");
+        if (!std::filesystem::exists(src))
+        {
+            promise.Reject(rejection("ENOENT", "No such file '" + src + "'"));
             co_return;
         }
-        Streams::IBuffer buffer;
+        if (std::filesystem::is_directory(src))
+        {
+            promise.Reject(rejection("EISDIR", "Expecting a file but '" + src + "' is a directory"));
+            co_return;
+        }
+
+        // The destination was split from the source path, so the slice was
+        // written back into the source file. Split the destination.
+        winrt::hstring destDirectoryPath, destFileName;
+        splitPath(dest, destDirectoryPath, destFileName);
+        std::error_code directoryError;
+        std::filesystem::create_directories(std::filesystem::path{ dest }.parent_path(), directoryError);
+        StorageFolder destFolder{ co_await StorageFolder::GetFolderFromPathAsync(destDirectoryPath) };
+        StorageFile destFile{ co_await destFolder.CreateFileAsync(destFileName, CreationCollisionOption::ReplaceExisting) };
+
+        StorageFile srcFile{ co_await StorageFile::GetFileFromPathAsync(winrt::to_hstring(src)) };
         Streams::IRandomAccessStream stream{ co_await srcFile.OpenAsync(FileAccessMode::Read) };
-        stream.Seek(start);
-        stream.ReadAsync(buffer, length, Streams::InputStreamOptions::None);
+        uint64_t size = stream.Size();
+        uint64_t uStart = std::min(static_cast<uint64_t>(std::max(start, 0.0)), size);
+        uint64_t uEnd = std::min(static_cast<uint64_t>(std::max(end, 0.0)), size);
+        uint32_t length = static_cast<uint32_t>(uEnd > uStart ? uEnd - uStart : 0);
+
+        // An empty range is an empty file, as on Android and iOS.
+        Streams::Buffer buffer{ length };
+        if (length > 0)
+        {
+            stream.Seek(uStart);
+            // ReadAsync was not awaited before: the file was written from an
+            // empty buffer.
+            co_await stream.ReadAsync(buffer, length, Streams::InputStreamOptions::None);
+        }
         co_await FileIO::WriteBufferAsync(destFile, buffer);
 
         promise.Resolve(dest);
     }
+    catch (const winrt::hresult_error& ex)
+    {
+        promise.Reject(rejection("EUNSPECIFIED", "Unable to slice file: " + winrt::to_string(ex.message())));
+    }
     catch (...)
     {
-        promise.Reject("Unable to slice file");
+        promise.Reject(rejection("EUNSPECIFIED", "Unable to slice file"));
     }
 }
 

@@ -823,15 +823,19 @@ class ReactNativeBlobUtilReq(
         info.putArray("redirects", redirectList)
         info.putMap("headers", headerMap)
         val h = resp.headers
-        if (isBlobResp) {
-            info.putString("respType", "blob")
-        } else if (getHeaderIgnoreCases(h, "content-type").equals("text/", ignoreCase = true)) {
-            info.putString("respType", "text")
-        } else if (getHeaderIgnoreCases(h, "content-type").contains("application/json")) {
-            info.putString("respType", "json")
-        } else {
-            info.putString("respType", "")
+        // The same rules as iOS: text/* is "text", application/json is "json",
+        // anything else with a Content-Type is "blob", and no Content-Type is
+        // "text". The old check compared the whole header against "text/", so
+        // every text response came out as "".
+        val contentType = getHeaderIgnoreCases(h, "content-type").lowercase(Locale.ROOT)
+        val respType = when {
+            isBlobResp -> "blob"
+            contentType.isEmpty() -> "text"
+            contentType.contains("text/") -> "text"
+            contentType.contains("application/json") -> "json"
+            else -> "blob"
         }
+        info.putString("respType", respType)
         return info
     }
 

@@ -169,11 +169,15 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `lstat` `lastModified` on Windows | seconds | milliseconds, like the other platforms |
 | `android.getContentIntent` when the user cancels | never settled | resolves `null`; a second call while the picker is open rejects `EBUSY` |
 | `android.actionViewIntent` | resolved `true`, then `null` again on resume | resolves `true` once |
+| `respInfo.respType` on Android | `""` for every text response (a broken header check) | `text`, `json` or `blob` by Content-Type, as on iOS |
+| `fs.slice` on Windows | wrote the slice into the source file, from an empty buffer | writes the range to the destination |
+| `fs.ls` on Windows | listed the parent directory | lists the directory itself |
+| `session.dispose` on Windows | failed on every file | removes the files; missing ones are skipped |
+| `fs.dirs` on Windows | 7 directories set | every key set (Android-only ones are `""`) |
 
 Network-level differences stay documented rather than aligned: a URL without a host
 (`http://`) is `EINVAL` on Android, which rejects it before connecting, and
-`ECONNREFUSED` on iOS, which tries to connect; Android reports
-`respType` as `""` where iOS says `text`/`blob`, only iOS puts `rnfbEncode` on the first
+`ECONNREFUSED` on iOS, which tries to connect; only iOS puts `rnfbEncode` on the first
 `stateChange`, and a request body without a Content-Type is sent chunked on Android and
 with a Content-Length as `application/octet-stream` on iOS.
 

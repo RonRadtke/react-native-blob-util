@@ -311,7 +311,7 @@
       "redirects": [
         "http://<http-server>/binary"
       ],
-      "respType": "",
+      "respType": "blob",
       "rnfbEncode": "base64",
       "state": "2",
       "status": 200,
@@ -353,7 +353,7 @@
       "redirects": [
         "http://<http-server>/chunked"
       ],
-      "respType": "",
+      "respType": "text",
       "rnfbEncode": "utf8",
       "state": "2",
       "status": 200,
@@ -412,7 +412,7 @@
       "redirects": [
         "http://<http-server>/binary"
       ],
-      "respType": "",
+      "respType": "blob",
       "rnfbEncode": "path",
       "state": "2",
       "status": 200,
@@ -502,7 +502,7 @@
       "redirects": [
         "http://<http-server>/binary"
       ],
-      "respType": "",
+      "respType": "blob",
       "rnfbEncode": "path",
       "state": "2",
       "status": 200,
@@ -655,7 +655,7 @@
       "redirects": [
         "http://<http-server>/text"
       ],
-      "respType": "",
+      "respType": "text",
       "rnfbEncode": "utf8",
       "state": "2",
       "status": 200,
