@@ -3,6 +3,7 @@ import Blob from "../polyfill/Blob";
 import ReactNativeBlobUtilSession from "./ReactNativeBlobUtilSession";
 import URIUtil from "../utils/uri";
 import base64 from "base-64";
+import {bytesOfBinaryString, bytesOfUtf8} from "../utils/bytes";
 import type {ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from "../types";
 /**
  * ReactNativeBlobUtil response object class.
@@ -35,21 +36,19 @@ export class FetchBlobResponse {
             return this.respInfo;
         };
 
-        this.array = (): Promise<Array> => {
-            let cType = info.headers['Content-Type'] || info.headers['content-type'];
-            return new Promise((resolve, reject) => {
-                switch (this.type) {
-                    case 'base64':
-                        // TODO : base64 to array buffer
-                        break;
-                    case 'path':
-                        fs.readFile(this.data, 'ascii').then(resolve);
-                        break;
-                    default:
-                        // TODO : text to array buffer
-                        break;
-                }
-            });
+        /**
+         * The response body as an array of byte values.
+         * @return {Promise<Array<number>>}
+         */
+        this.array = (): Promise<Array<number>> => {
+            switch (this.type) {
+                case 'base64':
+                    return Promise.resolve(bytesOfBinaryString(base64.decode(this.data)));
+                case 'path':
+                    return fs.readFile(this.data, 'ascii');
+                default:
+                    return Promise.resolve(bytesOfUtf8(this.data));
+            }
         };
 
         /**

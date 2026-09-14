@@ -61,6 +61,26 @@ function addCode(code: string, error: Error): Error {
     return error;
 }
 
+const READ_ENCODINGS = ['utf8', 'ascii', 'base64'];
+const WRITE_ENCODINGS = ['utf8', 'ascii', 'base64', 'uri'];
+
+/**
+ * The encoding native will receive: lower-cased, with null and undefined
+ * meaning utf8. An encoding native does not know yields an EINVAL error
+ * instead, so the caller rejects here rather than hand it on - iOS readFile
+ * never completed for an unknown encoding, and Android silently read utf8.
+ */
+function normalizeEncoding(encoding: ?string, allowed: Array<string>): string | Error {
+    if (encoding === null || encoding === undefined) {
+        return 'utf8';
+    }
+    const lowered = String(encoding).toLowerCase();
+    if (allowed.includes(lowered)) {
+        return lowered;
+    }
+    return addCode('EINVAL', new TypeError(`Unsupported encoding "${encoding}", expected one of ${allowed.join(', ')}`));
+}
+
 /**
  * Get a file cache session
  * @param  {string} name Stream ID
@@ -85,8 +105,15 @@ function asset(path: string): string {
     return 'bundle-assets://' + path;
 }
 
-function createFile(path: string, data: string, encoding: 'base64' | 'ascii' | 'utf8' = 'utf8'): Promise<string> {
-    if (encoding.toLowerCase() === 'ascii') {
+function createFile(path: string, data: string, encoding: 'base64' | 'ascii' | 'utf8' | 'uri' = 'utf8'): Promise<string> {
+    if (typeof path !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
+    }
+    if (encoding === 'ascii') {
         return Array.isArray(data) ?
             requireNativeModule().createFileASCII(path, data) :
             Promise.reject(addCode('EINVAL', new TypeError('`data` of ASCII file must be an array with 0..255 numbers')));
@@ -110,6 +137,10 @@ function writeStream(
 ): Promise<ReactNativeBlobUtilWriteStream> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    encoding = normalizeEncoding(encoding, READ_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
     }
     return new Promise((resolve, reject) => {
         requireNativeModule().writeStream(path, encoding, append, (errCode, errMsg, streamId: string) => {
@@ -140,6 +171,10 @@ function readStream(
 ): Promise<ReactNativeBlobUtilReadStream> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    encoding = normalizeEncoding(encoding, READ_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
     }
     return Promise.resolve(new ReactNativeBlobUtilReadStream(path, encoding, bufferSize, tick));
 }
@@ -189,6 +224,10 @@ function readFile(path: string, encoding: string = 'utf8'): Promise<any> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
+    encoding = normalizeEncoding(encoding, READ_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
+    }
     return requireNativeModule().readFile(path, encoding, false);
 }
 
@@ -201,6 +240,10 @@ function readFile(path: string, encoding: string = 'utf8'): Promise<any> {
 function readFileWithTransform(path: string, encoding: string = 'utf8'): Promise<any> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    encoding = normalizeEncoding(encoding, READ_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
     }
     return requireNativeModule().readFile(path, encoding, true);
 }
@@ -216,7 +259,11 @@ function writeFile(path: string, data: string | Array<number>, encoding: ?string
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    if (encoding.toLocaleLowerCase() === 'ascii') {
+    encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
+    }
+    if (encoding === 'ascii') {
         if (!Array.isArray(data)) {
             return Promise.reject(addCode('EINVAL', new TypeError('"data" must be an Array when encoding is "ascii"')));
         }
@@ -243,7 +290,11 @@ function writeFileWithTransform(path: string, data: string | Array<number>, enco
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    if (encoding.toLocaleLowerCase() === 'ascii') {
+    encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
+    }
+    if (encoding === 'ascii') {
         return Promise.reject(addCode('EINVAL', new TypeError('ascii is not supported for converted files')));
     }
     else {
@@ -260,7 +311,11 @@ function appendFile(path: string, data: string | Array<number>, encoding?: strin
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    if (encoding.toLocaleLowerCase() === 'ascii') {
+    encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
+    if (encoding instanceof Error) {
+        return Promise.reject(encoding);
+    }
+    if (encoding === 'ascii') {
         if (!Array.isArray(data)) {
             return Promise.reject(addCode('EINVAL', new TypeError('`data` of ASCII file must be an array with 0..255 numbers')));
         }
@@ -269,7 +324,7 @@ function appendFile(path: string, data: string | Array<number>, encoding?: strin
     }
     else {
         if (typeof data !== 'string') {
-            return Promise.reject(addCode('EINVAL'), new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`));
+            return Promise.reject(addCode('EINVAL', new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`)));
         }
         else
             return requireNativeModule().writeFile(path, encoding, data, false, true);
