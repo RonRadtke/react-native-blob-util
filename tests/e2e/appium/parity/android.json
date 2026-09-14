@@ -674,6 +674,15 @@
       }
     }
   },
+  "fetch-untrusted-cert": {
+    "untrusted": {
+      "rejected": {
+        "code": "ESSL",
+        "message": "java.security.cert.CertPathValidatorException: Trust anchor for certification path not found.",
+        "name": "Error"
+      }
+    }
+  },
   "hash-algorithms": {
     "md5": {
       "bytes": {

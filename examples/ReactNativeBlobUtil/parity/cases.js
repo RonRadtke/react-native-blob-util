@@ -832,6 +832,15 @@ define('fetch-errors', async () => ({
     refused: await settle(() => ReactNativeBlobUtil.config({timeout: 5000}).fetch('GET', 'http://127.0.0.1:9/')),
 }));
 
+// The e2e server's certificate is signed by the test CA, which the app does not
+// trust unless customCACerts names it: the handshake must fail with ESSL.
+define('fetch-untrusted-cert', async (ctx) => ({
+    untrusted: await settle(async () => {
+        const res = await ReactNativeBlobUtil.config({timeout: 5000}).fetch('GET', ctx.httpsUrl('/health'));
+        return {status: res.info().status};
+    }),
+}));
+
 define('upload-bodies', async (ctx) => {
     const dir = await freshDir('upload-bodies');
     const file = `${dir}/upload.txt`;

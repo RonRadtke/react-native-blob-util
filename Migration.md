@@ -146,7 +146,9 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `android.getContentIntent` when the user cancels | never settled | resolves `null`; a second call while the picker is open rejects `EBUSY` |
 | `android.actionViewIntent` | resolved `true`, then `null` again on resume | resolves `true` once |
 
-Network-level differences stay documented rather than aligned: Android reports
+Network-level differences stay documented rather than aligned: a URL without a host
+(`http://`) is `EINVAL` on Android, which rejects it before connecting, and
+`ECONNREFUSED` on iOS, which tries to connect; Android reports
 `respType` as `""` where iOS says `text`/`blob`, only iOS puts `rnfbEncode` on the first
 `stateChange`, and a request body without a Content-Type is sent chunked on Android and
 with a Content-Length as `application/octet-stream` on iOS.
