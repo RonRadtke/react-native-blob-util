@@ -62,8 +62,8 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         return null
     }
 
-    override fun exists(path: String?, callback: Callback) {
-        delegate.exists(path, callback)
+    override fun exists(path: String?, promise: Promise) {
+        delegate.exists(path, promise)
     }
 
     override fun writeFile(path: String?, encoding: String?, data: String?, transformFile: Boolean, append: Boolean, promise: Promise) {
@@ -74,48 +74,48 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         delegate.writeFileArray(path, data, append, promise)
     }
 
-    override fun writeStream(path: String?, withEncoding: String?, appendData: Boolean, callback: Callback) {
-        delegate.writeStream(path, withEncoding, appendData, callback)
+    override fun writeStream(path: String?, withEncoding: String?, appendData: Boolean, promise: Promise) {
+        delegate.writeStream(path, withEncoding, appendData, promise)
     }
 
-    override fun writeArrayChunk(streamId: String?, withArray: ReadableArray?, callback: Callback) {
-        delegate.writeArrayChunk(streamId, withArray, callback)
+    override fun writeArrayChunk(streamId: String?, withArray: ReadableArray?, promise: Promise) {
+        delegate.writeArrayChunk(streamId, withArray, promise)
     }
 
-    override fun writeChunk(streamId: String?, withData: String?, callback: Callback) {
-        delegate.writeChunk(streamId, withData, callback)
+    override fun writeChunk(streamId: String?, withData: String?, promise: Promise) {
+        delegate.writeChunk(streamId, withData, promise)
     }
 
-    override fun closeStream(streamId: String?, callback: Callback) {
-        delegate.closeStream(streamId, callback)
+    override fun closeStream(streamId: String?, promise: Promise) {
+        delegate.closeStream(streamId, promise)
     }
 
-    override fun unlink(path: String?, callback: Callback) {
-        delegate.unlink(path, callback)
+    override fun unlink(path: String?, promise: Promise) {
+        delegate.unlink(path, promise)
     }
 
-    override fun removeSession(paths: ReadableArray?, callback: Callback) {
-        delegate.removeSession(paths, callback)
+    override fun removeSession(paths: ReadableArray?, promise: Promise) {
+        delegate.removeSession(paths, promise)
     }
 
     override fun ls(path: String?, promise: Promise) {
         delegate.ls(path, promise)
     }
 
-    override fun stat(target: String?, callback: Callback) {
-        delegate.stat(target, callback)
+    override fun stat(target: String?, promise: Promise) {
+        delegate.stat(target, promise)
     }
 
-    override fun lstat(path: String?, callback: Callback) {
-        delegate.lstat(path, callback)
+    override fun lstat(path: String?, promise: Promise) {
+        delegate.lstat(path, promise)
     }
 
-    override fun cp(src: String?, dest: String?, callback: Callback) {
-        delegate.cp(src, dest, callback)
+    override fun cp(src: String?, dest: String?, promise: Promise) {
+        delegate.cp(src, dest, promise)
     }
 
-    override fun mv(path: String?, dest: String?, callback: Callback) {
-        delegate.mv(path, dest, callback)
+    override fun mv(path: String?, dest: String?, promise: Promise) {
+        delegate.mv(path, dest, promise)
     }
 
     override fun mkdir(path: String?, promise: Promise) {
@@ -134,12 +134,8 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         delegate.readStream(path, encoding, bufferSize.toInt(), tick.toInt(), streamId)
     }
 
-    override fun getEnvironmentDirs(callback: Callback) {
-        // Not implemented as ReactNativeBlobUtil.getEnvironmentDirs only supports IOS
-    }
-
-    override fun cancelRequest(taskId: String?, callback: Callback) {
-        delegate.cancelRequest(taskId, callback)
+    override fun cancelRequest(taskId: String?, promise: Promise) {
+        delegate.cancelRequest(taskId, promise)
     }
 
     override fun enableProgressReport(taskId: String?, interval: Double, count: Double) {
@@ -173,12 +169,8 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         // Not implemented as ReactNativeBlobUtil.excludeFromBackupKey only supports IOS
     }
 
-    override fun df(callback: Callback) {
-        delegate.df(callback)
-    }
-
-    override fun emitExpiredEvent(callback: Callback) {
-        // Not implemented as ReactNativeBlobUtil.emitExpiredEvent only supports IOS
+    override fun df(promise: Promise) {
+        delegate.df(promise)
     }
 
     override fun actionViewIntent(path: String?, mime: String?, chooserTitle: String?, promise: Promise) {
@@ -219,8 +211,8 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         delegate.getSDCardApplicationDir(promise)
     }
 
-    override fun scanFile(pairs: ReadableArray?, callback: Callback) {
-        delegate.scanFile(pairs, callback)
+    override fun scanFile(pairs: ReadableArray?, promise: Promise) {
+        delegate.scanFile(pairs, promise)
     }
 
     override fun writeToMediaFile(fileUri: String?, path: String?, transformFile: Boolean, promise: Promise) {

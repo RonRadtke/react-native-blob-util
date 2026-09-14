@@ -1,6 +1,5 @@
 package com.ReactNativeBlobUtil
 
-import com.facebook.react.bridge.Callback
 import com.facebook.react.bridge.JavaOnlyArray
 import com.facebook.react.bridge.Promise
 import org.junit.After
@@ -64,15 +63,6 @@ class ReactNativeBlobUtilFSTest {
         }
     }
 
-    private class RecordingCallback {
-        val calls = mutableListOf<List<Any?>>()
-        val callback = Callback { args -> calls.add(args.toList()) }
-
-        fun only(): List<Any?> {
-            assertEquals("invoked once: $calls", 1, calls.size)
-            return calls[0]
-        }
-    }
 
     /** Reverses on read; reverses and appends '!' on write, so a skipped transform shows. */
     private val reversing = object : ReactNativeBlobUtilFileTransformer.FileTransformer {
@@ -251,46 +241,54 @@ class ReactNativeBlobUtilFSTest {
     // cp, mv, unlink, exists
 
     @Test
-    fun `cp copies over an existing destination and calls back with no arguments`() {
+    fun `cp copies over an existing destination and resolves`() {
         val src = tmp.newFile("src.txt").apply { writeText("new content") }
         val dest = tmp.newFile("dest.txt").apply { writeText("old content that is longer") }
-        val cb = RecordingCallback()
-        ReactNativeBlobUtilFS.cp(src.plain, dest.plain, cb.callback)
-        assertEquals(emptyList<Any?>(), cb.only())
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.cp(src.plain, dest.plain, p.promise)
+        assertEquals(null, p.resolved())
         assertEquals("new content", dest.readText())
     }
 
     @Test
-    fun `cp calls back with one message when the source is missing`() {
-        val cb = RecordingCallback()
-        ReactNativeBlobUtilFS.cp(File(tmp.root, "missing.txt").plain, File(tmp.root, "dest.txt").plain, cb.callback)
-        val args = cb.only()
-        assertEquals("$args", 1, args.size)
-        assertTrue("$args", (args[0] as String).isNotEmpty())
+    fun `cp rejects ENOENT when the source is missing`() {
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.cp(File(tmp.root, "missing.txt").plain, File(tmp.root, "dest.txt").plain, p.promise)
+        val (code, message) = p.rejected()
+        assertEquals("ENOENT", code)
+        assertTrue("$message", (message as String).isNotEmpty())
+    }
+
+    @Test
+    fun `cp rejects ENOENT when the destination directory is missing`() {
+        val src = tmp.newFile("src.txt").apply { writeText("x") }
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.cp(src.plain, File(tmp.root, "nowhere/dest.txt").plain, p.promise)
+        assertEquals("ENOENT", p.rejected().first)
     }
 
     @Test
     fun `mv moves the file over an existing destination`() {
         val src = tmp.newFile("a.txt").apply { writeText("a") }
         val dest = tmp.newFile("b.txt").apply { writeText("b") }
-        val cb = RecordingCallback()
-        ReactNativeBlobUtilFS.mv(src.plain, dest.plain, cb.callback)
-        assertEquals(emptyList<Any?>(), cb.only())
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.mv(src.plain, dest.plain, p.promise)
+        assertEquals(null, p.resolved())
         assertFalse(src.exists())
         assertEquals("a", dest.readText())
     }
 
     @Test
-    fun `mv explains a missing source or destination folder`() {
+    fun `mv rejects ENOENT for a missing source or destination folder`() {
         val missing = File(tmp.root, "missing.txt")
-        val noSource = RecordingCallback()
-        ReactNativeBlobUtilFS.mv(missing.plain, File(tmp.root, "b.txt").plain, noSource.callback)
-        assertEquals(listOf("Source file at path `${missing.plain}` does not exist"), noSource.only())
+        val noSource = RecordingPromise()
+        ReactNativeBlobUtilFS.mv(missing.plain, File(tmp.root, "b.txt").plain, noSource.promise)
+        assertEquals("ENOENT" to "Source file at path `${missing.plain}` does not exist", noSource.rejected())
 
         val src = tmp.newFile("a.txt")
-        val noFolder = RecordingCallback()
-        ReactNativeBlobUtilFS.mv(src.plain, File(tmp.root, "nowhere/b.txt").plain, noFolder.callback)
-        assertEquals(listOf("mv failed because the destination directory doesn't exist"), noFolder.only())
+        val noFolder = RecordingPromise()
+        ReactNativeBlobUtilFS.mv(src.plain, File(tmp.root, "nowhere/b.txt").plain, noFolder.promise)
+        assertEquals("ENOENT" to "mv failed because the destination directory doesn't exist", noFolder.rejected())
         assertTrue(src.exists())
     }
 
@@ -300,18 +298,18 @@ class ReactNativeBlobUtilFSTest {
         File(dir, "sub").mkdirs()
         File(dir, "sub/f.txt").writeText("x")
         File(dir, "g.txt").writeText("y")
-        val cb = RecordingCallback()
-        ReactNativeBlobUtilFS.unlink(dir.plain, cb.callback)
-        assertEquals(listOf(null, true), cb.only())
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.unlink(dir.plain, p.promise)
+        assertEquals(null, p.resolved())
         assertFalse(dir.exists())
     }
 
     @Test
-    fun `unlink of a missing path reports the failed delete`() {
+    fun `unlink of a missing path rejects with the failed delete`() {
         val missing = File(tmp.root, "missing.txt")
-        val cb = RecordingCallback()
-        ReactNativeBlobUtilFS.unlink(missing.plain, cb.callback)
-        assertEquals(listOf("Failed to delete '${File(missing.plain)}'", false), cb.only())
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.unlink(missing.plain, p.promise)
+        assertEquals("EUNSPECIFIED" to "Failed to delete '${File(missing.plain)}'", p.rejected())
     }
 
     @Test
@@ -319,15 +317,13 @@ class ReactNativeBlobUtilFSTest {
         val file = tmp.newFile("f.txt")
         val dir = tmp.newFolder("d")
         val cases = listOf(
-            file.plain to listOf(true, false),
-            dir.plain to listOf(true, true),
-            File(tmp.root, "missing").plain to listOf(false, false),
-            null to listOf(false, false),
+            file.plain to (true to false),
+            dir.plain to (true to true),
+            File(tmp.root, "missing").plain to (false to false),
+            null to (false to false),
         )
         for ((path, expected) in cases) {
-            val cb = RecordingCallback()
-            ReactNativeBlobUtilFS.exists(path, cb.callback)
-            assertEquals("$path", expected, cb.only())
+            assertEquals("$path", expected, ReactNativeBlobUtilFS.exists(path))
         }
     }
 

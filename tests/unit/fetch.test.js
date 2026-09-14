@@ -32,9 +32,9 @@ rn.setNativeModule({
     },
     enableProgressReport: (...args) => calls.push({name: 'enableProgressReport', args}),
     enableUploadProgressReport: (...args) => calls.push({name: 'enableUploadProgressReport', args}),
-    cancelRequest: (taskId, callback) => {
+    cancelRequest: (taskId) => {
         calls.push({name: 'cancelRequest', taskId});
-        callback();
+        return Promise.resolve();
     },
 });
 
@@ -172,5 +172,27 @@ test('a native error rejects with an Error carrying the message', async () => {
     const task = fetch('GET', 'https://example.test/a');
     const {callback} = pending.pop();
     callback('connection refused', null, null, null);
-    await assert.rejects(task, {message: 'connection refused'});
+    await assert.rejects(task, {message: 'connection refused', code: 'EUNSPECIFIED'});
+});
+
+test('a native {code, message} error rejects with the code and the response info (audit #7)', async () => {
+    const task = fetch('GET', 'https://example.test/a');
+    const {taskId, callback} = pending.pop();
+    rn.emit('ReactNativeBlobUtilState', {taskId, state: '2', status: 504, headers: {}});
+    callback({code: 'ETIMEDOUT', message: 'request timed out'}, null, null, null);
+    await assert.rejects(task, (err) => {
+        assert.equal(err.code, 'ETIMEDOUT');
+        assert.equal(err.message, 'request timed out');
+        assert.equal(err.respInfo.status, 504);
+        return true;
+    });
+});
+
+test('cancel resolves the optional callback once native has cancelled', async () => {
+    const task = fetch('GET', 'https://example.test/a');
+    let called = 0;
+    task.cancel(() => { called++; });
+    await assert.rejects(task, {code: 'ECANCELED'});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(called, 1);
 });

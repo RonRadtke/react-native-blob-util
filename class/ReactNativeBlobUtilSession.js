@@ -51,16 +51,9 @@ export default class ReactNativeBlobUtilSession {
     return sessions[this.name];
   }
 
-  dispose():Promise {
-    return new Promise((resolve, reject) => {
-      requireNativeModule().removeSession(sessions[this.name], (err) => {
-        if (err)
-          reject(new Error(err));
-        else {
-          delete sessions[this.name];
-          resolve();
-        }
-      });
+  dispose(): Promise<void> {
+    return requireNativeModule().removeSession(sessions[this.name] || []).then(() => {
+      delete sessions[this.name];
     });
   }
 

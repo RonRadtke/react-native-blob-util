@@ -3,6 +3,7 @@
  * layers disagreed on these (audit #5), so the wrappers normalise them: the
  * fixtures below are the shapes each platform actually returns.
  */
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -13,7 +14,13 @@ rn.setNativeModule(new Proxy({}, {get: (_, name) => native[name]}));
 
 const {default: fs} = await import('../../fs.js');
 
-const cb = (...result) => (...args) => args.at(-1)(...result);
+const resolves = (value) => () => Promise.resolve(value);
+const rejects = (code, message) => () => Promise.reject(Object.assign(new Error(message), {code}));
+
+// What each native layer resolves for exists; the native unit tests pin the same file.
+const {cases: EXISTS_RESULTS} = JSON.parse(
+    readFileSync(new URL('../fixtures/native-payloads/exists-result.json', import.meta.url), 'utf8'),
+);
 
 test('createFile resolves the path on every platform', async () => {
     for (const [platform, resolved] of [['android', '/docs/a'], ['ios', [null]], ['windows', undefined]]) {
@@ -25,20 +32,20 @@ test('createFile resolves the path on every platform', async () => {
 
 test('cp and mv resolve true on every platform', async () => {
     for (const [platform, res] of [['android', undefined], ['ios', true], ['windows', true]]) {
-        native = {cp: cb(null, res), mv: cb(null, res)};
+        native = {cp: resolves(res), mv: resolves(res)};
         assert.equal(await fs.cp('/a', '/b'), true, platform);
         assert.equal(await fs.mv('/a', '/b'), true, platform);
     }
 });
 
 test('df resolves numeric free and total, plus the Android internal/external split', async () => {
-    native = {df: cb(null, {internal_free: '100', internal_total: '200', external_free: '10', external_total: '20'})};
+    native = {df: resolves({internal_free: '100', internal_total: '200', external_free: '10', external_total: '20'})};
     assert.deepEqual(await fs.df(), {
         free: 100, total: 200,
         internal_free: 100, internal_total: 200, external_free: 10, external_total: 20,
     });
 
-    native = {df: cb(null, {free: 300, total: 400})};
+    native = {df: resolves({free: 300, total: 400})};
     assert.deepEqual(await fs.df(), {free: 300, total: 400});
 });
 
@@ -46,14 +53,42 @@ test('lstat entries carry numeric size and lastModified', async () => {
     const android = {filename: 'a', path: '/a', size: '2', lastModified: '1700000000000', type: 'file'};
     const ios = {filename: 'a', path: '/a', size: '2', lastModified: 1700000000000, type: 'file'};
     for (const entry of [android, ios]) {
-        native = {lstat: cb(null, [entry])};
+        native = {lstat: resolves([entry])};
         assert.deepEqual(await fs.lstat('/'), [{filename: 'a', path: '/a', size: 2, lastModified: 1700000000000, type: 'file'}]);
     }
 });
 
 test('stat keeps its numeric size and lastModified', async () => {
-    native = {stat: cb(null, {filename: 'a', path: '/a', size: '2', lastModified: '1700000000000', type: 'file'})};
+    native = {stat: resolves({filename: 'a', path: '/a', size: '2', lastModified: '1700000000000', type: 'file'})};
     assert.deepEqual(await fs.stat('/a'), {filename: 'a', path: '/a', size: 2, lastModified: 1700000000000, type: 'file'});
+});
+
+test('exists and isDir read the object every platform resolves', async () => {
+    for (const {platform, result} of EXISTS_RESULTS) {
+        native = {exists: resolves(result)};
+        assert.equal(await fs.exists('/a'), result.exists, platform);
+        assert.equal(await fs.isDir('/a'), result.isDirectory, platform);
+    }
+});
+
+test('a native rejection reaches the caller with its code (audit #7)', async () => {
+    native = {
+        stat: rejects('ENOENT', 'No such file'),
+        lstat: rejects('ENOENT', 'No such file'),
+        cp: rejects('ENOENT', 'No such file'),
+        mv: rejects('ENOENT', 'No such file'),
+        unlink: rejects('EUNSPECIFIED', 'Failed to delete'),
+        df: rejects('EUNSPECIFIED', 'Failed to get storage usage.'),
+    };
+    await assert.rejects(fs.stat('/a'), {code: 'ENOENT', message: 'No such file'});
+    await assert.rejects(fs.lstat('/a'), {code: 'ENOENT'});
+    await assert.rejects(fs.cp('/a', '/b'), {code: 'ENOENT'});
+    await assert.rejects(fs.mv('/a', '/b'), {code: 'ENOENT'});
+    await assert.rejects(fs.unlink('/a'), {code: 'EUNSPECIFIED', message: 'Failed to delete'});
+    await assert.rejects(fs.df(), {code: 'EUNSPECIFIED'});
+
+    native = {unlink: resolves(undefined)};
+    assert.equal(await fs.unlink('/a'), undefined);
 });
 
 test('readFile ascii resolves bytes 0..255, not the signed bytes Android and iOS return', async () => {

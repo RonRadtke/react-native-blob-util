@@ -140,10 +140,10 @@ struct ReactNativeBlobUtil
     ReactNativeBlobUtilCodegen::BlobUtilsSpec_Constants GetConstants() noexcept;
 
     REACT_METHOD(fetchBlobForm)
-    winrt::fire_and_forget fetchBlobForm(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, ::React::JSValueArray form, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
+    winrt::fire_and_forget fetchBlobForm(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, ::React::JSValueArray form, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
     REACT_METHOD(fetchBlob)
-    winrt::fire_and_forget fetchBlob(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, std::string body, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
+    winrt::fire_and_forget fetchBlob(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, std::string body, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
     REACT_METHOD(createFile)
         winrt::fire_and_forget createFile(
@@ -182,25 +182,25 @@ struct ReactNativeBlobUtil
     std::string syncPathAppGroup(std::string groupName) noexcept;
 
     REACT_METHOD(exists)
-    void exists(std::string path, std::function<void(bool, bool)> const& callback) noexcept;
+    void exists(std::string path, ::React::ReactPromise<::React::JSValue>&& promise) noexcept;
 
     REACT_METHOD(writeStream)
-    winrt::fire_and_forget writeStream(std::string path, std::string encoding, bool appendData, std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>)> callback) noexcept;
+    winrt::fire_and_forget writeStream(std::string path, std::string encoding, bool appendData, ::React::ReactPromise<std::string> promise) noexcept;
 
     REACT_METHOD(writeArrayChunk)
-    void writeArrayChunk(std::string streamId, ::React::JSValueArray&& dataArray, std::function<void(std::optional<std::string>)> const& callback) noexcept;
+    void writeArrayChunk(std::string streamId, ::React::JSValueArray&& dataArray, ::React::ReactPromise<void>&& promise) noexcept;
 
     REACT_METHOD(writeChunk)
-    void writeChunk(std::string streamId, std::string data, std::function<void(std::optional<std::string>)> const& callback) noexcept;
+    void writeChunk(std::string streamId, std::string data, ::React::ReactPromise<void>&& promise) noexcept;
 
     REACT_METHOD(closeStream)
-    void closeStream(std::string streamId, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
+    void closeStream(std::string streamId, ::React::ReactPromise<void>&& promise) noexcept;
 
     REACT_METHOD(unlink)
-    winrt::fire_and_forget unlink(std::string path, std::function<void(std::optional<std::string>, bool)> callback) noexcept;
+    winrt::fire_and_forget unlink(std::string path, ::React::ReactPromise<void> promise) noexcept;
 
     REACT_METHOD(removeSession)
-    winrt::fire_and_forget removeSession(::React::JSValueArray paths, std::function<void(std::optional<std::string>)> callback) noexcept;
+    winrt::fire_and_forget removeSession(::React::JSValueArray paths, ::React::ReactPromise<void> promise) noexcept;
 
     // readFile
 	REACT_METHOD(readFile)
@@ -228,31 +228,31 @@ struct ReactNativeBlobUtil
 	winrt::fire_and_forget mv(
 		std::string src,
 		std::string dest,
-		std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept;
+		::React::ReactPromise<void> promise) noexcept;
 
 	// cp
 	REACT_METHOD(cp)
 	winrt::fire_and_forget cp(
 		std::string src, // from
 		std::string dest, // to
-		std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept;
+		::React::ReactPromise<void> promise) noexcept;
 
     // lstat
 	REACT_METHOD(lstat)
 	winrt::fire_and_forget lstat(
 		std::string path,
-		std::function<void(std::optional<std::string>, std::optional<::React::JSValueArray>)> callback) noexcept;
+		::React::ReactPromise<::React::JSValueArray> promise) noexcept;
 
 	// stat
 	REACT_METHOD(stat)
 	winrt::fire_and_forget stat(
 		std::string path,
-		std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
+		::React::ReactPromise<::React::JSValue> promise) noexcept;
 
 	// df
 	REACT_METHOD(df)
 	winrt::fire_and_forget df(
-		std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
+		::React::ReactPromise<::React::JSValue> promise) noexcept;
 
 	REACT_METHOD(slice)
 	winrt::fire_and_forget slice(
@@ -268,11 +268,8 @@ struct ReactNativeBlobUtil
     REACT_METHOD(readStream)
     winrt::fire_and_forget readStream(std::string path, std::string encoding, double bufferSize, double tick, std::string streamId) noexcept;
 
-    REACT_METHOD(getEnvironmentDirs)
-    void getEnvironmentDirs(std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
-
     REACT_METHOD(cancelRequest)
-    void cancelRequest(std::string taskId, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
+    void cancelRequest(std::string taskId, ::React::ReactPromise<void>&& promise) noexcept;
 
     REACT_METHOD(enableProgressReport)
     void enableProgressReport(std::string taskId, double interval, double count) noexcept;
@@ -281,22 +278,19 @@ struct ReactNativeBlobUtil
     void enableUploadProgressReport(std::string taskId, double interval, double count) noexcept;
 
     REACT_METHOD(presentOptionsMenu)
-    void presentOptionsMenu(std::string uri, std::string scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
+    void presentOptionsMenu(std::string uri, std::optional<std::string> scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
     REACT_METHOD(presentOpenInMenu)
-    void presentOpenInMenu(std::string uri, std::string scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
+    void presentOpenInMenu(std::string uri, std::optional<std::string> scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
     REACT_METHOD(presentPreview)
-    void presentPreview(std::string uri, std::string scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
+    void presentPreview(std::string uri, std::optional<std::string> scheme, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
     REACT_METHOD(excludeFromBackupKey)
     void excludeFromBackupKey(std::string url, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
-    REACT_METHOD(emitExpiredEvent)
-    void emitExpiredEvent(std::function<void(std::string)> const& callback) noexcept;
-
     REACT_METHOD(actionViewIntent)
-    void actionViewIntent(std::string path, std::string mime, std::string chooserTitle, ::React::ReactPromise<void>&& result) noexcept;
+    void actionViewIntent(std::string path, std::string mime, std::optional<std::string> chooserTitle, ::React::ReactPromise<void>&& result) noexcept;
 
     REACT_METHOD(addCompleteDownload)
     void addCompleteDownload(::React::JSValue&& config, ::React::ReactPromise<void>&& result) noexcept;
@@ -323,7 +317,7 @@ struct ReactNativeBlobUtil
     void getSDCardApplicationDir(::React::ReactPromise<std::string>&& result) noexcept;
 
     REACT_METHOD(scanFile)
-    void scanFile(::React::JSValueArray&& pairs, std::function<void(::React::JSValueArray const&)> const& callback) noexcept;
+    void scanFile(::React::JSValueArray&& pairs, ::React::ReactPromise<void>&& promise) noexcept;
 
     REACT_METHOD(writeToMediaFile)
     void writeToMediaFile(std::string fileUri, std::string path, bool transformFile, ::React::ReactPromise<std::string>&& result) noexcept;

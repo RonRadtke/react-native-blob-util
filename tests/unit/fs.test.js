@@ -21,9 +21,9 @@ rn.setNativeModule({
     createFile: resolving('createFile'),
     createFileASCII: resolving('createFileASCII'),
     readStream: (...args) => calls.push({name: 'readStream', args}),
-    writeStream: (path, encoding, append, callback) => {
+    writeStream: (path, encoding, append) => {
         calls.push({name: 'writeStream', args: [path, encoding, append]});
-        callback(null, null, 'stream-1');
+        return Promise.resolve('stream-1');
     },
 });
 

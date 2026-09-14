@@ -23,13 +23,13 @@ class NativePayloadFixturesTest {
     }
 
     @Test
-    fun `the exists fixture describes Android as passing two booleans`() {
-        val cases = NativePayloadFixtures.cases("exists-callback")
+    fun `the exists fixture describes Android as resolving exists and isDirectory booleans`() {
+        val cases = NativePayloadFixtures.cases("exists-result")
         assertTrue("no Android exists cases in the fixture", cases.isNotEmpty())
         for (case in cases) {
-            val args = case.getJSONArray("args")
-            assertTrue("Android passes exactly two arguments: $case", args.length() == 2)
-            assertTrue("both arguments are booleans: $case", args.get(0) is Boolean && args.get(1) is Boolean)
+            val result = case.getJSONObject("result")
+            assertTrue("exactly the two keys: $case", result.keys().asSequence().toSet() == setOf("exists", "isDirectory"))
+            assertTrue("both are booleans: $case", result.get("exists") is Boolean && result.get("isDirectory") is Boolean)
         }
     }
 }

@@ -14,6 +14,7 @@ import androidx.core.content.FileProvider
 import com.ReactNativeBlobUtil.ReactNativeBlobUtilConst.GET_CONTENT_INTENT
 import com.ReactNativeBlobUtil.Utils.FileDescription
 import com.facebook.react.bridge.ActivityEventListener
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Callback
 import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
@@ -123,48 +124,52 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         }
     }
 
-    fun writeArrayChunk(streamId: String?, dataArray: ReadableArray?, callback: Callback) {
-        ReactNativeBlobUtilStream.writeArrayChunk(streamId, dataArray, callback)
+    fun writeArrayChunk(streamId: String?, dataArray: ReadableArray?, promise: Promise) {
+        ReactNativeBlobUtilStream.writeArrayChunk(streamId, dataArray, promise)
     }
 
-    fun unlink(path: String?, callback: Callback) {
-        ReactNativeBlobUtilFS.unlink(path, callback)
+    fun unlink(path: String?, promise: Promise) {
+        ReactNativeBlobUtilFS.unlink(path, promise)
     }
 
     fun mkdir(path: String?, promise: Promise) {
         ReactNativeBlobUtilFS.mkdir(path, promise)
     }
 
-    fun exists(path: String?, callback: Callback) {
-        ReactNativeBlobUtilFS.exists(path, callback)
+    fun exists(path: String?, promise: Promise) {
+        val (exists, isDirectory) = ReactNativeBlobUtilFS.exists(path)
+        val result = Arguments.createMap()
+        result.putBoolean("exists", exists)
+        result.putBoolean("isDirectory", isDirectory)
+        promise.resolve(result)
     }
 
-    fun cp(path: String?, dest: String?, callback: Callback) {
-        threadPool.execute { ReactNativeBlobUtilFS.cp(path, dest, callback) }
+    fun cp(path: String?, dest: String?, promise: Promise) {
+        threadPool.execute { ReactNativeBlobUtilFS.cp(path, dest, promise) }
     }
 
-    fun mv(path: String?, dest: String?, callback: Callback) {
-        ReactNativeBlobUtilFS.mv(path, dest, callback)
+    fun mv(path: String?, dest: String?, promise: Promise) {
+        ReactNativeBlobUtilFS.mv(path, dest, promise)
     }
 
     fun ls(path: String?, promise: Promise) {
         ReactNativeBlobUtilFS.ls(path, promise)
     }
 
-    fun writeStream(path: String?, encode: String?, append: Boolean, callback: Callback) {
-        ReactNativeBlobUtilStream(RCTContext).writeStream(path, encode, append, callback)
+    fun writeStream(path: String?, encode: String?, append: Boolean, promise: Promise) {
+        ReactNativeBlobUtilStream(RCTContext).writeStream(path, encode, append, promise)
     }
 
-    fun writeChunk(streamId: String?, data: String?, callback: Callback) {
-        ReactNativeBlobUtilStream.writeChunk(streamId, data, callback)
+    fun writeChunk(streamId: String?, data: String?, promise: Promise) {
+        ReactNativeBlobUtilStream.writeChunk(streamId, data, promise)
     }
 
-    fun closeStream(streamId: String?, callback: Callback) {
-        ReactNativeBlobUtilStream.closeStream(streamId, callback)
+    fun closeStream(streamId: String?, promise: Promise) {
+        ReactNativeBlobUtilStream.closeStream(streamId, promise)
     }
 
-    fun removeSession(paths: ReadableArray?, callback: Callback) {
-        ReactNativeBlobUtilFS.removeSession(paths, callback)
+    fun removeSession(paths: ReadableArray?, promise: Promise) {
+        ReactNativeBlobUtilFS.removeSession(paths, promise)
     }
 
     fun readFile(path: String?, encoding: String?, transformFile: Boolean, promise: Promise) {
@@ -179,32 +184,28 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         threadPool.execute { ReactNativeBlobUtilFS.writeFile(path, encoding, data, transformFile, append, promise) }
     }
 
-    fun lstat(path: String?, callback: Callback) {
-        ReactNativeBlobUtilFS.lstat(path, callback)
+    fun lstat(path: String?, promise: Promise) {
+        ReactNativeBlobUtilFS.lstat(path, promise)
     }
 
-    fun stat(path: String?, callback: Callback) {
-        ReactNativeBlobUtilFS.stat(path, callback)
+    fun stat(path: String?, promise: Promise) {
+        ReactNativeBlobUtilFS.stat(path, promise)
     }
 
-    fun scanFile(pairs: ReadableArray?, callback: Callback) {
+    fun scanFile(pairs: ReadableArray?, promise: Promise) {
         val ctx = RCTContext
         threadPool.execute {
-            // A null array or entry throws here, on the pool thread, as it did in Java.
-            val size = pairs!!.size()
+            val size = pairs?.size() ?: 0
             val p = arrayOfNulls<String>(size)
             val m = arrayOfNulls<String>(size)
             for (i in 0 until size) {
-                val pair = pairs.getMap(i)!!
-                if (pair.hasKey("path")) {
+                val pair = pairs!!.getMap(i)
+                if (pair != null && pair.hasKey("path")) {
                     p[i] = pair.getString("path")
-                    if (pair.hasKey("mime"))
-                        m[i] = pair.getString("mime")
-                    else
-                        m[i] = null
+                    m[i] = if (pair.hasKey("mime")) pair.getString("mime") else null
                 }
             }
-            ReactNativeBlobUtilFS(ctx).scanFile(p, m, callback)
+            ReactNativeBlobUtilFS(ctx).scanFile(p, m, promise)
         }
     }
 
@@ -225,12 +226,12 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         }
     }
 
-    fun cancelRequest(taskId: String?, callback: Callback) {
+    fun cancelRequest(taskId: String?, promise: Promise) {
         try {
             ReactNativeBlobUtilReq.cancelTask(taskId)
-            callback.invoke(null, taskId)
+            promise.resolve(null)
         } catch (ex: Exception) {
-            callback.invoke(ex.localizedMessage, null)
+            promise.reject("EUNSPECIFIED", ex.localizedMessage)
         }
     }
 
@@ -243,8 +244,8 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         ReactNativeBlobUtilReq.progressReport[taskId] = config
     }
 
-    fun df(callback: Callback) {
-        fsThreadPool.execute { ReactNativeBlobUtilFS.df(callback, RCTContext) }
+    fun df(promise: Promise) {
+        fsThreadPool.execute { ReactNativeBlobUtilFS.df(promise, RCTContext) }
     }
 
 

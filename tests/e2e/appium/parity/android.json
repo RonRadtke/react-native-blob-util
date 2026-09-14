@@ -69,8 +69,8 @@
     },
     "cpIntoMissingDir": {
       "rejected": {
-        "code": "EUNSPECIFIED",
-        "message": "No such file or directory",
+        "code": "ENOENT",
+        "message": "Destination directory of '<DocumentDir>/parity/cp-mv/nested/copy.txt' does not exist",
         "name": "Error"
       }
     },
@@ -83,7 +83,7 @@
     },
     "mvIntoMissingDir": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "mv failed because the destination directory doesn't exist",
         "name": "Error"
       }
@@ -149,7 +149,7 @@
     },
     "lstatMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "failed to lstat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
         "name": "Error"
       }
@@ -189,7 +189,7 @@
     },
     "statMissing": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "ENOENT",
         "message": "failed to stat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
         "name": "Error"
       }
@@ -209,7 +209,7 @@
     },
     "cpMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "<DocumentDir>/parity/errors-write/missing.txt: open failed: ENOENT (No such file or directory)",
         "name": "Error"
       }
@@ -247,7 +247,7 @@
     },
     "mvMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "Source file at path `<DocumentDir>/parity/errors-write/missing.txt` does not exist",
         "name": "Error"
       }
@@ -271,7 +271,7 @@
     },
     "writeStreamOntoDir": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "EISDIR",
         "message": "Failed to create write stream at path `<DocumentDir>/parity/errors-write`; Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
         "name": "Error"
       }
@@ -368,14 +368,14 @@
   "fetch-errors": {
     "invalidUrl": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EUNSPECIFIED",
         "message": "ReactNativeBlobUtil request error: Invalid URL host: \"\"null",
         "name": "Error"
       }
     },
     "refused": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EUNSPECIFIED",
         "message": "Failed to connect to /127.0.0.1:9",
         "name": "Error"
       }
@@ -668,7 +668,7 @@
     "gaveUpBeforeServerAnswered": true,
     "result": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EUNSPECIFIED",
         "message": "The request timed out.",
         "name": "Error"
       }
@@ -1235,9 +1235,9 @@
     },
     "asciiNonArray": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EINVAL",
         "message": "ascii input data must be an Array",
-        "name": "Error"
+        "name": "TypeError"
       }
     },
     "asciiWrite": {

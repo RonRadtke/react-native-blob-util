@@ -1,0 +1,71 @@
+{
+  "description": "What the native exists method resolves on each platform: an object with two booleans. fs.exists() and fs.isDir() read it; the native unit tests check each layer still resolves exactly this shape.",
+  "cases": [
+    {
+      "platform": "android",
+      "source": "ReactNativeBlobUtilFS.kt: promise.resolve(map with exists, isDirectory)",
+      "result": {
+        "exists": true,
+        "isDirectory": false
+      }
+    },
+    {
+      "platform": "android",
+      "result": {
+        "exists": true,
+        "isDirectory": true
+      }
+    },
+    {
+      "platform": "android",
+      "result": {
+        "exists": false,
+        "isDirectory": false
+      }
+    },
+    {
+      "platform": "ios",
+      "source": "ReactNativeBlobUtilModuleCore.swift: resolve([\"exists\": ..., \"isDirectory\": ...])",
+      "result": {
+        "exists": true,
+        "isDirectory": false
+      }
+    },
+    {
+      "platform": "ios",
+      "result": {
+        "exists": true,
+        "isDirectory": true
+      }
+    },
+    {
+      "platform": "ios",
+      "result": {
+        "exists": false,
+        "isDirectory": false
+      }
+    },
+    {
+      "platform": "windows",
+      "source": "ReactNativeBlobUtil.cpp: promise.Resolve(JSValueObject{exists, isDirectory})",
+      "result": {
+        "exists": true,
+        "isDirectory": false
+      }
+    },
+    {
+      "platform": "windows",
+      "result": {
+        "exists": true,
+        "isDirectory": true
+      }
+    },
+    {
+      "platform": "windows",
+      "result": {
+        "exists": false,
+        "isDirectory": false
+      }
+    }
+  ]
+}

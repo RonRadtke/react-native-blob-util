@@ -8,7 +8,6 @@ import android.os.Environment
 import android.os.StatFs
 import android.util.Base64
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Callback
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableArray
@@ -38,13 +37,13 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
      *
      * @param path     Path to file
      * @param mimes    Array of MIME type strings
-     * @param callback Callback for results
+     * @param promise  Resolves when the scan completes
      */
-    fun scanFile(path: Array<String?>, mimes: Array<String?>, callback: Callback) {
+    fun scanFile(path: Array<String?>, mimes: Array<String?>, promise: Promise) {
         try {
-            MediaScannerConnection.scanFile(mCtx, path, mimes) { _, _ -> callback.invoke(null, true) }
+            MediaScannerConnection.scanFile(mCtx, path, mimes) { _, _ -> promise.resolve(null) }
         } catch (err: Exception) {
-            callback.invoke(err.localizedMessage, null)
+            promise.reject("EUNSPECIFIED", err.localizedMessage)
         }
     }
 
@@ -434,13 +433,13 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path     Path of target
          * @param callback JS context callback
          */
-        fun unlink(path: String?, callback: Callback) {
+        fun unlink(path: String?, promise: Promise) {
             try {
                 val normalizedPath = ReactNativeBlobUtilUtils.normalizePath(path)
                 deleteRecursive(File(normalizedPath))
-                callback.invoke(null, true)
+                promise.resolve(null)
             } catch (err: Exception) {
-                callback.invoke(err.localizedMessage, false)
+                promise.reject("EUNSPECIFIED", err.localizedMessage)
             }
         }
 
@@ -496,22 +495,28 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param dest     Target path
          * @param callback JS context callback
          */
-        fun cp(path: String?, rawDest: String?, callback: Callback) {
+        fun cp(path: String?, rawDest: String?, promise: Promise) {
             val dest = ReactNativeBlobUtilUtils.normalizePath(rawDest)
             var input: InputStream? = null
             var out: OutputStream? = null
             var message = ""
+            var code = "EUNSPECIFIED"
 
             try {
                 input = inputStreamFromPath(path)
                 if (input == null) {
-                    callback.invoke("Source file at path`$path` does not exist or can not be opened")
+                    promise.reject("ENOENT", "Source file at path`$path` does not exist or can not be opened")
                     return
                 }
                 if (!File(dest).exists()) {
+                    val parent = File(dest).parentFile
+                    if (parent != null && !parent.isDirectory) {
+                        promise.reject("ENOENT", "Destination directory of '$dest' does not exist")
+                        return
+                    }
                     val result = File(dest).createNewFile()
                     if (!result) {
-                        callback.invoke("Destination file at '$dest' already exists")
+                        promise.reject("EEXIST", "Destination file at '$dest' already exists")
                         return
                     }
                 }
@@ -524,6 +529,9 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     out.write(buf, 0, len)
                 }
             } catch (err: Exception) {
+                // A destination whose directory does not exist, or a source that
+                // cannot be opened after all, surfaces as FileNotFoundException.
+                if (err is FileNotFoundException) code = "ENOENT"
                 message += err.localizedMessage
             } finally {
                 try {
@@ -533,16 +541,11 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     message += e.localizedMessage
                 }
             }
-            // Only call the callback once to prevent the app from crashing
-            // with an 'Illegal callback invocation from native module' exception.
-            //
-            // Java compared this with != against "", which is identity; the only case
-            // where identity and content differ - an exception whose message is empty -
-            // reaches JS as a resolved promise either way.
+            // Settle exactly once.
             if (message != "") {
-                callback.invoke(message)
+                promise.reject(code, message)
             } else {
-                callback.invoke()
+                promise.resolve(null)
             }
         }
 
@@ -553,13 +556,16 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param dest     Destination file path
          * @param callback JS context callback
          */
-        fun mv(rawPath: String?, rawDest: String?, callback: Callback) {
+        fun mv(rawPath: String?, rawDest: String?, promise: Promise) {
             val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
             val dest = ReactNativeBlobUtilUtils.normalizePath(rawDest)
-            // A null path throws here, outside the try, as it did in Java.
+            if (path == null) {
+                promise.reject("EINVAL", "Missing argument \"path\"")
+                return
+            }
             val src = File(path)
             if (!src.exists()) {
-                callback.invoke("Source file at path `$path` does not exist")
+                promise.reject("ENOENT", "Source file at path `$path` does not exist")
                 return
             }
 
@@ -568,7 +574,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 val destFile = File(dest)
                 val parentDir = destFile.parentFile
                 if (parentDir != null && !parentDir.exists()) {
-                    callback.invoke("mv failed because the destination directory doesn't exist")
+                    promise.reject("ENOENT", "mv failed because the destination directory doesn't exist")
                     return
                 }
                 // mv overwrites files, so delete any existing file.
@@ -578,15 +584,15 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 // mv by renaming the file.
                 val result = src.renameTo(destFile)
                 if (!result) {
-                    callback.invoke("mv failed for unknown reasons")
+                    promise.reject("EUNSPECIFIED", "mv failed for unknown reasons")
                     return
                 }
             } catch (e: Exception) {
-                callback.invoke(e.toString())
+                promise.reject("EUNSPECIFIED", e.toString())
                 return
             }
 
-            callback.invoke()
+            promise.resolve(null)
         }
 
         /**
@@ -595,25 +601,22 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path     Path to check
          * @param callback JS context callback
          */
-        fun exists(rawPath: String?, callback: Callback) {
+        /**
+         * Whether the path exists, and whether it is a directory. Pure, so it is
+         * unit-testable; the module wraps the pair in the map the spec promises.
+         */
+        fun exists(rawPath: String?): Pair<Boolean, Boolean> {
             if (isAsset(rawPath)) {
-                try {
+                return try {
                     val filename = rawPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
                     ReactNativeBlobUtilImpl.RCTContext.assets.openFd(filename)
-                    callback.invoke(true, false)
+                    true to false
                 } catch (e: IOException) {
-                    callback.invoke(false, false)
-                }
-            } else {
-                val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
-                if (path != null) {
-                    val exist = File(path).exists()
-                    val isDir = File(path).isDirectory
-                    callback.invoke(exist, isDir)
-                } else {
-                    callback.invoke(false, false)
+                    false to false
                 }
             }
+            val path = ReactNativeBlobUtilUtils.normalizePath(rawPath) ?: return false to false
+            return File(path).exists() to File(path).isDirectory
         }
 
         /**
@@ -701,7 +704,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
         }
 
         @Suppress("DEPRECATION")
-        fun lstat(rawPath: String?, callback: Callback) {
+        fun lstat(rawPath: String?, promise: Promise) {
             val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
 
             object : AsyncTask<String?, Int, Int>() {
@@ -709,12 +712,12 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     val res = Arguments.createArray()
                     val target = args[0]
                     if (target == null) {
-                        callback.invoke("the path specified for lstat is either `null` or `undefined`.")
+                        promise.reject("EINVAL", "the path specified for lstat is either `null` or `undefined`.")
                         return 0
                     }
                     val src = File(target)
                     if (!src.exists()) {
-                        callback.invoke("failed to lstat path `$target` because it does not exist or it is not a folder")
+                        promise.reject("ENOENT", "failed to lstat path `$target` because it does not exist or it is not a folder")
                         return 0
                     }
                     if (src.isDirectory) {
@@ -727,7 +730,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     } else {
                         res.pushMap(statFile(src.absolutePath))
                     }
-                    callback.invoke(null, res)
+                    promise.resolve(res)
                     return 0
                 }
             }.execute(path)
@@ -739,17 +742,17 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param path     Path
          * @param callback Callback
          */
-        fun stat(rawPath: String?, callback: Callback) {
+        fun stat(rawPath: String?, promise: Promise) {
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
                 val result = statFile(path)
                 if (result == null) {
-                    callback.invoke("failed to stat path `$path` because it does not exist or it is not a folder", null)
+                    promise.reject("ENOENT", "failed to stat path `$path` because it does not exist or it is not a folder")
                 } else {
-                    callback.invoke(null, result)
+                    promise.resolve(result)
                 }
             } catch (err: Exception) {
-                callback.invoke(err.localizedMessage)
+                promise.reject("EUNSPECIFIED", err.localizedMessage)
             }
         }
 
@@ -917,7 +920,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             }
         }
 
-        fun df(callback: Callback, ctx: ReactApplicationContext) {
+        fun df(promise: Promise, ctx: ReactApplicationContext) {
             val stat = StatFs(ctx.filesDir.path)
             val args = Arguments.createMap()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
@@ -933,17 +936,17 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     args.putString("external_total", "-1")
                 }
             }
-            callback.invoke(null, args)
+            promise.resolve(args)
         }
 
         /**
          * Remove files in session.
          *
          * @param paths    An array of file paths.
-         * @param callback JS contest callback
+         * @param promise  Resolves when every file is gone
          */
         @Suppress("DEPRECATION")
-        fun removeSession(paths: ReadableArray?, callback: Callback) {
+        fun removeSession(paths: ReadableArray?, promise: Promise) {
             val task = object : AsyncTask<ReadableArray?, Int, Int>() {
                 override fun doInBackground(vararg paths: ReadableArray?): Int {
                     try {
@@ -959,20 +962,19 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                             }
                         }
                         if (failuresToDelete.isEmpty()) {
-                            callback.invoke(null, true)
+                            promise.resolve(null)
                         } else {
                             val listString = StringBuilder()
                             listString.append("Failed to delete: ")
                             for (s in failuresToDelete) {
                                 listString.append(s).append(", ")
                             }
-                            callback.invoke(listString.toString())
+                            promise.reject("EUNSPECIFIED", listString.toString())
                         }
                     } catch (err: Exception) {
-                        callback.invoke(err.localizedMessage)
+                        promise.reject("EUNSPECIFIED", err.localizedMessage)
                     }
-                    // A null array throws again here, outside the try, as it did in Java.
-                    return paths[0]!!.size()
+                    return paths[0]?.size() ?: 0
                 }
             }
             task.execute(paths)

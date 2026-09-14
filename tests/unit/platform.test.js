@@ -21,7 +21,7 @@ rn.setNativeModule({
     addCompleteDownload: record('addCompleteDownload', null),
     getSDCardDir: record('getSDCardDir', '/sdcard'),
     getSDCardApplicationDir: record('getSDCardApplicationDir', '/sdcard/app'),
-    scanFile: (pairs, callback) => { calls.push(['scanFile', pairs]); callback(null); },
+    scanFile: (pairs) => { calls.push(['scanFile', pairs]); return Promise.resolve(); },
     presentOptionsMenu: record('presentOptionsMenu', [null]),
     presentOpenInMenu: record('presentOpenInMenu', [null]),
     presentPreview: record('presentPreview', [null]),

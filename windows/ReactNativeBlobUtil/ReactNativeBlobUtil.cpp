@@ -29,6 +29,24 @@ using namespace winrt::Windows::Security::Cryptography;
 using namespace winrt::Windows::Security::Cryptography::Core;
 using namespace std::chrono_literals;
 
+namespace
+{
+    // The error slot of the fetch callbacks: {code, message}, the shape fetch.js
+    // turns into an Error with a code.
+    ::React::JSValue fetchError(std::string code, std::string message)
+    {
+        ::React::JSValueObject error;
+        error["code"] = std::move(code);
+        error["message"] = std::move(message);
+        return ::React::JSValue{ std::move(error) };
+    }
+
+    ::React::ReactError rejection(std::string code, std::string message)
+    {
+        return ::React::ReactError{ std::move(code), std::move(message) };
+    }
+}
+
 CancellationDisposable::CancellationDisposable(IAsyncInfo const& async, std::function<void()>&& onCancel) noexcept
 	: m_async{ async }
 	, m_onCancel{ std::move(onCancel) }
@@ -624,7 +642,7 @@ namespace
         winrt::Windows::Web::Http::HttpResponseMessage response,
         ReactNativeBlobUtilConfig config,
         std::string taskId,
-        std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback)
+        std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback)
     {
         if (!config.fileCache && config.path.empty())
         {
@@ -700,7 +718,7 @@ namespace winrt::ReactNativeBlobUtil
         std::string url,
         ::React::JSValue headers,
         ::React::JSValueArray body,
-        std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback
+        std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback
     ) noexcept
     {
         try
@@ -715,7 +733,7 @@ namespace winrt::ReactNativeBlobUtil
             winrt::Windows::Foundation::Uri requestUri{ nullptr };
             if (!TryParseRequestUri(url, requestUri))
             {
-                callback("Invalid URL: " + url, std::nullopt, std::nullopt, std::nullopt);
+                callback(fetchError("EINVAL", "Invalid URL: " + url), std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
 
@@ -743,7 +761,7 @@ namespace winrt::ReactNativeBlobUtil
                 httpMethod = winrt::Windows::Web::Http::HttpMethod::Get();
             else if (method != "POST" && method != "post")
             {
-                callback("Method not supported", std::nullopt, std::nullopt, std::nullopt);
+                callback(fetchError("EINVAL", "Method not supported"), std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
 
@@ -896,11 +914,11 @@ namespace winrt::ReactNativeBlobUtil
         }
         catch (const winrt::hresult_error& ex)
         {
-            callback(winrt::to_string(ex.message()), std::nullopt, std::nullopt, std::nullopt);
+            callback(fetchError("EUNSPECIFIED", winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
         }
         catch (...)
         {
-            callback("Unknown error in fetchBlobForm", std::nullopt, std::nullopt, std::nullopt);
+            callback(fetchError("EUNSPECIFIED", "Unknown error in fetchBlobForm"), std::nullopt, std::nullopt, std::nullopt);
         }
     }
 
@@ -911,7 +929,7 @@ namespace winrt::ReactNativeBlobUtil
         std::string url,
         ::React::JSValue headers,
         std::string body,
-        std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback
+        std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback
     ) noexcept
     {
         // Convert rvalue references to lvalues for safe use
@@ -926,7 +944,7 @@ namespace winrt::ReactNativeBlobUtil
             winrt::Windows::Foundation::Uri requestUri{ nullptr };
             if (!TryParseRequestUri(url, requestUri))
             {
-                callback("Invalid URL: " + url, std::nullopt, std::nullopt, std::nullopt);
+                callback(fetchError("EINVAL", "Invalid URL: " + url), std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
 
@@ -961,7 +979,7 @@ namespace winrt::ReactNativeBlobUtil
             {
                 // POST is the default set above, and it reached this branch as
                 // unsupported - so every upload through fetchBlob failed here.
-                callback("Method not supported", std::nullopt, std::nullopt, std::nullopt);
+                callback(fetchError("EINVAL", "Method not supported"), std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
 
@@ -1075,11 +1093,11 @@ namespace winrt::ReactNativeBlobUtil
         }
         catch (const winrt::hresult_error& ex)
         {
-            callback(winrt::to_string(ex.message()), std::nullopt, std::nullopt, std::nullopt);
+            callback(fetchError("EUNSPECIFIED", winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
         }
         catch (...)
         {
-            callback("Unknown error in fetchBlob", std::nullopt, std::nullopt, std::nullopt);
+            callback(fetchError("EUNSPECIFIED", "Unknown error in fetchBlob"), std::nullopt, std::nullopt, std::nullopt);
         }
     }
 
@@ -1326,30 +1344,28 @@ std::string ReactNativeBlobUtil::syncPathAppGroup(
 
 void ReactNativeBlobUtil::exists(
     std::string path,
-    std::function<void(bool, bool)> const& callback) noexcept
+    ::React::ReactPromise<::React::JSValue>&& promise) noexcept
 {
+    ::React::JSValueObject result;
     try
     {
         std::filesystem::path fsPath(path);
-        bool doesExist = std::filesystem::exists(fsPath);
-        bool isDirectory = std::filesystem::is_directory(fsPath);
-
-        // Two arguments, as Android and iOS pass them. A single vector was
-        // marshalled as one array argument, so fs.exists() received [false, false]
-        // - truthy - and reported every path as present.
-        callback(doesExist, isDirectory);
+        result["exists"] = std::filesystem::exists(fsPath);
+        result["isDirectory"] = std::filesystem::is_directory(fsPath);
     }
     catch (const std::exception&)
     {
-        callback(false, false);
+        result["exists"] = false;
+        result["isDirectory"] = false;
     }
+    promise.Resolve(::React::JSValue{ std::move(result) });
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
     std::string path,
     std::string encoding,
     bool appendData,
-    std::function<void(std::optional<std::string>, std::optional<std::string>, std::optional<std::string>)> callback) noexcept
+    ::React::ReactPromise<std::string> promise) noexcept
 {
     try
     {
@@ -1385,7 +1401,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
         }
         else
         {
-            callback("EUNSPECIFIED", "Invalid encoding: " + encoding, std::nullopt);
+            promise.Reject(rejection("EINVAL", "Invalid encoding: " + encoding));
             co_return;
         }
 
@@ -1397,25 +1413,24 @@ winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
         ReactNativeBlobUtilStream streamInstance{ stream, encodingOption };
         m_streamMap.try_emplace(streamId, streamInstance);
 
-        // (errCode, errMsg, streamId), the shape fs.js destructures.
-        callback(std::nullopt, std::nullopt, streamId);
+        promise.Resolve(streamId);
     }
     catch (const winrt::hresult_error& ex)
     {
-        callback("EUNSPECIFIED", "Failed to create write stream at path '" + path + "'; " + winrt::to_string(ex.message()), std::nullopt);
+        promise.Reject(rejection("EUNSPECIFIED", "Failed to create write stream at path '" + path + "'; " + winrt::to_string(ex.message())));
     }
 }
 
 void ReactNativeBlobUtil::writeArrayChunk(
     std::string streamId,
     ::React::JSValueArray&& dataArray,
-    std::function<void(std::optional<std::string>)> const& callback) noexcept
+    ::React::ReactPromise<void>&& promise) noexcept
 {
     try
     {
         auto streamIt = m_streamMap.find(streamId);
         if (streamIt == m_streamMap.end()) {
-            callback("Stream not found for id: " + streamId);
+            promise.Reject(rejection("EBADF", "No such write stream '" + streamId + "'"));
             return;
         }
         auto& stream = streamIt->second;
@@ -1428,24 +1443,24 @@ void ReactNativeBlobUtil::writeArrayChunk(
         Streams::IBuffer buffer{ CryptographicBuffer::CreateFromByteArray(data) };
 
         stream.streamInstance.WriteAsync(buffer).get(); // Calls it synchronously
-        callback(std::nullopt);
+        promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
     {
-        callback(winrt::to_string(ex.message()));
+        promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
     }
 }
 
 void ReactNativeBlobUtil::writeChunk(
     std::string streamId,
     std::string data,
-    std::function<void(std::optional<std::string>)> const& callback) noexcept
+    ::React::ReactPromise<void>&& promise) noexcept
 {
     try
     {
         auto streamIt = m_streamMap.find(streamId);
         if (streamIt == m_streamMap.end()) {
-            callback("Stream not found for id: " + streamId);
+            promise.Reject(rejection("EBADF", "No such write stream '" + streamId + "'"));
             return;
         }
         auto& stream = streamIt->second;
@@ -1461,53 +1476,42 @@ void ReactNativeBlobUtil::writeChunk(
         }
         else
         {
-            callback("Invalid encoding type");
+            promise.Reject(rejection("EINVAL", "Invalid encoding type"));
             return;
         }
         stream.streamInstance.WriteAsync(buffer).get(); // Synchronous write
-
-        // (err) alone, the shape the write stream's JS wrapper reads. An empty
-        // array here marshalled as one truthy argument, so a successful write
-        // rejected.
-        callback(std::nullopt);
+        promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
     {
-        callback(winrt::to_string(ex.message()));
+        promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
     }
 }
 
 void ReactNativeBlobUtil::closeStream(
     std::string streamId,
-    std::function<void(::React::JSValueArray const&)> const& callback) noexcept
+    ::React::ReactPromise<void>&& promise) noexcept
 {
-    ::React::JSValueArray resultArray;
     try
     {
         auto it = m_streamMap.find(streamId);
-        if (it != m_streamMap.end()) {
-            it->second.streamInstance.Close();
-            m_streamMap.erase(it);
-            // Success: return empty array
-            callback(resultArray);
-        } else {
-            // Stream not found
-            resultArray.push_back("EUNSPECIFIED");
-            resultArray.push_back("Stream not found for id: " + streamId);
-            callback(resultArray);
+        if (it == m_streamMap.end()) {
+            promise.Reject(rejection("EBADF", "No such write stream '" + streamId + "'"));
+            return;
         }
+        it->second.streamInstance.Close();
+        m_streamMap.erase(it);
+        promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
     {
-        resultArray.push_back("EUNSPECIFIED");
-        resultArray.push_back(winrt::to_string(ex.message()));
-        callback(resultArray);
+        promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
     }
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::unlink(
     std::string path,
-    std::function<void(std::optional<std::string>, bool)> callback) noexcept
+    ::React::ReactPromise<void> promise) noexcept
 {
    try
         {
@@ -1528,20 +1532,16 @@ winrt::fire_and_forget ReactNativeBlobUtil::unlink(
                 co_await item.DeleteAsync();
             }
 
-            // (error, result), the shape fs.js reads and the one Android and iOS
-            // already use - callback.invoke(null, true) there. Reporting success as
-            // the first element instead put a truthy value in the error slot, so
-            // fs.unlink() rejected every time it succeeded.
-            callback(std::nullopt, true);
+            promise.Resolve();
         }
         catch (const winrt::hresult_error& ex)
         {
-            callback(winrt::to_string(ex.message()), false);
+            promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
         }
    
 }
 
-winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray paths, std::function<void(std::optional<std::string>)> callback) noexcept
+winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray paths, ::React::ReactPromise<void> promise) noexcept
 {
     try
     {
@@ -1556,15 +1556,15 @@ winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray 
             }
         }
 
-        callback(std::nullopt);
+        promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
     {
-        callback(winrt::to_string(ex.message()));
+        promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
     }
     catch (...)
     {
-        callback("Unknown error in removeSession");
+        promise.Reject(rejection("EUNSPECIFIED", "Unknown error in removeSession"));
     }
 }
 
@@ -1604,7 +1604,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::ls(
 
 winrt::fire_and_forget ReactNativeBlobUtil::stat(
     std::string path,
-    std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept
+    ::React::ReactPromise<::React::JSValue> promise) noexcept
 {
     try
     {
@@ -1631,17 +1631,18 @@ winrt::fire_and_forget ReactNativeBlobUtil::stat(
         fileInfo["lastModified"] = winrt::clock::to_time_t(properties.DateModified());;
         fileInfo["type"] = isDirectory ? "directory" : "file";
 
-        callback(std::nullopt, ::React::JSValue{ std::move(fileInfo) });
+        promise.Resolve(::React::JSValue{ std::move(fileInfo) });
     }
     catch (const hresult_error& ex)
     {
-        callback(winrt::to_string(ex.message()), std::nullopt);
+        // The item could not be opened: it is not there.
+        promise.Reject(rejection("ENOENT", winrt::to_string(ex.message())));
     }
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::lstat(
     std::string path,
-    std::function<void(std::optional<std::string>, std::optional<::React::JSValueArray>)> callback) noexcept
+    ::React::ReactPromise<::React::JSValueArray> promise) noexcept
 {
     try
     {
@@ -1684,21 +1685,21 @@ winrt::fire_and_forget ReactNativeBlobUtil::lstat(
             resultsArray.push_back(describe(file, properties));
         }
 
-        callback(std::nullopt, std::move(resultsArray));
+        promise.Resolve(std::move(resultsArray));
     }
     catch (...)
     {
         // A path that cannot be read is a failure, not an empty directory:
         // Android reports the same, and returning an empty list made
         // fs.lstat() look as though the path existed and held nothing.
-        callback("failed to lstat path `" + path + "` because it does not exist or it is not a folder", std::nullopt);
+        promise.Reject(rejection("ENOENT", "failed to lstat path `" + path + "` because it does not exist or it is not a folder"));
     }
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::cp(
     std::string src,
     std::string dest,
-    std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept
+    ::React::ReactPromise<void> promise) noexcept
 {
     try
     {
@@ -1714,18 +1715,18 @@ winrt::fire_and_forget ReactNativeBlobUtil::cp(
         StorageFile file = co_await srcFolder.GetFileAsync(srcFileName);
         co_await file.CopyAsync(destFolder, destFileName, NameCollisionOption::FailIfExists);
 
-        callback(std::nullopt, true);
+        promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
     {
-        callback(winrt::to_string(ex.message()), std::nullopt);
+        promise.Reject(rejection(ex.code() == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND) || ex.code() == HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND) ? "ENOENT" : "EUNSPECIFIED", winrt::to_string(ex.message())));
     }
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::mv(
     std::string src,
     std::string dest,
-    std::function<void(std::optional<std::string>, std::optional<bool>)> callback) noexcept
+    ::React::ReactPromise<void> promise) noexcept
 {
     try
     {
@@ -1741,11 +1742,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::mv(
         StorageFile file = co_await srcFolder.GetFileAsync(srcFileName);
         co_await file.MoveAsync(destFolder, destFileName, NameCollisionOption::ReplaceExisting);
 
-        callback(std::nullopt, true);
+        promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
     {
-        callback(winrt::to_string(ex.message()), std::nullopt);
+        promise.Reject(rejection(ex.code() == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND) || ex.code() == HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND) ? "ENOENT" : "EUNSPECIFIED", winrt::to_string(ex.message())));
     }
 }
 
@@ -2020,28 +2021,18 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
     }
 }
 
-void ReactNativeBlobUtil::getEnvironmentDirs(
-    std::function<void(::React::JSValueArray const&)> const& callback) noexcept
-{
-    callback(::React::JSValueArray{});
-}
-
 void ReactNativeBlobUtil::cancelRequest(
     std::string taskId,
-    std::function<void(::React::JSValueArray const&)> const& callback) noexcept
+    ::React::ReactPromise<void>&& promise) noexcept
 {
-    ::React::JSValueArray resultArray;
     try
     {
         m_tasks.Cancel(taskId);
-        // Success: return empty array
-        callback(resultArray);
+        promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
     {
-        resultArray.push_back("EUNSPECIFIED");
-        resultArray.push_back(winrt::to_string(ex.message()));
-        callback(resultArray);
+        promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
     }
 }
 
@@ -2112,7 +2103,7 @@ IAsyncAction setTimeout(std::chrono::seconds time) {
 
 void ReactNativeBlobUtil::presentOptionsMenu(
     std::string uri,
-    std::string scheme,
+    std::optional<std::string> scheme,
     ::React::ReactPromise<::React::JSValueArray>&& result) noexcept
 {
     result.Resolve(::React::JSValueArray{});
@@ -2120,7 +2111,7 @@ void ReactNativeBlobUtil::presentOptionsMenu(
 
 void ReactNativeBlobUtil::presentOpenInMenu(
     std::string uri,
-    std::string scheme,
+    std::optional<std::string> scheme,
     ::React::ReactPromise<::React::JSValueArray>&& result) noexcept
 {
     result.Resolve(::React::JSValueArray{});
@@ -2128,7 +2119,7 @@ void ReactNativeBlobUtil::presentOpenInMenu(
 
 void ReactNativeBlobUtil::presentPreview(
     std::string uri,
-    std::string scheme,
+    std::optional<std::string> scheme,
     ::React::ReactPromise<::React::JSValueArray>&& result) noexcept
 {
     result.Resolve(::React::JSValueArray{});
@@ -2142,7 +2133,7 @@ void ReactNativeBlobUtil::excludeFromBackupKey(
 }
 
 winrt::fire_and_forget ReactNativeBlobUtil::df(
-    std::function<void(std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept
+    ::React::ReactPromise<::React::JSValue> promise) noexcept
 { 
         try
         {
@@ -2153,25 +2144,19 @@ winrt::fire_and_forget ReactNativeBlobUtil::df(
             result["free"] = winrt::unbox_value<uint64_t>(properties.Lookup(L"System.FreeSpace"));
             result["total"] = winrt::unbox_value<uint64_t>(properties.Lookup(L"System.Capacity"));
 
-            callback(std::nullopt, ::React::JSValue{ std::move(result) });
+            promise.Resolve(::React::JSValue{ std::move(result) });
         }
         catch (...)
         {
-            callback("Failed to get storage usage.", std::nullopt);
+            promise.Reject(rejection("EUNSPECIFIED", "Failed to get storage usage."));
         }
    
-}
-
-void ReactNativeBlobUtil::emitExpiredEvent(
-    std::function<void(std::string)> const& callback) noexcept
-{
-    callback("");
 }
 
 void ReactNativeBlobUtil::actionViewIntent(
     std::string path,
     std::string mime,
-    std::string chooserTitle,
+    std::optional<std::string> chooserTitle,
     ::React::ReactPromise<void>&& result) noexcept
 {
     // No-op: Android API
@@ -2247,10 +2232,10 @@ void ReactNativeBlobUtil::getSDCardApplicationDir(
 
 void ReactNativeBlobUtil::scanFile(
     ::React::JSValueArray&& pairs,
-    std::function<void(::React::JSValueArray const&)> const& callback) noexcept
+    ::React::ReactPromise<void>&& promise) noexcept
 {
-    // No-op: Android API
-    callback(::React::JSValueArray{});
+    // Android API; JavaScript rejects with ENOTSUP before reaching here.
+    promise.Reject(rejection("ENOTSUP", "scanFile is only available on Android"));
 }
 
 void ReactNativeBlobUtil::writeToMediaFile(

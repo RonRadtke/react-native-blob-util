@@ -3,6 +3,7 @@ import getUUID from './utils/uuid';
 import toByteCount from './utils/byteCount';
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
+import {addCode} from './utils/errors';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
 import type {ReactNativeBlobUtilConfig} from './types';
 
@@ -129,10 +130,9 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         const req = requireNativeModule()[nativeMethodName];
 
         /**
-         * Send request via native module, the response callback accepts three arguments
+         * Send request via native module, the response callback accepts four arguments
          * @callback
-         * @param err {any} Error message or object, when the request success, this
-         *                  parameter should be `null`.
+         * @param err {?{code: string, message: string}} null when the request succeeded.
          * @param rawType { 'utf8' | 'base64' | 'path'} RNFB request will be stored
          *                  as UTF8 string, BASE64 string, or a file path reference
          *                  in JS context, and this parameter indicates which one
@@ -147,8 +147,13 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
 
             if (!responseInfo) responseInfo = {}; // should not be null / undefined
 
-            if (err)
-                reject(new Error(err, respInfo));
+            if (err) {
+                // {code, message} from native; a plain string is tolerated.
+                const message = typeof err === 'string' ? err : String(err.message);
+                const error = addCode((typeof err === 'object' && err.code) || 'EUNSPECIFIED', new Error(message));
+                error.respInfo = 'uninit' in respInfo ? responseInfo : respInfo;
+                reject(error);
+            }
             else {
                 // response data is saved to storage, create a session for it
                 if (options.path || options.fileCache || options.addAndroidDownloads
@@ -203,8 +208,12 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
     promise.cancel = (fn) => {
         if (settled) return;
         settle();
-        requireNativeModule().cancelRequest(taskId, fn || function () {
-        });
+        const cancelled = requireNativeModule().cancelRequest(taskId);
+        if (typeof fn === 'function') {
+            cancelled.then(() => fn(), (err) => fn(err));
+        } else {
+            cancelled.catch(() => {});
+        }
         promiseReject(new CanceledFetchError('canceled'));
     };
     promise.taskId = taskId;

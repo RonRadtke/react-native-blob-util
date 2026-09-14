@@ -2,7 +2,9 @@
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
+import {addCode} from '../utils/errors';
 import {requireNativeModule} from '../utils/nativeModule';
+
 export default class ReactNativeBlobUtilWriteStream {
 
   id : string;
@@ -15,36 +17,22 @@ export default class ReactNativeBlobUtilWriteStream {
     this.append = append;
   }
 
-  write(data:string): Promise<ReactNativeBlobUtilWriteStream> {
-    return new Promise((resolve, reject) => {
-      try {
-        let method = this.encoding === 'ascii' ? 'writeArrayChunk' : 'writeChunk';
-        if (this.encoding.toLocaleLowerCase() === 'ascii' && !Array.isArray(data)) {
-            reject(new Error('ascii input data must be an Array'));
-            return;
-        }
-        requireNativeModule()[method](this.id, data, (error) => {
-          if (error)
-            reject(new Error(error));
-          else
-            resolve(this);
-        });
-      } catch (err) {
-        reject(new Error(err));
+  /**
+   * Write a chunk: a string, or byte values 0..255 for an ascii stream.
+   * @return {Promise<ReactNativeBlobUtilWriteStream>} Resolves the stream, for chaining.
+   */
+  write(data: string | Array<number>): Promise<ReactNativeBlobUtilWriteStream> {
+    if (this.encoding === 'ascii') {
+      if (!Array.isArray(data)) {
+        return Promise.reject(addCode('EINVAL', new TypeError('ascii input data must be an Array')));
       }
-    });
+      return requireNativeModule().writeArrayChunk(this.id, data).then(() => this);
+    }
+    return requireNativeModule().writeChunk(this.id, data).then(() => this);
   }
 
-  close() {
-    return new Promise((resolve, reject) => {
-      try {
-        requireNativeModule().closeStream(this.id, () => {
-          resolve();
-        });
-      } catch (err) {
-        reject(new Error(err));
-      }
-    });
+  close(): Promise<void> {
+    return requireNativeModule().closeStream(this.id).then(() => undefined);
   }
 
 }

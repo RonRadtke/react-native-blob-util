@@ -90,6 +90,27 @@ string, adjust those comparisons.
   the whole API. `StatefulPromise` gains `stateChange`, `part` and `taskId`;
   `readFile`, `createFile` and `writeFile` are typed per encoding.
 
+### Error codes
+
+Every rejection now carries a `code`. Before, the native methods that reported through a
+callback (`exists`, `writeStream`, the write stream's `write` and `close`, `unlink`,
+`session.dispose`, `stat`, `lstat`, `cp`, `mv`, `df`, `scanFile`, `cancelRequest`)
+either stamped `EUNSPECIFIED` on every failure or gave no code at all, and a `fetch`
+error had neither a code nor the response info. Now:
+
+- `stat`, `lstat`, `cp` and `mv` reject with `ENOENT` when the source, or the
+  destination's directory, is missing. `writeStream` rejects with `EISDIR` for a
+  directory, `ENOENT` when the file cannot be created and `ENOTDIR` when its parent
+  cannot. Writing to or closing a stream that was already closed rejects with `EBADF`
+  (on Android this used to crash the app). Anything else keeps `EUNSPECIFIED`.
+- A failed `fetch` rejects with an `Error` whose `code` is what native reported
+  (`EUNSPECIFIED` where it reported nothing better) and whose `respInfo` holds the
+  response info received so far.
+- `task.cancel(callback)`: the callback is called once native has cancelled, with an
+  error argument if that failed. It used to receive `(null, taskId)`.
+- Messages are unchanged where they existed, so string matching on messages keeps
+  working; switch to `err.code` when you can.
+
 ### Options and defaults
 
 - The config keys `Progress`, `UploadProgress` and `indicator` are gone. Nothing read

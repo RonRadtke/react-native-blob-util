@@ -5,7 +5,7 @@ import android.os.SystemClock
 import android.util.Base64
 import com.ReactNativeBlobUtil.ReactNativeBlobUtilConst.EVENT_FILESYSTEM
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Callback
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.WritableArray
@@ -136,7 +136,7 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
      * @param append   Flag represents if the file stream overwrite existing content
      * @param callback Callback
      */
-    fun writeStream(rawPath: String?, encoding: String?, append: Boolean, callback: Callback) {
+    fun writeStream(rawPath: String?, encoding: String?, append: Boolean, promise: Promise) {
         val resolved = ReactNativeBlobUtilUtils.normalizePath(rawPath)
         val path = resolved ?: rawPath
 
@@ -157,9 +157,10 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
             val streamId = UUID.randomUUID().toString()
             fileStreams[streamId] = this
             this.writeStreamInstance = fs
-            callback.invoke(null, null, streamId)
+            promise.resolve(streamId)
         } catch (err: Exception) {
-            callback.invoke("EUNSPECIFIED", "Failed to create write stream at path `" + path + "`; " + err.localizedMessage)
+            val code = (err as? OpenStreamException)?.code ?: "EUNSPECIFIED"
+            promise.reject(code, "Failed to create write stream at path `" + path + "`; " + err.localizedMessage)
         }
     }
 
@@ -197,6 +198,9 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
         this.emitter.emit(EVENT_FILESYSTEM, eventData)
     }
 
+    /** An IOException that knows which error code describes it. */
+    private class OpenStreamException(val code: String, message: String) : IOException(message)
+
     companion object {
         // Nullable keys, like the Java HashMap: a null stream id looks up nothing.
         private val fileStreams = HashMap<String?, ReactNativeBlobUtilStream>()
@@ -204,18 +208,18 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
         @Throws(IOException::class)
         private fun prepareOutputFile(path: String): File {
             val file = File(path).canonicalFile
-            val parent = file.parentFile ?: throw IOException("Invalid output path: $path")
+            val parent = file.parentFile ?: throw OpenStreamException("EINVAL", "Invalid output path: $path")
 
             if (!parent.exists() && !parent.mkdirs() && !parent.exists()) {
-                throw IOException("Failed to create parent directory of '$path'")
+                throw OpenStreamException("ENOTDIR", "Failed to create parent directory of '$path'")
             }
 
             if (file.exists() && file.isDirectory) {
-                throw IOException("Expecting a file but '$path' is a directory")
+                throw OpenStreamException("EISDIR", "Expecting a file but '$path' is a directory")
             }
 
             if (!file.exists() && !file.createNewFile() && !file.exists()) {
-                throw IOException("File '$path' does not exist and could not be created")
+                throw OpenStreamException("ENOENT", "File '$path' does not exist and could not be created")
             }
 
             return file
@@ -226,21 +230,23 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
          *
          * @param streamId File stream ID
          * @param data     Data chunk in string format
-         * @param callback JS context callback
+         * @param promise  Resolves once the chunk is written
          */
         @JvmStatic
-        fun writeChunk(streamId: String?, data: String?, callback: Callback) {
-            // A stream that was closed or never opened throws here, outside the try,
-            // exactly as the Java version did - and takes the app down with it. That
-            // crash is known and deliberately not fixed as part of the port.
-            val fs = fileStreams[streamId]!!
-            val stream = fs.writeStreamInstance
-            val chunk = ReactNativeBlobUtilUtils.stringToBytes(data!!, fs.encoding!!)
+        fun writeChunk(streamId: String?, data: String?, promise: Promise) {
+            // A stream that was closed or never opened used to throw here and take
+            // the app down; it is a rejection now.
+            val fs = fileStreams[streamId]
+            if (fs == null) {
+                promise.reject("EBADF", "No such write stream '$streamId'")
+                return
+            }
             try {
-                stream!!.write(chunk)
-                callback.invoke()
+                val chunk = ReactNativeBlobUtilUtils.stringToBytes(data!!, fs.encoding!!)
+                fs.writeStreamInstance!!.write(chunk)
+                promise.resolve(null)
             } catch (e: Exception) {
-                callback.invoke(e.localizedMessage)
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
             }
         }
 
@@ -249,22 +255,24 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
          *
          * @param streamId File stream ID
          * @param data     Data chunk in ascii array format
-         * @param callback JS context callback
+         * @param promise  Resolves once the chunk is written
          */
         @JvmStatic
-        fun writeArrayChunk(streamId: String?, data: ReadableArray?, callback: Callback) {
+        fun writeArrayChunk(streamId: String?, data: ReadableArray?, promise: Promise) {
+            val fs = fileStreams[streamId]
+            if (fs == null) {
+                promise.reject("EBADF", "No such write stream '$streamId'")
+                return
+            }
             try {
-                val fs = fileStreams[streamId]!!
-                val stream = fs.writeStreamInstance
-                // A null array throws inside the try and reaches the callback, as in Java.
                 val chunk = ByteArray(data!!.size())
                 for (i in 0 until data.size()) {
                     chunk[i] = data.getInt(i).toByte()
                 }
-                stream!!.write(chunk)
-                callback.invoke()
+                fs.writeStreamInstance!!.write(chunk)
+                promise.resolve(null)
             } catch (e: Exception) {
-                callback.invoke(e.localizedMessage)
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
             }
         }
 
@@ -272,18 +280,20 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
          * Close file write stream by ID
          *
          * @param streamId Stream ID
-         * @param callback JS context callback
+         * @param promise  Resolves once the stream is closed
          */
         @JvmStatic
-        fun closeStream(streamId: String?, callback: Callback) {
+        fun closeStream(streamId: String?, promise: Promise) {
+            val fs = fileStreams.remove(streamId)
+            if (fs == null) {
+                promise.reject("EBADF", "No such write stream '$streamId'")
+                return
+            }
             try {
-                val fs = fileStreams[streamId]!!
-                val stream = fs.writeStreamInstance
-                fileStreams.remove(streamId)
-                stream!!.close()
-                callback.invoke()
+                fs.writeStreamInstance!!.close()
+                promise.resolve(null)
             } catch (err: Exception) {
-                callback.invoke(err.localizedMessage)
+                promise.reject("EUNSPECIFIED", err.localizedMessage)
             }
         }
     }

@@ -13,7 +13,6 @@ import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream
 import {toUnsignedBytes} from './utils/bytes';
 import {deprecatedAlias} from './utils/deprecate';
 import {addCode} from './utils/errors';
-import toExistsResult from './utils/existsResult';
 import {requireNativeModule} from './utils/nativeModule';
 import type {ReactNativeBlobUtilStat} from './types';
 
@@ -47,12 +46,14 @@ for (const name of [
     'MainBundleDir',
     'LibraryDir',
     'ApplicationSupportDir',
+    'RingtoneDir',
 
     'LegacyPictureDir',
     'LegacyMusicDir',
     'LegacyMovieDir',
     'LegacyDownloadDir',
     'LegacyDCIMDir',
+    'LegacyRingtoneDir',
     'LegacySDCardDir', // Depracated
 ]) {
     Object.defineProperty(dirs, name, {
@@ -170,17 +171,8 @@ function writeStream(
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
-    return new Promise((resolve, reject) => {
-        requireNativeModule().writeStream(path, encoding, append, (errCode, errMsg, streamId: string) => {
-            if (errMsg) {
-                const err = new Error(errMsg);
-                err.code = errCode;
-                reject(err);
-            }
-            else
-                resolve(new ReactNativeBlobUtilWriteStream(streamId, encoding));
-        });
-    });
+    return requireNativeModule().writeStream(path, encoding, append)
+        .then((streamId: string) => new ReactNativeBlobUtilWriteStream(streamId, encoding, append));
 }
 
 /**
@@ -342,18 +334,10 @@ function appendFile(path: string, data: string | Array<number>, encoding?: strin
  * @return {Promise<ReactNativeBlobUtilStat>}
  */
 function stat(path: string): Promise<ReactNativeBlobUtilStat> {
-    return new Promise((resolve, reject) => {
-        if (typeof path !== 'string') {
-            return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
-        }
-        requireNativeModule().stat(path, (err, stat) => {
-            if (err)
-                reject(new Error(err));
-            else {
-                resolve(stat ? normalizeStat(stat) : stat);
-            }
-        });
-    });
+    if (typeof path !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    return requireNativeModule().stat(path).then((entry) => entry ? normalizeStat(entry) : entry);
 }
 
 /**
@@ -375,45 +359,25 @@ function hash(path: string, algorithm: string): Promise<string> {
 }
 
 function cp(path: string, dest: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        if (typeof path !== 'string' || typeof dest !== 'string') {
-            return reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
-        }
-        requireNativeModule().cp(path, dest, (err) => {
-            if (err)
-                reject(addCode('EUNSPECIFIED', new Error(err)));
-            else
-                resolve(true); // Android resolves undefined, iOS and Windows true
-        });
-    });
+    if (typeof path !== 'string' || typeof dest !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
+    }
+    return requireNativeModule().cp(path, dest).then(() => true);
 }
 
 function mv(path: string, dest: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        if (typeof path !== 'string' || typeof dest !== 'string') {
-            return reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
-        }
-        requireNativeModule().mv(path, dest, (err) => {
-            if (err)
-                reject(addCode('EUNSPECIFIED', new Error(err)));
-            else
-                resolve(true); // Android resolves undefined, iOS and Windows true
-        });
-    });
+    if (typeof path !== 'string' || typeof dest !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
+    }
+    return requireNativeModule().mv(path, dest).then(() => true);
 }
 
 function lstat(path: string): Promise<Array<ReactNativeBlobUtilStat>> {
-    return new Promise((resolve, reject) => {
-        if (typeof path !== 'string') {
-            return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
-        }
-        requireNativeModule().lstat(path, (err, stat) => {
-            if (err)
-                reject(addCode('EUNSPECIFIED', new Error(err)));
-            else
-                resolve(Array.isArray(stat) ? stat.map(normalizeStat) : stat);
-        });
-    });
+    if (typeof path !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    return requireNativeModule().lstat(path)
+        .then((entries) => Array.isArray(entries) ? entries.map(normalizeStat) : entries);
 }
 
 function ls(path: string): Promise<Array<String>> {
@@ -428,19 +392,11 @@ function ls(path: string): Promise<Array<String>> {
  * @param  {string}   path:string Path of target file.
  * @return {Promise}
  */
-function unlink(path: string): Promise {
-    return new Promise((resolve, reject) => {
-        if (typeof path !== 'string') {
-            return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
-        }
-        requireNativeModule().unlink(path, (err) => {
-            if (err) {
-                reject(addCode('EUNSPECIFIED', new Error(err)));
-            }
-            else
-                resolve();
-        });
-    });
+function unlink(path: string): Promise<void> {
+    if (typeof path !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    return requireNativeModule().unlink(path).then(() => undefined);
 }
 
 /**
@@ -449,19 +405,10 @@ function unlink(path: string): Promise {
  * @return {Promise<boolean>}
  */
 function exists(path: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        if (typeof path !== 'string') {
-            return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
-        }
-        try {
-            requireNativeModule().exists(path, (...args) => {
-                resolve(toExistsResult(...args).exists);
-            });
-        } catch (err) {
-            reject(addCode('EUNSPECIFIED', new Error(err)));
-        }
-    });
-
+    if (typeof path !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    return requireNativeModule().exists(path).then((result) => Boolean(result && result.exists));
 }
 
 function slice(src: string, dest: string, start: number, end: number): Promise {
@@ -491,31 +438,15 @@ function slice(src: string, dest: string, start: number, end: number): Promise {
     return p.then(() => requireNativeModule().slice(src, dest, start, end));
 }
 
-function isDir(path: string): Promise<bool> {
-    return new Promise((resolve, reject) => {
-        if (typeof path !== 'string') {
-            return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
-        }
-        try {
-            requireNativeModule().exists(path, (...args) => {
-                resolve(toExistsResult(...args).isDirectory);
-            });
-        } catch (err) {
-            reject(addCode('EUNSPECIFIED', new Error(err)));
-        }
-    });
-
+function isDir(path: string): Promise<boolean> {
+    if (typeof path !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    return requireNativeModule().exists(path).then((result) => Boolean(result && result.isDirectory));
 }
 
 function df(): Promise<{ free: number, total: number }> {
-    return new Promise((resolve, reject) => {
-        requireNativeModule().df((err, stat) => {
-            if (err)
-                reject(addCode('EUNSPECIFIED', new Error(err)));
-            else
-                resolve(stat ? normalizeDf(stat) : stat);
-        });
-    });
+    return requireNativeModule().df().then((space) => space ? normalizeDf(space) : space);
 }
 
 export default {

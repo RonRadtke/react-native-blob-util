@@ -230,7 +230,7 @@
                         "typeAnnotation": {
                           "type": "NullableTypeAnnotation",
                           "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
+                            "type": "GenericObjectTypeAnnotation"
                           }
                         }
                       },
@@ -336,7 +336,7 @@
                         "typeAnnotation": {
                           "type": "NullableTypeAnnotation",
                           "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
+                            "type": "GenericObjectTypeAnnotation"
                           }
                         }
                       },
@@ -491,7 +491,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "GenericObjectTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -499,32 +502,6 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "exists",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "BooleanTypeAnnotation"
-                        }
-                      },
-                      {
-                        "name": "isDirectory",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "BooleanTypeAnnotation"
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -625,7 +602,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -648,48 +628,6 @@
                   "typeAnnotation": {
                     "type": "BooleanTypeAnnotation"
                   }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "errCode",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "errMsg",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "streamId",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
-                  }
                 }
               ]
             }
@@ -700,7 +638,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -719,28 +660,6 @@
                       "type": "AnyTypeAnnotation"
                     }
                   }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
-                  }
                 }
               ]
             }
@@ -751,7 +670,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -767,28 +689,6 @@
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
                   }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
-                  }
                 }
               ]
             }
@@ -799,7 +699,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -807,28 +710,6 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "value",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "ArrayTypeAnnotation",
-                          "elementType": {
-                            "type": "AnyTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -840,7 +721,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -848,35 +732,6 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "result",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "BooleanTypeAnnotation"
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -888,7 +743,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -899,28 +757,6 @@
                     "elementType": {
                       "type": "AnyTypeAnnotation"
                     }
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -957,7 +793,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "GenericObjectTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -965,38 +804,6 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "stat",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "GenericObjectTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -1008,7 +815,13 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
               },
               "params": [
                 {
@@ -1016,41 +829,6 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "stat",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "ArrayTypeAnnotation",
-                            "elementType": {
-                              "type": "AnyTypeAnnotation"
-                            }
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -1062,7 +840,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -1078,38 +859,6 @@
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
                   }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "res",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "BooleanTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
-                  }
                 }
               ]
             }
@@ -1120,7 +869,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -1135,38 +887,6 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "res",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "BooleanTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -1310,46 +1030,15 @@
             }
           },
           {
-            "name": "getEnvironmentDirs",
-            "optional": false,
-            "typeAnnotation": {
-              "type": "FunctionTypeAnnotation",
-              "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
-              },
-              "params": [
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "value",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "ArrayTypeAnnotation",
-                          "elementType": {
-                            "type": "AnyTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
-          },
-          {
             "name": "cancelRequest",
             "optional": false,
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -1357,28 +1046,6 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "value",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "ArrayTypeAnnotation",
-                          "elementType": {
-                            "type": "AnyTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]
@@ -1519,7 +1186,10 @@
                   "name": "scheme",
                   "optional": false,
                   "typeAnnotation": {
-                    "type": "StringTypeAnnotation"
+                    "type": "NullableTypeAnnotation",
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
                   }
                 }
               ]
@@ -1551,7 +1221,10 @@
                   "name": "scheme",
                   "optional": false,
                   "typeAnnotation": {
-                    "type": "StringTypeAnnotation"
+                    "type": "NullableTypeAnnotation",
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
                   }
                 }
               ]
@@ -1583,7 +1256,10 @@
                   "name": "scheme",
                   "optional": false,
                   "typeAnnotation": {
-                    "type": "StringTypeAnnotation"
+                    "type": "NullableTypeAnnotation",
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
                   }
                 }
               ]
@@ -1620,73 +1296,12 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
-              },
-              "params": [
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "err",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "StringTypeAnnotation"
-                          }
-                        }
-                      },
-                      {
-                        "name": "stat",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "NullableTypeAnnotation",
-                          "typeAnnotation": {
-                            "type": "GenericObjectTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
-                  }
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "GenericObjectTypeAnnotation"
                 }
-              ]
-            }
-          },
-          {
-            "name": "emitExpiredEvent",
-            "optional": false,
-            "typeAnnotation": {
-              "type": "FunctionTypeAnnotation",
-              "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
               },
-              "params": [
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "value",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "StringTypeAnnotation"
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
+              "params": []
             }
           },
           {
@@ -1719,7 +1334,10 @@
                   "name": "chooserTitle",
                   "optional": false,
                   "typeAnnotation": {
-                    "type": "StringTypeAnnotation"
+                    "type": "NullableTypeAnnotation",
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
                   }
                 }
               ]
@@ -1929,7 +1547,10 @@
             "typeAnnotation": {
               "type": "FunctionTypeAnnotation",
               "returnTypeAnnotation": {
-                "type": "VoidTypeAnnotation"
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
               },
               "params": [
                 {
@@ -1940,28 +1561,6 @@
                     "elementType": {
                       "type": "AnyTypeAnnotation"
                     }
-                  }
-                },
-                {
-                  "name": "callback",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "FunctionTypeAnnotation",
-                    "returnTypeAnnotation": {
-                      "type": "VoidTypeAnnotation"
-                    },
-                    "params": [
-                      {
-                        "name": "value",
-                        "optional": false,
-                        "typeAnnotation": {
-                          "type": "ArrayTypeAnnotation",
-                          "elementType": {
-                            "type": "AnyTypeAnnotation"
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]

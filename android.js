@@ -43,17 +43,10 @@ const getSDCardApplicationDir = androidOnly('getSDCardApplicationDir', () => {
  * @return {Promise}
  */
 const scanFile = androidOnly('scanFile', (pairs: Array<Object>) => {
-    return new Promise((resolve, reject) => {
-        if (pairs === undefined) {
-            return reject(addCode('EINVAL', new TypeError('Missing argument')));
-        }
-        requireNativeModule().scanFile(pairs, (err) => {
-            if (err)
-                reject(addCode('EUNSPECIFIED', new Error(err)));
-            else
-                resolve();
-        });
-    });
+    if (pairs === undefined) {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument')));
+    }
+    return requireNativeModule().scanFile(pairs).then(() => undefined);
 });
 
 export default {
