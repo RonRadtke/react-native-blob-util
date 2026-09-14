@@ -46,6 +46,15 @@ namespace
         return ::React::ReactError{ std::move(code), std::move(message) };
     }
 
+    // The StorageFolder/StorageFile path APIs want a native absolute path;
+    // JavaScript hands in forward slashes.
+    winrt::hstring nativePath(std::string const& path)
+    {
+        std::filesystem::path p{ path };
+        p.make_preferred();
+        return winrt::hstring{ p.wstring() };
+    }
+
     // The code for a failed request, from the WinINet/WinHTTP HRESULT the
     // Windows.Web.Http stack raises. Names follow POSIX/Node so an app can
     // switch on them the same way on every platform.
@@ -1600,7 +1609,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray 
                 {
                     continue;
                 }
-                auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(winrt::to_hstring(path));
+                auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(nativePath(path));
                 co_await file.DeleteAsync();
             }
         }
@@ -1633,7 +1642,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::ls(
             promise.Reject(rejection("ENOTDIR", "Not a directory '" + path + "'"));
             co_return;
         }
-        auto folder = co_await Windows::Storage::StorageFolder::GetFolderFromPathAsync(winrt::to_hstring(path));
+        auto folder = co_await Windows::Storage::StorageFolder::GetFolderFromPathAsync(nativePath(path));
         auto items = co_await folder.GetItemsAsync();
 
         ::React::JSValueArray results;
@@ -2146,7 +2155,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::slice(
         StorageFolder destFolder{ co_await StorageFolder::GetFolderFromPathAsync(destDirectoryPath) };
         StorageFile destFile{ co_await destFolder.CreateFileAsync(destFileName, CreationCollisionOption::ReplaceExisting) };
 
-        StorageFile srcFile{ co_await StorageFile::GetFileFromPathAsync(winrt::to_hstring(src)) };
+        StorageFile srcFile{ co_await StorageFile::GetFileFromPathAsync(nativePath(src)) };
         Streams::IRandomAccessStream stream{ co_await srcFile.OpenAsync(FileAccessMode::Read) };
         uint64_t size = stream.Size();
         uint64_t uStart = std::min(static_cast<uint64_t>(std::max(start, 0.0)), size);
