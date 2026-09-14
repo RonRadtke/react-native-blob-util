@@ -1,4 +1,3 @@
-import {ReactNativeBlobUtilConfig} from './types';
 import URIUtil from './utils/uri';
 import fs from './fs';
 import getUUID from './utils/uuid';
@@ -6,6 +5,7 @@ import toByteCount from './utils/byteCount';
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
+import type {ReactNativeBlobUtilConfig} from './types';
 
 /**
  * Calling this method will inject configurations into followed `fetch` method.

@@ -38,11 +38,15 @@ npm run e2e:all        # appium e2e; android / ios / windows variants exist
 ```
 
 JS unit tests live in `tests/unit/*.test.js` and use Node's built-in runner — no
-jest, no babel, no new dependencies. That constrains what is testable: the
-package source is Flow-annotated ESM that plain Node cannot parse, so testable
-logic belongs in small dependency-free helpers under `utils/`, which the tests
-import directly. `utils/byteCount.js` and `tests/unit/byteCount.test.js` are
-the pattern to follow.
+jest, no new dependencies. The package source is Flow-annotated ESM that imports
+`react-native`, which plain Node cannot run, so `npm test` registers the loader
+hooks in `tests/unit/harness/`: they strip the Flow syntax with the Babel that
+`@react-native/babel-preset` already brings, and resolve `react-native` to
+`tests/unit/harness/react-native.js`, a fake whose platform, native module and
+events a test sets (`rn.setPlatform`, `rn.setNativeModule`, `rn.emit`). Tests of
+package code import the package files directly; `tests/unit/harness.test.js`
+shows the moves. Pure helpers under `utils/` still need no fake at all
+(`utils/byteCount.js` and `tests/unit/byteCount.test.js`).
 
 Native unit tests live in `android/src/test/java` and in the example app's
 `ReactNativeBlobUtilE2ETests` target. The JS, JVM and iOS tests read the same

@@ -5,7 +5,7 @@
     "main": "index",
     "scripts": {
         "lint": "eslint \"*.js\" class utils polyfill components",
-        "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/unit/*.test.js\"",
+        "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/unit/harness/register.mjs --test \"tests/unit/*.test.js\"",
         "test:android": "node tests/native/run-android-unit-tests.js",
         "test:ios": "node tests/native/run-ios-unit-tests.js",
         "e2e:certs": "node tests/e2e/certs/generate.js",

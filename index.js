@@ -46,8 +46,8 @@ if (!nativeModule || !nativeModule.fetchBlobForm || !nativeModule.fetchBlob) {
     );
 }
 
-export {ReactNativeBlobUtilConfig, ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from './types';
-export { URIUtil } from './utils/uri';
+export type {ReactNativeBlobUtilConfig, ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from './types';
+export {default as URIUtil} from './utils/uri';
 export {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 export { getUUID } from './utils/uuid';
 export default {
