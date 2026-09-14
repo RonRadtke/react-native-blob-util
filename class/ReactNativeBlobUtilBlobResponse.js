@@ -1,7 +1,5 @@
 import fs from "../fs";
-import Blob from "../polyfill/Blob";
 import ReactNativeBlobUtilSession from "./ReactNativeBlobUtilSession";
-import URIUtil from "../utils/uri";
 import base64 from "base-64";
 import {bytesOfBinaryString, bytesOfUtf8} from "../utils/bytes";
 import type {ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from "../types";
@@ -14,7 +12,7 @@ export class FetchBlobResponse {
     path: () => string | null;
     type: 'base64' | 'path' | 'utf8';
     data: any;
-    blob: (contentType: string, sliceSize: number) => Promise<Blob>;
+    array: () => Promise<Array<number>>;
     text: () => string | Promise<any>;
     json: () => any;
     base64: () => any;
@@ -51,26 +49,6 @@ export class FetchBlobResponse {
             }
         };
 
-        /**
-         * Convert result to javascript ReactNativeBlobUtil object.
-         * @return {Promise<Blob>} Return a promise resolves Blob object.
-         */
-        this.blob = (): Promise<Blob> => {
-            let cType = info.headers['Content-Type'] || info.headers['content-type'];
-            return new Promise((resolve, reject) => {
-                switch (this.type) {
-                    case 'base64':
-                        Blob.build(this.data, {type: cType + ';BASE64'}).then(resolve);
-                        break;
-                    case 'path':
-                        Blob.build(URIUtil.wrap(this.data), {type: cType}).then(resolve);
-                        break;
-                    default:
-                        Blob.build(this.data, {type: 'text/plain'}).then(resolve);
-                        break;
-                }
-            });
-        };
         /**
          * Convert result to text.
          * @return {string} Decoded base64 string.

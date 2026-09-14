@@ -7,7 +7,7 @@ open an issue first so the approach is agreed before you spend time on it.
 
 | Path | What lives there |
 |---|---|
-| `index.js`, `fs.js`, `class/`, `utils/`, `polyfill/` | The JavaScript API |
+| `index.js`, `fs.js`, `class/`, `utils/` | The JavaScript API |
 | `codegenSpecs/` | The TurboModule spec React Native's codegen reads |
 | `android/` | Android native module, in Kotlin |
 | `ios/` | iOS native module, in Swift, behind a thin Objective-C++ adapter that conforms to the generated spec |

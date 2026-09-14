@@ -8,9 +8,9 @@ import {Platform} from 'react-native';
 import ReactNativeBlobUtilSession from './class/ReactNativeBlobUtilSession';
 import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStream';
 import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
-import ReactNativeBlobUtilFile from './class/ReactNativeBlobUtilFile';
 import toExistsResult from './utils/existsResult';
 import {requireNativeModule} from './utils/nativeModule';
+import type {ReactNativeBlobUtilStat} from './types';
 
 /**
  * Native constants are read on first access rather than at import. On the New
@@ -334,9 +334,9 @@ function appendFile(path: string, data: string | Array<number>, encoding?: strin
 /**
  * Show statistic data of a path.
  * @param  {string} path Target path
- * @return {ReactNativeBlobUtilFile}
+ * @return {Promise<ReactNativeBlobUtilStat>}
  */
-function stat(path: string): Promise<ReactNativeBlobUtilFile> {
+function stat(path: string): Promise<ReactNativeBlobUtilStat> {
     return new Promise((resolve, reject) => {
         if (typeof path !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
@@ -420,7 +420,7 @@ function mv(path: string, dest: string): Promise<boolean> {
     });
 }
 
-function lstat(path: string): Promise<Array<ReactNativeBlobUtilFile>> {
+function lstat(path: string): Promise<Array<ReactNativeBlobUtilStat>> {
     return new Promise((resolve, reject) => {
         if (typeof path !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));

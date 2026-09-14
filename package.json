@@ -4,7 +4,7 @@
     "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main": "index",
     "scripts": {
-        "lint": "eslint \"*.js\" class utils polyfill components",
+        "lint": "eslint \"*.js\" class utils",
         "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/unit/harness/register.mjs --test \"tests/unit/*.test.js\"",
         "test:android": "node tests/native/run-android-unit-tests.js",
         "test:ios": "node tests/native/run-ios-unit-tests.js",

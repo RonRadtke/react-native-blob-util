@@ -71,3 +71,11 @@ export type ReactNativeBlobUtilStream = {
 
 
 export type filedescriptor = { path: string, parentFolder: string, mimeType: string }
+
+export type ReactNativeBlobUtilStat = {
+  filename: string,
+  path: string,
+  size: number,
+  type: 'file' | 'directory' | 'asset',
+  lastModified: number,
+}

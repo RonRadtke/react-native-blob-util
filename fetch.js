@@ -1,4 +1,3 @@
-import URIUtil from './utils/uri';
 import fs from './fs';
 import getUUID from './utils/uuid';
 import toByteCount from './utils/byteCount';
@@ -44,91 +43,6 @@ export function config(options: ReactNativeBlobUtilConfig) {
 }
 
 /**
- * Fetch from file system, use the same interface as RNFB.fetch
- * @param  {ReactNativeBlobUtilConfig} [options={}] Fetch configurations
- * @param  {string} method     Should be one of `get`, `post`, `put`
- * @param  {string} url        A file URI string
- * @param  {string} headers    Arguments of file system API
- * @param  {any}    body       Data to put or post to file systen.
- * @return {Promise}
- */
-function fetchFile(options = {}, method, url, headers = {}, body): Promise {
-
-    if (!URIUtil.isFileURI(url)) {
-        throw `could not fetch file from an invalid URI : ${url}`;
-    }
-
-    url = URIUtil.unwrapFileURI(url);
-
-    let promise = null,
-        cursor = 0,
-        total = -1,
-        cacheData = '',
-        info = null,
-        _progress, _uploadProgress, _stateChange;
-
-    switch (method.toLowerCase()) {
-
-        case 'post':
-            break;
-
-        case 'put':
-            break;
-
-        // read data from file system
-        default:
-            promise = fs.stat(url)
-                .then((stat) => {
-                    total = stat.size;
-                    return fs.readStream(url,
-                        headers.encoding || 'utf8',
-                        Math.floor(headers.bufferSize) || 409600,
-                        Math.floor(headers.interval) || 100
-                    );
-                })
-                .then((stream) => new Promise((resolve, reject) => {
-                    stream.open();
-                    info = {
-                        state: '2',
-                        headers: {'source': 'system-fs'},
-                        status: 200,
-                        respType: 'text',
-                        rnfbEncode: headers.encoding || 'utf8'
-                    };
-                    _stateChange(info);
-                    stream.onData((chunk) => {
-                        _progress && _progress(cursor, total, chunk);
-                        if (headers.noCache)
-                            return;
-                        cacheData += chunk;
-                    });
-                    stream.onError((err) => {
-                        reject(err);
-                    });
-                    stream.onEnd(() => {
-                        resolve(new FetchBlobResponse(null, info, cacheData));
-                    });
-                }));
-            break;
-    }
-
-    promise.progress = (fn) => {
-        _progress = fn;
-        return promise;
-    };
-    promise.stateChange = (fn) => {
-        _stateChange = fn;
-        return promise;
-    };
-    promise.uploadProgress = (fn) => {
-        _uploadProgress = fn;
-        return promise;
-    };
-
-    return promise;
-}
-
-/**
  * Create a HTTP request with the default configuration. Use `config(options).fetch`
  * to configure it.
  * @param  {string} method HTTP method, should be `GET`, `POST`, `PUT`, `DELETE`
@@ -157,11 +71,6 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         result[key] = headers[key] || '';
         return result;
     }, {});
-
-    // fetch from file system
-    if (URIUtil.isFileURI(url)) {
-        return fetchFile(options, method, url, headers, body);
-    }
 
     // Every listener this task registers, so that settling or cancelling removes
     // all of them: a task must leave nothing behind for the life of the app.
@@ -208,12 +117,6 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         listen('ReactNativeBlobUtilServerPush', (e) => {
             if (promise.onPartData) promise.onPartData(e.chunk);
         });
-
-        // When the request body comes from Blob polyfill, we should use special its ref
-        // as the request body
-        if (body instanceof Blob && body.isReactNativeBlobUtilPolyfill) {
-            body = body.getReactNativeBlobUtilRef();
-        }
 
         const req = requireNativeModule()[nativeMethodName];
 

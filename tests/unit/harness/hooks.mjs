@@ -11,9 +11,8 @@ const require = createRequire(import.meta.url);
 const babel = require('@babel/core');
 const stripFlow = require.resolve('@babel/plugin-transform-flow-strip-types', {paths: [ROOT]});
 
-// Directories under the root whose files are not the package's own ES modules:
-// dependencies, the tests, and lib/ (a prebuilt CommonJS bundle).
-const NOT_PACKAGE_CODE = ['node_modules', 'tests', 'lib'].map((dir) => dir + sep);
+// Directories under the root whose files are not the package's own ES modules.
+const NOT_PACKAGE_CODE = ['node_modules', 'tests'].map((dir) => dir + sep);
 
 /** A file that ships in the package as an ES module the harness must transform. */
 function isPackageFile(url) {

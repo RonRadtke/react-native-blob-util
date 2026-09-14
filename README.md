@@ -30,8 +30,6 @@ react-native-blob-util version **0.10.16** and up is only compatible with react 
 - File API supports regular files, Asset files, and CameraRoll files
 - Native-to-native file manipulation API, reduce JS bridging performance loss
 - File stream support for dealing with large file
-- Blob, File, XMLHttpRequest polyfills that make browser-based library available in RN (experimental)
-- JSON stream supported base on [Oboe.js](https://github.com/jimhigson/oboe.js/) @jimhigson
 
 ## React Native New Architecture
 Since 0.26.0 the library runs on the New Architecture only; 0.25 is the last release that also supports the Old Architecture. The native modules are written in Kotlin (Android), Swift (iOS) and C++/WinRT (Windows).
@@ -57,12 +55,10 @@ For more information see: https://developer.android.com/training/data-storage
 * [Android Media Scanner, and Download Manager Support](#user-content-android-media-scanner-and-download-manager-support)
 * [Self-Signed SSL Server](#user-content-self-signed-ssl-server)
 * [Transfer Encoding](#user-content-transfer-encoding)
-* [Drop-in Fetch Replacement](#user-content-drop-in-fetch-replacement)
 * [File System](#user-content-file-system)
 * [File access](#user-content-file-access)
 * [File stream](#user-content-file-stream)
 * [Manage cached files](#user-content-cache-file-management)
-* [Web API Polyfills](#user-content-web-api-polyfills)
 * [Performance Tips](#user-content-performance-tips)
 * [API References](https://github.com/RonRadtke/react-native-blob-util/wiki/Fetch-API)
 * [Caveats](#user-content-caveats)
@@ -73,8 +69,6 @@ For more information see: https://developer.android.com/training/data-storage
 This project was started in the cause of solving issue [facebook/react-native#854](https://github.com/facebook/react-native/issues/854), React Native's lacks of `Blob` implementation which results into problems when transferring binary data.
 
 It is committed to making file access and transfer easier and more efficient for React Native developers. We've implemented highly customizable filesystem and network module which plays well together. For example, developers can upload and download data directly from/to storage, which is more efficient, especially for large files. The file system supports file stream, so you don't have to worry about OOM problem when accessing large files.
-
-In `0.8.0` we introduced experimental Web API polyfills that make it possible to use browser-based libraries in React Native, such as, [FireBase JS SDK](https://github.com/joltup/rn-firebase-storage-upload-sample)
 
 ## Installation
 
@@ -537,14 +531,6 @@ task.cancel((err) => { ...
 })
 
 ```
-
-### Drop-in Fetch Replacement
-
-0.9.0
-
-If you have existing code that uses `whatwg-fetch`(the official **fetch**), it's not necessary to replace them with `ReactNativeBlobUtil.fetch`, you can simply use our **Fetch Replacement**. The difference between Official them is official fetch uses [whatwg-fetch](https://github.com/github/fetch) which wraps XMLHttpRequest polyfill under the hood. It's a great library for web developers, but does not play very well with RN. Our implementation is simply a wrapper of our `fetch` and `fs` APIs, so you can access all the features we provided.
-
-[See document and examples](https://github.com/RonRadtke/react-native-blob-util/wiki/Fetch-API#fetch-replacement)
 
 ### Android Media Scanner, and Download Manager Support
 
@@ -1092,14 +1078,6 @@ ReactNativeBlobUtil.config({
 
 Sometimes you may need the files to be transformed after reading from storage or before writing into storage (eg encryption/decyrption). In order to perform the transformations, use `readFileWithTransform` and `writeFileWithTransform`. NOTE: you must set a transformer on the file in order for the transformation to happen (see [Setting a File Transformer](#Setting-A-File-Transformer)).
 
-## Web API Polyfills
-
-After `0.8.0` we've made some [Web API polyfills](https://github.com/RonRadtke/react-native-blob-util/wiki/Web-API-Polyfills-(experimental)) that makes some browser-based library available in RN.
-
-- Blob
-- XMLHttpRequest (Use our implementation if you're going to use it with Blob)
-
-
 ## Setting A File Transformer
 
 Setting a file transformer will allow you to specify how data should be transformed whenever the library is writing into storage or reading from storage. A use case for this is if you want the files handled by this library to be encrypted.
@@ -1199,8 +1177,6 @@ If you're going to concatenate files, you don't have to read the data to JS cont
 ## Caveats
 
 * This library does not urlencode unicode characters in URL automatically, see [#146](https://github.com/wkh237/react-native-fetch-blob/issues/146).
-* When you create a `Blob` , from an existing file, the file **WILL BE REMOVED** if you `close` the blob.
-* If you replaced `window.XMLHttpRequest` for some reason (e.g. make Firebase SDK work), it will also affect how official `fetch` works (basically it should work just fine).
 * When file stream and upload/download progress event slow down your app, consider an upgrade to `0.9.6+`, use [additional arguments](https://github.com/RonRadtke/react-native-blob-util/wiki/Fetch-API#fetchprogressconfig-eventlistenerpromiseReactNativeBlobUtilresponse) to limit its frequency.
 * When passing a file path to the library, remove `file://` prefix.
 

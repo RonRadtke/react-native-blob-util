@@ -83,9 +83,9 @@ pass of their own. If you do need `--fix`, scope it to one rule:
 npx eslint <paths> --no-eslintrc --parser @babel/eslint-parser --parser-options=sourceType:module --rule '{"semi":["error","always"]}' --fix
 ```
 
-`.eslintignore` deliberately excludes `lib/` (the vendored oboe bundle),
-`codegenSpecs/` (Flow spec syntax the parser cannot read — RN's codegen
-validates it instead), the example and e2e apps, and build output.
+`.eslintignore` deliberately excludes `codegenSpecs/` (Flow spec syntax the
+parser cannot read — RN's codegen validates it instead), the example and e2e
+apps, and build output.
 
 Style comes from `@react-native/eslint-config` plus the overrides in
 `.eslintrc.json`. Beyond what the linter checks, match the file you are

@@ -15,7 +15,6 @@ declare class FetchBlobResponse {
     type: "utf8" | "base64" | "path";
     array(): Promise<number[]>;
     base64(): string | Promise<string>;
-    blob(): Promise<Blob>;
     flush(): Promise<void>;
     info(): ReactNativeBlobUtilResponseInfo;
     // $FlowExpectedError Not possible to specify in strict mode.

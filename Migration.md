@@ -1,15 +1,18 @@
-# Migrating to 0.26
+# Migrating to 1.0
 
-0.26.0 rewrites the native layers: Android moves from Java to Kotlin, and iOS from
-Objective-C++ to Swift. Windows stays C++. The JavaScript API does not change. Before
-the old Android and iOS code was removed, the new code was checked call by call against
-recordings of how 0.25 behaved on the same device.
+1.0.0 rewrites the native layers and cleans up the JavaScript API. Android moves from
+Java to Kotlin, and iOS from Objective-C++ to Swift; Windows stays C++. Before the old
+Android and iOS code was removed, the new code was checked call by call against
+recordings of how 0.25 behaved on the same device. On top of that, the JavaScript
+surface loses what never worked, and the platforms are brought to one behaviour where
+they disagreed. Every change to what your code sees is listed under
+[JavaScript API](#javascript-api).
 
-Most apps only need to meet the new requirements below.
+Most apps only need to meet the new requirements below and check the removed APIs.
 
 ## Requirements
 
-| | 0.25 | 0.26 |
+| | 0.25 | 1.0 |
 |---|---|---|
 | React Native architecture | Old or New | **New Architecture only** |
 | React Native | 0.76 and up | 0.84 and up (tested on 0.84 and the newest release) |
@@ -21,6 +24,26 @@ Most apps only need to meet the new requirements below.
 
 If your app still runs on the Old Architecture, stay on 0.25 until it moves to the New
 Architecture.
+
+## JavaScript API
+
+### Removed
+
+- **The Web API polyfills** (`ReactNativeBlobUtil.polyfill`: Blob, File, XMLHttpRequest,
+  FileReader, Fetch, ProgressEvent, Event). They were experimental since 0.8 and no
+  longer worked: FileReader's read methods were stubs, and XMLHttpRequest never
+  completed `json` or `arraybuffer` responses. Use React Native's own `Blob`,
+  `XMLHttpRequest` and `fetch`; for file bodies and file downloads, use
+  `ReactNativeBlobUtil.fetch` with `wrap(path)` and `config({path})`.
+- **`ReactNativeBlobUtil.JSONStream`** and the bundled oboe.js. It replaced the global
+  XMLHttpRequest when used. Stream the response to a file with `config({path})` and
+  parse it, or use a streaming JSON parser of your choice on `fs.readStream`.
+- **`response.blob()`** on the result of `fetch`. It returned the polyfill Blob.
+  Use `response.base64()`, `response.path()` (with `config({fileCache: true})` or
+  `config({path})`) or the new `response.array()`.
+- **`fetch` of a `ReactNativeBlobUtil-file://` URL.** It read the file through the
+  stream API without `cancel`, `taskId` or progress. Use `fs.readFile` or
+  `fs.readStream`.
 
 ## Android
 

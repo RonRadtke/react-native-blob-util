@@ -13,8 +13,3 @@
 import {register} from 'node:module';
 
 register('./hooks.mjs', import.meta.url);
-
-// React Native defines `window` (and `self`) as aliases of the global object;
-// lib/oboe-browser.min.js reads one of them while it loads.
-globalThis.window ??= globalThis;
-globalThis.self ??= globalThis;
