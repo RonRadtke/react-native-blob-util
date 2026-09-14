@@ -45,6 +45,38 @@ namespace
     {
         return ::React::ReactError{ std::move(code), std::move(message) };
     }
+
+    // The code for a failed request, from the WinINet/WinHTTP HRESULT the
+    // Windows.Web.Http stack raises. Names follow POSIX/Node so an app can
+    // switch on them the same way on every platform.
+    std::string codeFor(winrt::hresult_error const& ex)
+    {
+        switch (static_cast<uint32_t>(ex.code()))
+        {
+        case 0x80072EE2: // WININET_E_TIMEOUT
+            return "ETIMEDOUT";
+        case 0x80072EE5: // WININET_E_INVALID_URL
+            return "EINVAL";
+        case 0x80072EE7: // WININET_E_NAME_NOT_RESOLVED
+            return "ENOTFOUND";
+        case 0x80072EFD: // WININET_E_CANNOT_CONNECT
+            return "ECONNREFUSED";
+        case 0x80072EFE: // WININET_E_CONNECTION_ABORTED
+        case 0x80072EFF: // WININET_E_CONNECTION_RESET
+            return "ECONNRESET";
+        case 0x80072F0D: // WININET_E_INVALID_CA
+        case 0x80072F06: // WININET_E_SEC_CERT_CN_INVALID
+        case 0x80072F05: // WININET_E_SEC_CERT_DATE_INVALID
+        case 0x80072F19: // WININET_E_SEC_CERT_REV_FAILED
+        case 0x80072F7D: // WININET_E_SECURITY_CHANNEL_ERROR
+        case 0x80072F8F: // WININET_E_DECODING_FAILED / secure failure
+            return "ESSL";
+        case 0x800704C7: // ERROR_CANCELLED
+            return "ECANCELED";
+        default:
+            return "EUNSPECIFIED";
+        }
+    }
 }
 
 CancellationDisposable::CancellationDisposable(IAsyncInfo const& async, std::function<void()>&& onCancel) noexcept
@@ -914,7 +946,7 @@ namespace winrt::ReactNativeBlobUtil
         }
         catch (const winrt::hresult_error& ex)
         {
-            callback(fetchError("EUNSPECIFIED", winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
+            callback(fetchError(codeFor(ex), winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
         }
         catch (...)
         {
@@ -1093,7 +1125,7 @@ namespace winrt::ReactNativeBlobUtil
         }
         catch (const winrt::hresult_error& ex)
         {
-            callback(fetchError("EUNSPECIFIED", winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
+            callback(fetchError(codeFor(ex), winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
         }
         catch (...)
         {

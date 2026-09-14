@@ -131,6 +131,27 @@ class ReactNativeBlobUtilReq(
         callbackfired = true
     }
 
+    /**
+     * Reports a failed request as {code, message} in the callback's error slot.
+     * The codes follow POSIX/Node names so an app can switch on them.
+     */
+    private fun fail(code: String, message: String?) {
+        val error = Arguments.createMap()
+        error.putString("code", code)
+        error.putString("message", message ?: "")
+        invokeCallback(error, null, null)
+    }
+
+    /** The code for an exception OkHttp hands to onFailure. */
+    private fun codeFor(e: IOException): String = when (e) {
+        is SocketTimeoutException -> "ETIMEDOUT"
+        is UnknownHostException -> "ENOTFOUND"
+        is java.net.ConnectException -> "ECONNREFUSED"
+        is javax.net.ssl.SSLException -> "ESSL"
+        is java.net.SocketException -> "ECONNRESET"
+        else -> "EUNSPECIFIED"
+    }
+
     private val scheduledExecutorService: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
     private var future: Future<*>? = null
 
@@ -209,7 +230,7 @@ class ReactNativeBlobUtilReq(
                     if (!f.exists()) {
                         if (dir != null && !dir.exists()) {
                             if (!dir.mkdirs() && !dir.exists()) {
-                                invokeCallback("Failed to create parent directory of '$path'", null, null)
+                                fail("ENOTDIR", "Failed to create parent directory of '$path'")
                                 return
                             }
                         }
@@ -229,7 +250,7 @@ class ReactNativeBlobUtilReq(
                     if (!f.exists()) {
                         if (dir != null && !dir.exists()) {
                             if (!dir.mkdirs() && !dir.exists()) {
-                                invokeCallback("Failed to create parent directory of '$path'", null, null)
+                                fail("ENOTDIR", "Failed to create parent directory of '$path'")
                                 return
                             }
                         }
@@ -389,7 +410,7 @@ class ReactNativeBlobUtilReq(
                     }
 
                     if (!found) {
-                        invokeCallback("No available WiFi connections.", null, null)
+                        fail("ENETUNREACH", "No available WiFi connections.")
                         releaseTaskResource()
                         return
                     }
@@ -537,9 +558,9 @@ class ReactNativeBlobUtilReq(
                     // check if this error caused by socket timeout
                     if (e.javaClass == SocketTimeoutException::class.java) {
                         respInfo!!.putBoolean("timeout", true)
-                        invokeCallback("The request timed out.", null, null)
+                        fail("ETIMEDOUT", "The request timed out.")
                     } else {
-                        invokeCallback(e.localizedMessage, null, null)
+                        fail(codeFor(e), e.localizedMessage)
                     }
                     releaseTaskResource()
                 }
@@ -577,7 +598,9 @@ class ReactNativeBlobUtilReq(
         } catch (error: Exception) {
             error.printStackTrace()
             releaseTaskResource()
-            invokeCallback("ReactNativeBlobUtil request error: " + error.message + error.cause)
+            // OkHttp's Request.Builder rejects a malformed URL or method with
+            // IllegalArgumentException; everything else is unexpected.
+            fail(if (error is IllegalArgumentException) "EINVAL" else "EUNSPECIFIED", "ReactNativeBlobUtil request error: " + error.message + error.cause)
         }
     }
 

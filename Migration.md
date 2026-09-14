@@ -103,9 +103,21 @@ error had neither a code nor the response info. Now:
   directory, `ENOENT` when the file cannot be created and `ENOTDIR` when its parent
   cannot. Writing to or closing a stream that was already closed rejects with `EBADF`
   (on Android this used to crash the app). Anything else keeps `EUNSPECIFIED`.
-- A failed `fetch` rejects with an `Error` whose `code` is what native reported
-  (`EUNSPECIFIED` where it reported nothing better) and whose `respInfo` holds the
-  response info received so far.
+- A failed `fetch` rejects with an `Error` whose `respInfo` holds the response info
+  received so far and whose `code` names the failure the same way on every platform:
+
+  | Code | Meaning |
+  |---|---|
+  | `ETIMEDOUT` | the request timed out (`respInfo.timeout` is also true) |
+  | `ENOTFOUND` | the host name could not be resolved |
+  | `ECONNREFUSED` | the host refused the connection |
+  | `ECONNRESET` | the connection was lost |
+  | `ENETUNREACH` | no usable network (Android `wifiOnly` without WiFi; iOS offline) |
+  | `ESSL` | the TLS handshake or certificate check failed, including `customCACerts` and `pinnedHosts` rejections |
+  | `ECANCELED` | the task was cancelled |
+  | `EINVAL` | the URL or method is invalid |
+  | `ENOTDIR` | the download directory could not be created |
+  | `EUNSPECIFIED` | anything else; the message says what |
 - `task.cancel(callback)`: the callback is called once native has cancelled, with an
   error argument if that failed. It used to receive `(null, taskId)`.
 - Messages are unchanged where they existed, so string matching on messages keeps
