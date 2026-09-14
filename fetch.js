@@ -40,7 +40,7 @@ import type {ReactNativeBlobUtilConfig} from './types';
  * @return {function} This method returns a `fetch` method instance.
  */
 export function config(options: ReactNativeBlobUtilConfig) {
-    return {fetch: fetch.bind(options)};
+    return {fetch: (...args: any) => fetchWithOptions(options || {}, ...args)};
 }
 
 /**
@@ -129,7 +129,8 @@ function fetchFile(options = {}, method, url, headers = {}, body): Promise {
 }
 
 /**
- * Create a HTTP request by settings, the `this` context is a `ReactNativeBlobUtilConfig` object.
+ * Create a HTTP request with the default configuration. Use `config(options).fetch`
+ * to configure it.
  * @param  {string} method HTTP method, should be `GET`, `POST`, `PUT`, `DELETE`
  * @param  {string} url Request target url string.
  * @param  {object} headers HTTP request headers.
@@ -141,13 +142,14 @@ function fetchFile(options = {}, method, url, headers = {}, body): Promise {
  *         register progress event handler.
  */
 export function fetch(...args: any): Promise {
+    return fetchWithOptions({}, ...args);
+}
+
+function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, url: string, headers: ?Object, body: any): Promise {
 
     // create task ID for receiving progress event
-    let taskId = getUUID();
-    let options = this || {};
-    let subscription, subscriptionUpload, stateEvent, partEvent;
+    const taskId = getUUID();
     let respInfo = {'uninit': true};
-    let [method, url, headers, body] = [...args];
 
     // # 241 normalize null or undefined headers, in case nil or null string
     // pass to native context
@@ -161,50 +163,50 @@ export function fetch(...args: any): Promise {
         return fetchFile(options, method, url, headers, body);
     }
 
-    let promiseResolve;
+    // Every listener this task registers, so that settling or cancelling removes
+    // all of them: a task must leave nothing behind for the life of the app.
+    const subscriptions = [];
+    let settled = false;
+
+    function settle() {
+        settled = true;
+        while (subscriptions.length > 0) {
+            subscriptions.pop().remove();
+        }
+    }
+
     let promiseReject;
 
     // from remote HTTP(S)
-    let promise = new Promise((resolve, reject) => {
-        promiseResolve = resolve;
+    const promise = new Promise((resolve, reject) => {
         promiseReject = reject;
 
-        let nativeMethodName = Array.isArray(body) ? 'fetchBlobForm' : 'fetchBlob';
+        const nativeMethodName = Array.isArray(body) ? 'fetchBlobForm' : 'fetchBlob';
+        const emitter = getEventEmitter();
 
-        // on progress event listener
-        subscription = getEventEmitter().addListener('ReactNativeBlobUtilProgress', (e) => {
-            if (typeof e === 'string') e = JSON.parse(e);
-            if (e.taskId === taskId && promise.onProgress) {
-                promise.onProgress(toByteCount(e.written), toByteCount(e.total), e.chunk);
-            }
+        // Listens for an event of this task only; iOS sends events as JSON strings.
+        function listen(eventName, handler) {
+            subscriptions.push(emitter.addListener(eventName, (e) => {
+                if (typeof e === 'string') e = JSON.parse(e);
+                if (e.taskId === taskId) handler(e);
+            }));
+        }
+
+        listen('ReactNativeBlobUtilProgress', (e) => {
+            if (promise.onProgress) promise.onProgress(toByteCount(e.written), toByteCount(e.total), e.chunk);
         });
-
-        subscriptionUpload = getEventEmitter().addListener('ReactNativeBlobUtilProgress-upload', (e) => {
-            if (typeof e === 'string') e = JSON.parse(e);
-            if (e.taskId === taskId && promise.onUploadProgress) {
-                promise.onUploadProgress(toByteCount(e.written), toByteCount(e.total));
-            }
+        listen('ReactNativeBlobUtilProgress-upload', (e) => {
+            if (promise.onUploadProgress) promise.onUploadProgress(toByteCount(e.written), toByteCount(e.total));
         });
-
-        stateEvent = getEventEmitter().addListener('ReactNativeBlobUtilState', (e) => {
-            if (typeof e === 'string') e = JSON.parse(e);
-            if (e.taskId === taskId)
-                respInfo = e;
-            promise.onStateChange && promise.onStateChange(e);
+        listen('ReactNativeBlobUtilState', (e) => {
+            respInfo = e;
+            if (promise.onStateChange) promise.onStateChange(e);
         });
-
-        subscription = getEventEmitter().addListener('ReactNativeBlobUtilExpire', (e) => {
-            if (typeof e === 'string') e = JSON.parse(e);
-            if (e.taskId === taskId && promise.onExpire) {
-                promise.onExpire(e);
-            }
+        listen('ReactNativeBlobUtilExpire', (e) => {
+            if (promise.onExpire) promise.onExpire(e);
         });
-
-        partEvent = getEventEmitter().addListener('ReactNativeBlobUtilServerPush', (e) => {
-            if (typeof e === 'string') e = JSON.parse(e);
-            if (e.taskId === taskId && promise.onPartData) {
-                promise.onPartData(e.chunk);
-            }
+        listen('ReactNativeBlobUtilServerPush', (e) => {
+            if (promise.onPartData) promise.onPartData(e.chunk);
         });
 
         // When the request body comes from Blob polyfill, we should use special its ref
@@ -213,12 +215,12 @@ export function fetch(...args: any): Promise {
             body = body.getReactNativeBlobUtilRef();
         }
 
-        let req = requireNativeModule()[nativeMethodName];
+        const req = requireNativeModule()[nativeMethodName];
 
         /**
          * Send request via native module, the response callback accepts three arguments
          * @callback
-            * @param err {any} Error message or object, when the request success, this
+         * @param err {any} Error message or object, when the request success, this
          *                  parameter should be `null`.
          * @param rawType { 'utf8' | 'base64' | 'path'} RNFB request will be stored
          *                  as UTF8 string, BASE64 string, or a file path reference
@@ -230,20 +232,9 @@ export function fetch(...args: any): Promise {
         req(options, taskId, method, url, headers || {}, body, (err, rawType, data, responseInfo) => {
 
             // task done, remove event listeners
-            subscription.remove();
-            subscriptionUpload.remove();
-            stateEvent.remove();
-            partEvent.remove();
-            delete promise.progress;
-            delete promise.uploadProgress;
-            delete promise.stateChange;
-            delete promise.part;
-            delete promise.cancel;
-            // delete promise['expire']
-            promise.cancel = () => {
-            };
+            settle();
 
-            if(!responseInfo) responseInfo = {}; // should not be null / undefined
+            if (!responseInfo) responseInfo = {}; // should not be null / undefined
 
             if (err)
                 reject(new Error(err, respInfo));
@@ -265,46 +256,31 @@ export function fetch(...args: any): Promise {
 
     });
 
-    // extend Promise object, add `progress`, `uploadProgress`, and `cancel`
-    // method for register progress event handler and cancel request.
-    // Add second parameter for performance purpose #140
-    // When there's only one argument pass to this method, use default `interval`
-    // and `count`, otherwise use the given on.
-    // TODO : code refactor, move `uploadProgress` and `progress` to StatefulPromise
-    promise.progress = (...args) => {
-        let interval = 250;
-        let count = -1;
-        let fn = () => {
+    // Extend the promise with `progress`, `uploadProgress`, `stateChange`, `part`,
+    // `expire` and `cancel`. They stay callable after the task has settled and do
+    // nothing then, so a handler registered late, or a cancel of a finished task,
+    // is not an error.
+    // `progress` and `uploadProgress` take an optional first argument #140: when
+    // there is only one argument, the default `interval` and `count` are used.
+    function progressReporter(handlerName, nativeMethodName) {
+        return (...args) => {
+            if (settled) return promise;
+            let interval = 250;
+            let count = -1;
+            let fn = args[0];
+            if (args.length === 2) {
+                interval = args[0].interval || interval;
+                count = args[0].count || count;
+                fn = args[1];
+            }
+            promise[handlerName] = fn;
+            requireNativeModule()[nativeMethodName](taskId, interval, count);
+            return promise;
         };
-        if (args.length === 2) {
-            interval = args[0].interval || interval;
-            count = args[0].count || count;
-            fn = args[1];
-        }
-        else {
-            fn = args[0];
-        }
-        promise.onProgress = fn;
-        requireNativeModule().enableProgressReport(taskId, interval, count);
-        return promise;
-    };
-    promise.uploadProgress = (...args) => {
-        let interval = 250;
-        let count = -1;
-        let fn = () => {
-        };
-        if (args.length === 2) {
-            interval = args[0].interval || interval;
-            count = args[0].count || count;
-            fn = args[1];
-        }
-        else {
-            fn = args[0];
-        }
-        promise.onUploadProgress = fn;
-        requireNativeModule().enableUploadProgressReport(taskId, interval, count);
-        return promise;
-    };
+    }
+
+    promise.progress = progressReporter('onProgress', 'enableProgressReport');
+    promise.uploadProgress = progressReporter('onUploadProgress', 'enableUploadProgressReport');
     promise.part = (fn) => {
         promise.onPartData = fn;
         return promise;
@@ -318,12 +294,10 @@ export function fetch(...args: any): Promise {
         return promise;
     };
     promise.cancel = (fn) => {
-        fn = fn || function () {
-        };
-        subscription.remove();
-        subscriptionUpload.remove();
-        stateEvent.remove();
-        requireNativeModule().cancelRequest(taskId, fn);
+        if (settled) return;
+        settle();
+        requireNativeModule().cancelRequest(taskId, fn || function () {
+        });
         promiseReject(new CanceledFetchError('canceled'));
     };
     promise.taskId = taskId;
