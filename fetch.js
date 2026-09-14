@@ -34,7 +34,18 @@ import type {ReactNativeBlobUtilConfig} from './types';
  *         @property {boolean} trusty
  *                   Trust all certificates
  *         @property {boolean} wifiOnly
- *                   Only do requests through WiFi. Android SDK 21 or above only.
+ *                   Only do requests through WiFi. Android only.
+ *         @property {boolean} overwrite
+ *                   Overwrite an existing file at `path`, default true.
+ *         @property {Array<string>} customCACerts
+ *                   PEM certificates to trust in addition to, or instead of, the
+ *                   system's (see the README).
+ *         @property {Array<string>} pinnedHosts
+ *                   Hosts the custom CA certificates apply to.
+ *         @property {boolean} trustSystemCerts
+ *                   Keep trusting the system certificates when customCACerts is set.
+ *         @property {boolean} transformFile
+ *                   Run the registered file transformer on the downloaded file.
  *
  * @return {function} This method returns a `fetch` method instance.
  */
@@ -111,9 +122,6 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
             respInfo = e;
             if (promise.onStateChange) promise.onStateChange(e);
         });
-        listen('ReactNativeBlobUtilExpire', (e) => {
-            if (promise.onExpire) promise.onExpire(e);
-        });
         listen('ReactNativeBlobUtilServerPush', (e) => {
             if (promise.onPartData) promise.onPartData(e.chunk);
         });
@@ -159,8 +167,8 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
 
     });
 
-    // Extend the promise with `progress`, `uploadProgress`, `stateChange`, `part`,
-    // `expire` and `cancel`. They stay callable after the task has settled and do
+    // Extend the promise with `progress`, `uploadProgress`, `stateChange`, `part`
+    // and `cancel`. They stay callable after the task has settled and do
     // nothing then, so a handler registered late, or a cancel of a finished task,
     // is not an error.
     // `progress` and `uploadProgress` take an optional first argument #140: when
@@ -190,10 +198,6 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
     };
     promise.stateChange = (fn) => {
         promise.onStateChange = fn;
-        return promise;
-    };
-    promise.expire = (fn) => {
-        promise.onExpire = fn;
         return promise;
     };
     promise.cancel = (fn) => {

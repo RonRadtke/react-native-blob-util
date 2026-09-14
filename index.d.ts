@@ -438,13 +438,6 @@ export interface StatefulPromise<T> extends Promise<T> {
      * Add an event listener with custom configuration
      */
     uploadProgress(config: { count?: number; interval?: number }, callback: (sent: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
-
-    /**
-     * An IOS only API, when IOS app turns into background network tasks will be terminated after ~180 seconds,
-     * in order to handle these expired tasks, you can register an event handler, which will be called after the
-     * app become active.
-     */
-    expire(callback: () => void): StatefulPromise<void>;
 }
 
 export declare class ReactNativeBlobUtilSession {
@@ -471,8 +464,11 @@ export declare class ReactNativeBlobUtilSession {
  * A set of configurations that will be injected into a fetch method, with the following properties.
  */
 export interface ReactNativeBlobUtilConfig {
-    Progress?: { count?: number; interval?: number };
-    UploadProgress?: { count?: number; interval?: number };
+    /**
+     * Cache the response under this key: when a file downloaded with the same key
+     * exists, it is returned without a request. Implies fileCache.
+     */
+    key?: string;
 
     /**
      * When this property is true, the downloaded data will overwrite the existing file. (true by default)
@@ -483,11 +479,6 @@ export interface ReactNativeBlobUtilConfig {
      * Set timeout of the request (in milliseconds).
      */
     timeout?: number;
-
-    /**
-     * Set this property to true to display a network indicator on status bar, this feature is only supported on IOS.
-     */
-    indicator?: boolean;
 
     /**
      * Set this property to true will allow the request create connection with server have self-signed SSL

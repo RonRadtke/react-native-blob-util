@@ -80,6 +80,17 @@ string, adjust those comparisons.
   'ECANCELED'` and is also a named export: `import {CanceledFetchError} from
   'react-native-blob-util'`.
 
+### Options and defaults
+
+- The config keys `Progress`, `UploadProgress` and `indicator` are gone. Nothing read
+  the first two (use `task.progress({interval, count}, fn)`), and the iOS network
+  activity indicator has not existed since iOS 13.
+- `task.expire(fn)` is gone. No platform ever emitted the event it listened for.
+- `key` is now declared in the config types; it was always honoured.
+- `fs.readStream` reads 12288 bytes per chunk by default (a multiple of 3, so base64
+  chunks concatenate) instead of 10240, and `tick` defaults to 10 ms in both the
+  wrapper and the stream.
+
 ## Android
 
 Apps that follow the README don't need to change anything.

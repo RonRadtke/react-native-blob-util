@@ -776,7 +776,7 @@ ReactNativeBlobUtil.fs.readStream(
         PATH_TO_THE_FILE,
         // encoding, should be one of `base64`, `utf8`, `ascii`
         'base64',
-        // (optional) buffer size, default to 4096 (4095 for BASE64 encoded data)
+        // (optional) buffer size in bytes, default 12288
         // when reading file in BASE64 encoding, buffer size must be multiples of 3.
         4095)
         .then((ifstream) => {

@@ -127,12 +127,19 @@ test('task methods survive settling as no-ops (audit #8)', async () => {
     assert.equal(task.uploadProgress(() => {}), task);
     assert.equal(task.stateChange(() => {}), task);
     assert.equal(task.part(() => {}), task);
-    assert.equal(task.expire(() => {}), task);
     assert.equal(typeof task.taskId, 'string');
     assert.doesNotThrow(() => task.cancel());
 
     assert.equal(calls.some((c) => c.name === 'enableProgressReport'), false, 'no native call after settle');
     assert.equal(calls.some((c) => c.name === 'cancelRequest'), false, 'no native cancel after settle');
+});
+
+test('there is no expire(): nothing ever emitted the event it listened for (audit #12)', async () => {
+    const task = fetch('GET', 'https://example.test/a');
+    assert.equal(task.expire, undefined);
+    assert.equal(rn.listenerCount('ReactNativeBlobUtilExpire'), 0);
+    completeLast();
+    await task;
 });
 
 test('a plain fetch sends no options; config() sends exactly its options (audit #9)', async () => {

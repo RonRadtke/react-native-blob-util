@@ -187,7 +187,7 @@ function writeStream(
  * Create file stream from file at `path`.
  * @param  {string} path   The file path.
  * @param  {string} encoding Data encoding, should be one of `base64`, `utf8`, `ascii`
- * @param  {boolean} bufferSize Size of stream buffer.
+ * @param  {number} [bufferSize=12288] Size of stream buffer, in bytes. Use a multiple of 3 for base64.
  * @param  {number} [tick=10] Interval in milliseconds between reading chunks of data
  * @return {ReactNativeBlobUtilStream} ReactNativeBlobUtilStream stream instance.
  */

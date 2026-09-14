@@ -7,13 +7,17 @@ import {toUnsignedBytes} from '../utils/bytes';
 
 import {getEventEmitter, requireNativeModule} from '../utils/nativeModule';
 
+// A multiple of 3 so that base64 chunks concatenate without padding in the middle.
+const DEFAULT_BUFFER_SIZE = 12288;
+const DEFAULT_TICK = 10;
+
 export default class ReactNativeBlobUtilReadStream {
 
     path: string;
     encoding: 'utf8' | 'ascii' | 'base64';
     bufferSize: ?number;
     closed: boolean;
-    tick: number = 10;
+    tick: number = DEFAULT_TICK;
 
     constructor(path: string, encoding: string, bufferSize?: ?number, tick: number) {
         if (!path)
@@ -22,7 +26,7 @@ export default class ReactNativeBlobUtilReadStream {
         this.bufferSize = bufferSize;
         this.path = path;
         this.closed = false;
-        this.tick = tick;
+        this.tick = tick > 0 ? tick : DEFAULT_TICK;
         this._onData = () => {
         };
         this._onEnd = () => {
@@ -63,7 +67,7 @@ export default class ReactNativeBlobUtilReadStream {
 
     open() {
         if (!this.closed)
-            requireNativeModule().readStream(this.path, this.encoding, this.bufferSize || 10240, this.tick || -1, this.streamId);
+            requireNativeModule().readStream(this.path, this.encoding, this.bufferSize > 0 ? this.bufferSize : DEFAULT_BUFFER_SIZE, this.tick, this.streamId);
         else
             throw new Error('Stream closed');
     }

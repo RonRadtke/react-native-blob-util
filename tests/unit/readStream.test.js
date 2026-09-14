@@ -66,6 +66,15 @@ test('an error event rejects with its code and removes the listener', async () =
     assert.equal(stream.closed, true);
 });
 
+test('the defaults are a 12288-byte buffer and a 10 ms tick (audit #18)', async () => {
+    (await fs.readStream('/a', 'base64')).open();
+    (await fs.readStream('/a', 'base64', 0, 0)).open();
+    (await fs.readStream('/a', 'base64', 3000, 25)).open();
+
+    assert.deepEqual(calls.map(([, , bufferSize, tick]) => [bufferSize, tick]), [[12288, 10], [12288, 10], [3000, 25]]);
+    assert.equal(12288 % 3, 0, 'base64 chunks must not be padded mid-file');
+});
+
 test('events for other streams are ignored', async () => {
     const stream = await fs.readStream('/a', 'utf8');
     const done = collect(stream);

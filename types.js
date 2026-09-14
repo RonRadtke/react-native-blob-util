@@ -1,20 +1,22 @@
 
 export type ReactNativeBlobUtilConfig = {
-  Progress: any,
-  UploadProgress: any,
-  fileCache : boolean,
-  transformFile: boolean;
-  path : string,
-  appendExt : string,
-  session : string,
-  addAndroidDownloads : any,
-  indicator : boolean,
-  followRedirect : boolean,
-  trusty : boolean,
-  wifiOnly : boolean,
-  customCACerts : Array<string>,
-  pinnedHosts : Array<string>,
-  trustSystemCerts : boolean
+  fileCache?: boolean,
+  path?: string,
+  appendExt?: string,
+  key?: string,
+  session?: string,
+  overwrite?: boolean,
+  timeout?: number,
+  followRedirect?: boolean,
+  transformFile?: boolean,
+  trusty?: boolean,
+  customCACerts?: Array<string>,
+  pinnedHosts?: Array<string>,
+  trustSystemCerts?: boolean,
+  // Android only
+  addAndroidDownloads?: Object,
+  wifiOnly?: boolean,
+  targetHostIp?: string,
 };
 
 export type ReactNativeBlobUtilNative = {
