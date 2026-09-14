@@ -177,6 +177,14 @@ Network-level differences stay documented rather than aligned: a URL without a h
 `stateChange`, and a request body without a Content-Type is sent chunked on Android and
 with a Content-Length as `application/octet-stream` on iOS.
 
+### Always a Promise
+
+`response.text()`, `response.json()` and `response.base64()` returned a value when the
+body was held in memory and a Promise when it was a file, so code worked or broke depending
+on `config()`. They always return a Promise now; `await` them. `response.flush()` always
+returns a Promise (resolved at once when there is no file). `task.cancel()` returns a
+Promise that resolves once native has cancelled; the optional callback still works.
+
 ### Options and defaults
 
 - The config keys `Progress`, `UploadProgress` and `indicator` are gone. Nothing read

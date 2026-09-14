@@ -673,12 +673,12 @@ define('session-dispose', async () => {
 
 define('fetch-text', async (ctx) => {
     const res = await ReactNativeBlobUtil.fetch('GET', ctx.url('/text'));
-    return {info: infoSummary(res.info()), type: res.type, dataType: typeof res.data, text: describeValue(res.text())};
+    return {info: infoSummary(res.info()), type: res.type, dataType: typeof res.data, text: describeValue(await res.text())};
 });
 
 define('fetch-json', async (ctx) => {
     const res = await ReactNativeBlobUtil.fetch('GET', ctx.url('/health'));
-    return {info: infoSummary(res.info()), type: res.type, json: describeValue(res.json())};
+    return {info: infoSummary(res.info()), type: res.type, json: describeValue(await res.json())};
 });
 
 define('fetch-binary-base64', async (ctx) => {
@@ -733,7 +733,7 @@ define('fetch-key-cache', async (ctx) => {
 define('fetch-status', async (ctx) => {
     const fetchStatus = (code) => settle(async () => {
         const res = await ReactNativeBlobUtil.fetch('GET', ctx.url(`/status/${code}`));
-        return {status: res.info().status, respType: res.info().respType, text: res.text()};
+        return {status: res.info().status, respType: res.info().respType, text: await res.text()};
     });
     return {s201: await fetchStatus(201), s404: await fetchStatus(404), s500: await fetchStatus(500)};
 });
@@ -741,11 +741,11 @@ define('fetch-status', async (ctx) => {
 define('fetch-redirect', async (ctx) => {
     const follow = await settle(async () => {
         const res = await ReactNativeBlobUtil.fetch('GET', ctx.url('/redirect-twice'));
-        return {status: res.info().status, redirects: collapseRepeats(res.info().redirects), text: res.text()};
+        return {status: res.info().status, redirects: collapseRepeats(res.info().redirects), text: await res.text()};
     });
     const noFollow = await settle(async () => {
         const res = await ReactNativeBlobUtil.config({followRedirect: false}).fetch('GET', ctx.url('/redirect'));
-        return {status: res.info().status, redirects: collapseRepeats(res.info().redirects), headers: headerSummary(res.info().headers), text: res.text()};
+        return {status: res.info().status, redirects: collapseRepeats(res.info().redirects), headers: headerSummary(res.info().headers), text: await res.text()};
     });
     return {follow, noFollow};
 });
@@ -754,7 +754,7 @@ define('fetch-timeout', async (ctx) => {
     const started = Date.now();
     const result = await settle(async () => {
         const res = await ReactNativeBlobUtil.config({timeout: 1000}).fetch('GET', ctx.url('/slow?ms=5000'));
-        return {status: res.info().status, text: res.text()};
+        return {status: res.info().status, text: await res.text()};
     });
     return {result, gaveUpBeforeServerAnswered: Date.now() - started < 4500};
 });
@@ -810,7 +810,7 @@ define('fetch-chunked', async (ctx) => {
     const res = await ReactNativeBlobUtil.fetch('GET', ctx.url('/chunked')).progress((written, total) => totals.add(total));
     return {
         info: infoSummary(res.info()),
-        text: res.text(),
+        text: await res.text(),
         knownTotalReported: [...totals].some((total) => total >= 0),
     };
 });
@@ -824,7 +824,7 @@ define('fetch-state-change', async (ctx) => {
 define('fetch-cookies', async (ctx) => {
     await ReactNativeBlobUtil.fetch('GET', ctx.url('/cookie/set'));
     const res = await ReactNativeBlobUtil.fetch('GET', ctx.url('/cookie/echo'));
-    return {cookieSentBack: res.json().cookie.includes('rnbu_e2e=cookie-value')};
+    return {cookieSentBack: (await res.json()).cookie.includes('rnbu_e2e=cookie-value')};
 });
 
 define('fetch-errors', async () => ({
@@ -845,7 +845,7 @@ define('upload-bodies', async (ctx) => {
     const dir = await freshDir('upload-bodies');
     const file = `${dir}/upload.txt`;
     await fs.createFile(file, 'file body ✓', 'utf8');
-    const echo = async (method, headers, body) => echoSummary((await ReactNativeBlobUtil.fetch(method, ctx.url('/echo'), headers, body)).json());
+    const echo = async (method, headers, body) => echoSummary(await (await ReactNativeBlobUtil.fetch(method, ctx.url('/echo'), headers, body)).json());
     return {
         plainNoHeaders: await settle(() => echo('POST', {'X-RNBU-E2E': 'hello'}, 'plain body ✓')),
         octetBase64: await settle(() => echo('POST', {'Content-Type': 'application/octet-stream'}, 'AAEC/w==')),
@@ -869,7 +869,7 @@ define('upload-multipart', async (ctx) => {
         {name: 'untyped', filename: 'untyped.dat', data: 'AAEC/w=='},
         {name: 'unicode', data: 'héllo ✓'},
     ]);
-    return echoSummary(res.json());
+    return echoSummary(await res.json());
 });
 
 define('android-media-store', async (ctx) => {

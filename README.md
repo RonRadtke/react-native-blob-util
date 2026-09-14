@@ -246,15 +246,14 @@ ReactNativeBlobUtil.fetch('GET', 'http://www.example.com/images/img1.png', {
     Authorization: 'Bearer access-token...',
     // more headers  ..
 })
-        .then((res) => {
+        .then(async (res) => {
             let status = res.info().status;
 
             if (status == 200) {
-                // the conversion is done in native code
-                let base64Str = res.base64()
-                // the following conversions are done in js, it's SYNC
-                let text = res.text()
-                let json = res.json()
+                // every accessor returns a Promise, whether the body is in memory or a file
+                let base64Str = await res.base64()
+                let text = await res.text()
+                let json = await res.json()
             }
             else {
                 // handle other status codes

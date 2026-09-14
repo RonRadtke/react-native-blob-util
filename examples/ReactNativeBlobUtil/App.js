@@ -643,8 +643,8 @@ const App: () => React$Node = () => {
             },
             ReactNativeBlobUtil.wrap(imageToUploadPath),
         )
-            .then((res) => {
-                notify('upload file', res.text());
+            .then(async (res) => {
+                notify('upload file', await res.text());
             })
             .catch((err) => {
                 notifyError(err);
@@ -667,8 +667,8 @@ const App: () => React$Node = () => {
             },
             'Waka Flacka Flame goes very well with Thomas the Tank Engine.',
         )
-            .then((res) => {
-                notify('upload text', res.text());
+            .then(async (res) => {
+                notify('upload text', await res.text());
             })
             .catch((err) => {
                 notifyError(err);
@@ -701,8 +701,8 @@ const App: () => React$Node = () => {
                     appendLog('multipart download progress: 100%');
                 }
             })
-            .then((res) => {
-                notify('multipart', res.text());
+            .then(async (res) => {
+                notify('multipart', await res.text());
             })
             .catch((err) => {
                 notifyError(err);
@@ -761,7 +761,9 @@ const App: () => React$Node = () => {
                 }
             })
             .then((res) => {
-                notify('progress', res.text());
+                // The body is a cached file here; decoding it to text takes
+                // long enough to push the marker below past the harness wait.
+                notify('progress', 'saved to ' + res.path());
 
                 // After the completion entry, not from inside the callbacks:
                 // iOS exposes only the newest log entry, so a marker written
@@ -785,8 +787,8 @@ const App: () => React$Node = () => {
             trusty: false,
         })
             .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                const data = res.json();
+            .then(async (res) => {
+                const data = await res.json();
                 notify('tls-custom-ca', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
             })
             .catch((err) => {
@@ -799,8 +801,8 @@ const App: () => React$Node = () => {
             trusty: false,
         })
             .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                notify('tls-no-ca', 'FAIL: should have rejected but got ' + res.text());
+            .then(async (res) => {
+                notify('tls-no-ca', 'FAIL: should have rejected but got ' + await res.text());
             })
             .catch((err) => {
                 notify('tls-no-ca', 'PASS: ' + err.message);
@@ -814,8 +816,8 @@ const App: () => React$Node = () => {
             trusty: false,
         })
             .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                notify('tls-wrong-pin', 'FAIL: should have rejected but got ' + res.text());
+            .then(async (res) => {
+                notify('tls-wrong-pin', 'FAIL: should have rejected but got ' + await res.text());
             })
             .catch((err) => {
                 notify('tls-wrong-pin', 'PASS: ' + err.message);
@@ -837,8 +839,8 @@ const App: () => React$Node = () => {
             trusty: false,
         })
             .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                const data = res.json();
+            .then(async (res) => {
+                const data = await res.json();
                 notify('tls-system-certs', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
             })
             .catch((err) => {
@@ -851,8 +853,8 @@ const App: () => React$Node = () => {
             trusty: true,
         })
             .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                const data = res.json();
+            .then(async (res) => {
+                const data = await res.json();
                 notify('tls-trusty', data.ok ? 'PASS' : 'FAIL: ' + JSON.stringify(data));
             })
             .catch((err) => {
@@ -871,8 +873,8 @@ const App: () => React$Node = () => {
             trusty: false,
         })
             .fetch('GET', `${HTTPS_BASE_URL}/health`)
-            .then((res) => {
-                notify('tls-bogus-cert', 'FAIL: should have rejected but got ' + res.text());
+            .then(async (res) => {
+                notify('tls-bogus-cert', 'FAIL: should have rejected but got ' + await res.text());
             })
             .catch((err) => {
                 notify('tls-bogus-cert', 'PASS: ' + err.message);

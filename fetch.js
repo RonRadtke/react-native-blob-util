@@ -205,16 +205,17 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         promise.onStateChange = fn;
         return promise;
     };
-    promise.cancel = (fn) => {
-        if (settled) return;
+    // Resolves once native has cancelled the task. The task itself rejects
+    // with CanceledFetchError right away.
+    promise.cancel = (fn: ?Function): Promise<void> => {
+        if (settled) return Promise.resolve();
         settle();
-        const cancelled = requireNativeModule().cancelRequest(taskId);
+        const cancelled = requireNativeModule().cancelRequest(taskId).then(() => undefined);
         if (typeof fn === 'function') {
             cancelled.then(() => fn(), (err) => fn(err));
-        } else {
-            cancelled.catch(() => {});
         }
         promiseReject(new CanceledFetchError('canceled'));
+        return cancelled;
     };
     promise.taskId = taskId;
 

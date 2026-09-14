@@ -13,10 +13,10 @@ export class FetchBlobResponse {
     type: 'base64' | 'path' | 'utf8';
     data: any;
     array: () => Promise<Array<number>>;
-    text: () => string | Promise<any>;
-    json: () => any;
-    base64: () => any;
-    flush: () => void;
+    text: () => Promise<string>;
+    json: () => Promise<any>;
+    base64: () => Promise<string>;
+    flush: () => Promise<void>;
     respInfo: ReactNativeBlobUtilResponseInfo;
     session: (name: string) => ReactNativeBlobUtilSession | null;
     readFile: (encode: 'base64' | 'utf8' | 'ascii') => ?Promise<any>;
@@ -50,56 +50,51 @@ export class FetchBlobResponse {
         };
 
         /**
-         * Convert result to text.
-         * @return {string} Decoded base64 string.
+         * The body as text. Always a Promise, whether the body is held in memory
+         * or in a file.
+         * @return {Promise<string>}
          */
-        this.text = (): string | Promise<any> => {
+        this.text = (): Promise<string> => {
             switch (this.type) {
                 case 'base64':
-                    return base64.decode(this.data);
+                    return Promise.resolve(base64.decode(this.data));
                 case 'path':
-                    return fs.readFile(this.data, 'base64').then((b64) => Promise.resolve(base64.decode(b64)));
+                    return fs.readFile(this.data, 'base64').then((b64) => base64.decode(b64));
                 default:
-                    return this.data;
+                    return Promise.resolve(this.data);
             }
         };
         /**
-         * Convert result to JSON object.
-         * @return {object} Parsed javascript object.
+         * The body parsed as JSON.
+         * @return {Promise<any>}
          */
-        this.json = (): any => {
-            switch (this.type) {
-                case 'base64':
-                    return JSON.parse(base64.decode(this.data));
-                case 'path':
-                    return fs.readFile(this.data, 'utf8')
-                        .then((text) => Promise.resolve(JSON.parse(text)));
-                default:
-                    return JSON.parse(this.data);
-            }
+        this.json = (): Promise<any> => {
+            return this.text().then((text) => JSON.parse(text));
         };
         /**
-         * Return BASE64 string directly.
-         * @return {string} BASE64 string of response body.
+         * The body as a base64 string.
+         * @return {Promise<string>}
          */
-        this.base64 = (): string | Promise<any> => {
+        this.base64 = (): Promise<string> => {
             switch (this.type) {
                 case 'base64':
-                    return this.data;
+                    return Promise.resolve(this.data);
                 case 'path':
                     return fs.readFile(this.data, 'base64');
                 default:
-                    return base64.encode(this.data);
+                    return Promise.resolve(base64.encode(this.data));
             }
         };
         /**
-         * Remove cahced file
-         * @return {Promise}
+         * Remove the response file. Resolves without doing anything when the
+         * body is not a file.
+         * @return {Promise<void>}
          */
-        this.flush = () => {
-            let path = this.path();
-            if (!path || this.type !== 'path')
-                return;
+        this.flush = (): Promise<void> => {
+            const path = this.path();
+            if (!path || this.type !== 'path') {
+                return Promise.resolve();
+            }
             return fs.unlink(path);
         };
         /**

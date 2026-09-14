@@ -103,9 +103,10 @@ export interface StatefulPromise<T> extends Promise<T> {
     part(callback: (chunk: string) => void): this;
 
     /**
-     * Cancel the request. The promise rejects with `CanceledFetchError`.
+     * Cancel the request. The task rejects with `CanceledFetchError` at once;
+     * the returned promise resolves once native has cancelled.
      */
-    cancel(callback?: (reason?: any) => void): void;
+    cancel(callback?: (reason?: any) => void): Promise<void>;
 }
 
 export interface ProgressConfig {
@@ -136,19 +137,19 @@ export declare class FetchBlobResponse {
     path(): string | null;
 
     /**
-     * The body as text. A Promise when the body is a file.
+     * The body as text.
      */
-    text(): string | Promise<string>;
+    text(): Promise<string>;
 
     /**
-     * The body parsed as JSON. A Promise when the body is a file.
+     * The body parsed as JSON.
      */
-    json(): any | Promise<any>;
+    json(): Promise<any>;
 
     /**
-     * The body as a base64 string. A Promise when the body is a file.
+     * The body as a base64 string.
      */
-    base64(): string | Promise<string>;
+    base64(): Promise<string>;
 
     /**
      * The body as byte values 0..255.
@@ -156,9 +157,10 @@ export declare class FetchBlobResponse {
     array(): Promise<number[]>;
 
     /**
-     * Remove the response file. Does nothing when the body is not a file.
+     * Remove the response file. Resolves without doing anything when the body
+     * is not a file.
      */
-    flush(): Promise<void> | undefined;
+    flush(): Promise<void>;
 
     /**
      * Add the response file to a session, or null when the body is not a file.

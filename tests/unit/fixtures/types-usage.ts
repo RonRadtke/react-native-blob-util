@@ -83,7 +83,7 @@ async function network(): Promise<void> {
         {name: 'field', data: 'value'},
         {name: 'file', filename: 'a.png', type: 'image/png', data: wrap('/tmp/a.png')},
     ]);
-    form.cancel();
+    await form.cancel();
     form.cancel((reason?: any) => { void reason; });
 
     try {
@@ -92,16 +92,15 @@ async function network(): Promise<void> {
         void info.redirects;
         const path: string | null = response.path();
         void path;
-        const text: string | Promise<string> = response.text();
+        const text: string = await response.text();
         void text;
-        const json: any = response.json();
+        const json: any = await response.json();
         void json;
-        const b64: string | Promise<string> = response.base64();
+        const b64: string = await response.base64();
         void b64;
         const bytes: number[] = await response.array();
         void bytes;
-        const maybeFlush: Promise<void> | undefined = response.flush();
-        void maybeFlush;
+        await response.flush();
         const s = response.session('downloads');
         if (s) { s.add('/p').remove('/p'); }
         const asBytes: Promise<number[]> | null = response.readFile('ascii');
