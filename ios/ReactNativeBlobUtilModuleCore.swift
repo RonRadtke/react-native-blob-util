@@ -83,7 +83,10 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
             options, taskId: taskId, method: method, url: url, headers: headers, form: form
         ) { [weak self] req, bodyLength in
             guard let req = req else {
-                return callback(["ReactNativeBlobUtil.fetchBlobForm failed to create request body"])
+                return callback([[
+                    "code": "EUNSPECIFIED",
+                    "message": "ReactNativeBlobUtil.fetchBlobForm failed to create request body",
+                ]])
             }
             ReactNativeBlobUtilNetwork.sharedInstance().sendRequest(
                 options, contentLength: bodyLength, baseModule: self?.eventSink,
@@ -99,7 +102,10 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
             options, taskId: taskId, method: method, url: url, headers: headers, body: body
         ) { [weak self] req, bodyLength in
             guard let req = req else {
-                return callback(["ReactNativeBlobUtil.fetchBlob failed to create request body"])
+                return callback([[
+                    "code": "EUNSPECIFIED",
+                    "message": "ReactNativeBlobUtil.fetchBlob failed to create request body",
+                ]])
             }
             ReactNativeBlobUtilNetwork.sharedInstance().sendRequest(
                 options, contentLength: bodyLength, baseModule: self?.eventSink,
@@ -176,9 +182,14 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
 
     // MARK: - plain forwards
 
-    @objc(exists:callback:)
-    public func exists(_ path: String, callback: @escaping RNBUCallbackNonNull) {
-        ReactNativeBlobUtilFS.exists(path) { callback($0 ?? []) }
+    @objc(exists:resolve:reject:)
+    public func exists(_ path: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilFS.exists(path) { args in
+            resolve([
+                "exists": (args?.first as? Bool) ?? false,
+                "isDirectory": (args?.dropFirst().first as? Bool) ?? false,
+            ])
+        }
     }
 
     @objc(writeFile:encoding:data:transformFile:append:resolve:reject:)
@@ -215,22 +226,24 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
                                     resolver: resolve, rejecter: reject)
     }
 
-    @objc(df:)
-    public func df(_ callback: @escaping RNBUCallbackNonNull) {
-        ReactNativeBlobUtilFS.df { callback($0 ?? []) }
-    }
-
-    @objc(getEnvironmentDirs:)
-    public func getEnvironmentDirs(_ callback: @escaping RNBUCallbackNonNull) {
-        callback([ReactNativeBlobUtilFS.getDocumentDir(), ReactNativeBlobUtilFS.getCacheDir()])
+    @objc(df:reject:)
+    public func df(_ resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilFS.df { args in
+            // [NSNull, dict] on success, [message] on failure.
+            if let usage = args?.dropFirst().first as? [String: Any] {
+                resolve(usage)
+            } else {
+                reject("EUNSPECIFIED", (args?.first as? String) ?? "failed to get storage usage.", nil)
+            }
+        }
     }
 
     // MARK: - network forwards
 
-    @objc(cancelRequest:callback:)
-    public func cancelRequest(_ taskId: String, callback: @escaping RNBUCallbackNonNull) {
+    @objc(cancelRequest:resolve:reject:)
+    public func cancelRequest(_ taskId: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         ReactNativeBlobUtilNetwork.sharedInstance().cancelRequest(taskId)
-        callback([NSNull(), taskId])
+        resolve(nil)
     }
 
     @objc(enableProgressReport:interval:count:)
@@ -254,9 +267,9 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
 
     // MARK: - streams
 
-    @objc(writeStream:withEncoding:appendData:callback:)
+    @objc(writeStream:withEncoding:appendData:resolve:reject:)
     public func writeStream(_ path: String, withEncoding encoding: String, appendData append: Bool,
-                            callback: @escaping RNBUCallbackNonNull) {
+                            resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         let fm = FileManager.default
         let folder = (path as NSString).deletingLastPathComponent
         var isDir: ObjCBool = false
@@ -270,45 +283,54 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
             do {
                 try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
             } catch {
-                callback(["ENOTDIR",
-                          "Failed to create parent directory of '\(path)'; error: \((error as NSError).description)"])
+                reject("ENOTDIR",
+                       "Failed to create parent directory of '\(path)'; error: \((error as NSError).description)", nil)
                 return
             }
             if !fm.createFile(atPath: path, contents: nil) {
-                callback(["ENOENT", "File '\(path)' does not exist and could not be created"])
+                reject("ENOENT", "File '\(path)' does not exist and could not be created", nil)
                 return
             }
         } else if isDir.boolValue {
-            callback(["EISDIR", "Expecting a file but '\(path)' is a directory"])
+            reject("EISDIR", "Expecting a file but '\(path)' is a directory", nil)
             return
         }
 
         let stream = ReactNativeBlobUtilFS()
-        let streamId = stream.openWithPath(path, encode: encoding, appendData: append)
-        callback([NSNull(), NSNull(), streamId])
+        resolve(stream.openWithPath(path, encode: encoding, appendData: append))
     }
 
-    @objc(writeArrayChunk:withArray:callback:)
+    /// An unknown stream id used to succeed silently, so a caller writing to a
+    /// closed or mistyped stream got no signal at all.
+    private func stream(_ streamId: String, _ reject: RNBUReject) -> ReactNativeBlobUtilFS? {
+        guard let stream = ReactNativeBlobUtilFS.getFileStreams()[streamId] else {
+            reject("EBADF", "No such write stream '\(streamId)'", nil)
+            return nil
+        }
+        return stream
+    }
+
+    @objc(writeArrayChunk:withArray:resolve:reject:)
     public func writeArrayChunk(_ streamId: String, withArray dataArray: [NSNumber],
-                                callback: @escaping RNBUCallbackNonNull) {
-        let stream = ReactNativeBlobUtilFS.getFileStreams()[streamId]
-        stream?.write(Data(dataArray.map { UInt8(bitPattern: $0.int8Value) }))
-        callback([NSNull()])
+                                resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        guard let stream = stream(streamId, reject) else { return }
+        stream.write(Data(dataArray.map { UInt8(bitPattern: $0.int8Value) }))
+        resolve(nil)
     }
 
-    @objc(writeChunk:withData:callback:)
+    @objc(writeChunk:withData:resolve:reject:)
     public func writeChunk(_ streamId: String, withData data: String,
-                           callback: @escaping RNBUCallbackNonNull) {
-        let stream = ReactNativeBlobUtilFS.getFileStreams()[streamId]
-        stream?.writeEncodeChunk(data)
-        callback([NSNull()])
+                           resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        guard let stream = stream(streamId, reject) else { return }
+        stream.writeEncodeChunk(data)
+        resolve(nil)
     }
 
-    @objc(closeStream:callback:)
-    public func closeStream(_ streamId: String, callback: @escaping RNBUCallbackNonNull) {
-        let stream = ReactNativeBlobUtilFS.getFileStreams()[streamId]
-        stream?.closeOutStream()
-        callback([NSNull(), true])
+    @objc(closeStream:resolve:reject:)
+    public func closeStream(_ streamId: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        guard let stream = stream(streamId, reject) else { return }
+        stream.closeOutStream()
+        resolve(nil)
     }
 
     @objc(readStream:encoding:bufferSize:tick:streamId:)
@@ -329,32 +351,32 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
 
     // MARK: - file system forwards
 
-    @objc(unlink:callback:)
-    public func unlink(_ path: String, callback: @escaping RNBUCallbackNonNull) {
+    @objc(unlink:resolve:reject:)
+    public func unlink(_ path: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         do {
             try FileManager.default.removeItem(atPath: path)
-            callback([NSNull()])
+            resolve(nil)
         } catch {
-            // Also succeeds when the path is already gone.
+            // Still a success when the path is already gone.
             if !FileManager.default.fileExists(atPath: path) {
-                callback([NSNull()])
+                resolve(nil)
             } else {
-                callback(["failed to unlink file or path at \(path)"])
+                reject("EUNSPECIFIED", "failed to unlink file or path at \(path)", nil)
             }
         }
     }
 
-    @objc(removeSession:callback:)
-    public func removeSession(_ paths: [String], callback: @escaping RNBUCallbackNonNull) {
+    @objc(removeSession:resolve:reject:)
+    public func removeSession(_ paths: [String], resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         for path in paths {
             do {
                 try FileManager.default.removeItem(atPath: path)
             } catch {
-                callback(["failed to remove session path at \(path)"])
+                reject("EUNSPECIFIED", "failed to remove session path at \(path)", nil)
                 return
             }
         }
-        callback([NSNull()])
+        resolve(nil)
     }
 
     @objc(ls:resolve:reject:)
@@ -374,22 +396,23 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         }
     }
 
-    @objc(stat:callback:)
-    public func stat(_ target: String, callback: @escaping RNBUCallbackNonNull) {
+    @objc(stat:resolve:reject:)
+    public func stat(_ target: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         ReactNativeBlobUtilFS.getPathFromUri(target) { path, asset in
             if let path = path, !path.isEmpty {
                 let fm = FileManager.default
                 var isDir: ObjCBool = false
                 if !fm.fileExists(atPath: path, isDirectory: &isDir) {
-                    callback(["failed to stat path `\(path)` because it does not exist or it is not a folder"])
+                    reject("ENOENT",
+                           "failed to stat path `\(path)` because it does not exist or it is not a folder", nil)
                     return
                 }
                 var error: NSError?
                 let result = ReactNativeBlobUtilFS.stat(path, error: &error)
-                if error == nil {
-                    callback([NSNull(), result ?? NSNull()])
+                if let error = error {
+                    reject("EUNSPECIFIED", error.localizedDescription, nil)
                 } else {
-                    callback([error!.localizedDescription, NSNull()])
+                    resolve(result)
                 }
             } else if let asset = asset {
                 var info: [String: Any] = [
@@ -406,21 +429,22 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
                 options.resizeMode = .none
                 PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { imageData, _, _, _ in
                     info["size"] = imageData?.count ?? 0
-                    callback([NSNull(), info])
+                    resolve(info)
                 }
             } else {
-                callback(["failed to stat path, could not resolve URI", NSNull()])
+                reject("EINVAL", "failed to stat path, could not resolve URI", nil)
             }
         }
     }
 
-    @objc(lstat:callback:)
-    public func lstat(_ path: String, callback: @escaping RNBUCallbackNonNull) {
+    @objc(lstat:resolve:reject:)
+    public func lstat(_ path: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         let fm = FileManager.default
         let path = ReactNativeBlobUtilFS.getPathOfAsset(path)
         var isDir: ObjCBool = false
         if !fm.fileExists(atPath: path, isDirectory: &isDir) {
-            callback(["failed to lstat path `\(path)` because it does not exist or it is not a folder"])
+            reject("ENOENT",
+                   "failed to lstat path `\(path)` because it does not exist or it is not a folder", nil)
             return
         }
 
@@ -448,43 +472,52 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
             }
         }
 
-        if error == nil {
-            callback([NSNull(), res])
+        if let error = error {
+            reject("EUNSPECIFIED", error.localizedDescription, nil)
         } else {
-            callback([error!.localizedDescription, NSNull()])
+            resolve(res)
         }
     }
 
-    @objc(cp:dest:callback:)
-    public func cp(_ src: String, dest: String, callback: @escaping RNBUCallbackNonNull) {
+    /// A missing source is ENOENT; anything else keeps EUNSPECIFIED. Foundation
+    /// reports the same condition under two codes depending on the call.
+    private func fileErrorCode(_ error: NSError) -> String {
+        switch error.code {
+        case NSFileNoSuchFileError, NSFileReadNoSuchFileError: return "ENOENT"
+        default: return "EUNSPECIFIED"
+        }
+    }
+
+    @objc(cp:dest:resolve:reject:)
+    public func cp(_ src: String, dest: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         ReactNativeBlobUtilFS.getPathFromUri(src) { path, asset in
             guard let path = path, !path.isEmpty else {
                 if let asset = asset {
                     ReactNativeBlobUtilFS.writeAssetToPath(asset, dest: dest)
                 }
-                callback([NSNull(), true])
+                resolve(nil)
                 return
             }
             do {
-                // Rejects when the destination exists; Android overwrites.
-                // ios.json records the difference.
+                // Still rejects when the destination exists; ios.json records
+                // that difference from Android and C2 is where it changes.
                 try FileManager.default.copyItem(at: URL(fileURLWithPath: path),
                                                  to: URL(fileURLWithPath: dest))
-                callback([NSNull(), true])
-            } catch {
-                callback([(error as NSError).localizedDescription, false])
+                resolve(nil)
+            } catch let error as NSError {
+                reject(self.fileErrorCode(error), error.localizedDescription, nil)
             }
         }
     }
 
-    @objc(mv:dest:callback:)
-    public func mv(_ path: String, dest: String, callback: @escaping RNBUCallbackNonNull) {
+    @objc(mv:dest:resolve:reject:)
+    public func mv(_ path: String, dest: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         do {
             try FileManager.default.moveItem(at: URL(fileURLWithPath: path),
                                              to: URL(fileURLWithPath: dest))
-            callback([NSNull(), true])
-        } catch {
-            callback([(error as NSError).localizedDescription, false])
+            resolve(nil)
+        } catch let error as NSError {
+            reject(fileErrorCode(error), error.localizedDescription, nil)
         }
     }
 
@@ -612,17 +645,6 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         return presentingViewController?() ?? UIViewController()
     }
 
-    /// Declared by the spec and never implemented on either platform: Android's
-    /// override is an empty body commented "only supports IOS", and the
-    /// Objective-C here had no implementation at all, so calling it was an
-    /// unrecognised selector. Nothing in the JavaScript calls it. Implemented as
-    /// the same no-op Android uses, which is also what makes the class conform
-    /// to NativeBlobUtilsSpec - the missing selector is why the build warned
-    /// "does not conform to protocol" before this commit.
-    @objc(emitExpiredEvent:)
-    public func emitExpiredEvent(_ callback: @escaping RNBUCallbackNonNull) {
-    }
-
     // MARK: - Android only
     //
     // Present because the New Architecture uses one spec for both platforms.
@@ -673,9 +695,9 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         reject("ENOT_SUPPORTED", "This method is not supported on iOS", nil)
     }
 
-    @objc(scanFile:callback:)
-    public func scanFile(_ pairs: [Any], callback: @escaping RNBUCallbackNonNull) {
-        callback(["Scan file method not supported in iOS"])
+    @objc(scanFile:resolve:reject:)
+    public func scanFile(_ pairs: [Any], resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        reject("ENOTSUP", "scanFile is only available on Android", nil)
     }
 
     @objc(writeToMediaFile:path:transformFile:resolve:reject:)

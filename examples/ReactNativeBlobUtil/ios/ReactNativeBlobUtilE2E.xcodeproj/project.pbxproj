@@ -13,7 +13,6 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2413411ECDB0715CB7BE7E5D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEBDEE1D35B98032EFB72ED0 /* Foundation.framework */; };
 		3CF40B7BCDFA8FE0E1D0BB90 /* HashTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E42E45758657B40119A800 /* HashTests.swift */; };
-		556AE2B52088F547FB19AE8B /* exists-callback.json in Resources */ = {isa = PBXBuildFile; fileRef = 4FD227911B020FF99CD9B691 /* exists-callback.json */; };
 		62BA78B5DD56346049A16B86 /* progress-event.json in Resources */ = {isa = PBXBuildFile; fileRef = 08F088B37222E94E77FB24E1 /* progress-event.json */; };
 		6F4B11524A02EFBF89101681 /* ConstantsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF8FB65DFBD67F41DDA817A /* ConstantsTests.swift */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
@@ -21,8 +20,9 @@
 		AABB001122334455DEADBEEF /* test_ca.pem in Resources */ = {isa = PBXBuildFile; fileRef = AABB001122334455DEADBEE0 /* test_ca.pem */; };
 		AC6DD6E9A9F02C8B56CC10A3 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 47B416002D05443254A6FC58 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a */; };
 		BD3184611DFDF032D1C66107 /* ReadmeSwiftSnippetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB30FF4EF54AD4B140E2374 /* ReadmeSwiftSnippetsTests.swift */; };
-		CB3F7F7C30A9F1E73D6434F8 /* ReadmeObjCSnippetsTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D27F713FF4B2FAD89F8B8E2 /* ReadmeObjCSnippetsTests.m */; };
 		CA719A425B9B438297AAB021 /* PortRegressionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = CA719A425B9B438297AAB020 /* PortRegressionTests.m */; };
+		CB3F7F7C30A9F1E73D6434F8 /* ReadmeObjCSnippetsTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D27F713FF4B2FAD89F8B8E2 /* ReadmeObjCSnippetsTests.m */; };
+		CC34F9282B3C9E2C6F4D3E58 /* exists-result.json in Resources */ = {isa = PBXBuildFile; fileRef = AB5EE6882C8C9374FB7F9B44 /* exists-result.json */; };
 		DEA8D2DBA1720606EC4F1C0F /* NativePayloadFixturesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81FA5C41B649699D5372184 /* NativePayloadFixturesTests.swift */; };
 		DFF5B744EEB3161DAEF042CB /* FileSystemPinTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D98C8F69C66BB30D0C9CC0B /* FileSystemPinTests.swift */; };
 		F207C992DBB2ED75E056AFEC /* ProgressThrottlingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DF5BE40ECF4D66A5C3F5FF /* ProgressThrottlingTests.swift */; };
@@ -51,10 +51,8 @@
 		3B4392A12AC88292D35C810B /* Pods-ReactNativeBlobUtilE2E.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeBlobUtilE2E.debug.xcconfig"; path = "Target Support Files/Pods-ReactNativeBlobUtilE2E/Pods-ReactNativeBlobUtilE2E.debug.xcconfig"; sourceTree = "<group>"; };
 		47B416002D05443254A6FC58 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B44D61F56C88F4BC0E01B15 /* Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.debug.xcconfig"; path = "Target Support Files/Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests/Pods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.debug.xcconfig"; sourceTree = "<group>"; };
-		4FD227911B020FF99CD9B691 /* exists-callback.json */ = {isa = PBXFileReference; includeInIndex = 1; path = "exists-callback.json"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-ReactNativeBlobUtilE2E.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeBlobUtilE2E.release.xcconfig"; path = "Target Support Files/Pods-ReactNativeBlobUtilE2E/Pods-ReactNativeBlobUtilE2E.release.xcconfig"; sourceTree = "<group>"; };
 		5D27F713FF4B2FAD89F8B8E2 /* ReadmeObjCSnippetsTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = ReadmeObjCSnippetsTests.m; sourceTree = "<group>"; };
-		CA719A425B9B438297AAB020 /* PortRegressionTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = PortRegressionTests.m; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-ReactNativeBlobUtilE2E.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ReactNativeBlobUtilE2E.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		67A7CC319B78869ACD1AE76F /* ModuleCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleCoreTests.swift; sourceTree = "<group>"; };
 		6AC9FC46F59DB2566A2F2E3C /* RequestBuilderPinTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestBuilderPinTests.swift; sourceTree = "<group>"; };
@@ -65,7 +63,9 @@
 		87DF5BE40ECF4D66A5C3F5FF /* ProgressThrottlingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProgressThrottlingTests.swift; sourceTree = "<group>"; };
 		8AB30FF4EF54AD4B140E2374 /* ReadmeSwiftSnippetsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadmeSwiftSnippetsTests.swift; sourceTree = "<group>"; };
 		AABB001122334455DEADBEE0 /* test_ca.pem */ = {isa = PBXFileReference; lastKnownFileType = text; name = test_ca.pem; path = ReactNativeBlobUtilE2E/test_ca.pem; sourceTree = "<group>"; };
+		AB5EE6882C8C9374FB7F9B44 /* exists-result.json */ = {isa = PBXFileReference; includeInIndex = 1; path = "exists-result.json"; sourceTree = "<group>"; };
 		B81FA5C41B649699D5372184 /* NativePayloadFixturesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativePayloadFixturesTests.swift; sourceTree = "<group>"; };
+		CA719A425B9B438297AAB020 /* PortRegressionTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = PortRegressionTests.m; sourceTree = "<group>"; };
 		D81ABDA561D712F3E5823D78 /* ReactNativeBlobUtilE2ETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReactNativeBlobUtilE2ETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DEBDEE1D35B98032EFB72ED0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -171,7 +171,7 @@
 			isa = PBXGroup;
 			children = (
 				08F088B37222E94E77FB24E1 /* progress-event.json */,
-				4FD227911B020FF99CD9B691 /* exists-callback.json */,
+				AB5EE6882C8C9374FB7F9B44 /* exists-result.json */,
 			);
 			name = NativePayloadFixtures;
 			path = "../../../tests/fixtures/native-payloads";
@@ -290,7 +290,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				62BA78B5DD56346049A16B86 /* progress-event.json in Resources */,
-				556AE2B52088F547FB19AE8B /* exists-callback.json in Resources */,
+				CC34F9282B3C9E2C6F4D3E58 /* exists-result.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

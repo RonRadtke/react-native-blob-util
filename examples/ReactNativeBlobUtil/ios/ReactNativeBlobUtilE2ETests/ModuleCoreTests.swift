@@ -40,6 +40,29 @@ final class ModuleCoreTests: XCTestCase {
         try? FileManager.default.removeItem(atPath: dir)
     }
 
+    private enum Settled {
+        case resolved(Any?)
+        case rejected(code: String?, message: String?)
+    }
+
+    /// Drives a resolve/reject pair and returns whichever fired.
+    private func settle(_ run: (@escaping (Any?) -> Void, @escaping (String?, String?, Error?) -> Void) -> Void) throws -> Settled {
+        let done = expectation(description: "settled")
+        var outcome: Settled?
+        run({ value in
+            if outcome == nil { outcome = .resolved(value); done.fulfill() }
+        }, { code, message, _ in
+            if outcome == nil { outcome = .rejected(code: code, message: message); done.fulfill() }
+        })
+        wait(for: [done], timeout: 5)
+        return try XCTUnwrap(outcome)
+    }
+
+    private func rejection(_ s: Settled) -> (code: String?, message: String?)? {
+        if case .rejected(let code, let message) = s { return (code, message) }
+        return nil
+    }
+
     private func callback(_ run: (@escaping ([Any]) -> Void) -> Void) throws -> [Any] {
         let done = expectation(description: "callback")
         var args: [Any]?
@@ -77,54 +100,51 @@ final class ModuleCoreTests: XCTestCase {
 
     // MARK: - forwards
 
-    func testGetEnvironmentDirsReturnsDocumentThenCache() throws {
-        let args = try callback { done in self.core.getEnvironmentDirs(done) }
-        XCTAssertEqual(args.count, 2)
-        XCTAssertEqual(args[0] as? String, ReactNativeBlobUtilFS.getDocumentDir())
-        XCTAssertEqual(args[1] as? String, ReactNativeBlobUtilFS.getCacheDir())
-    }
 
-    func testExistsForwardsBothFlags() throws {
+    func testExistsResolvesAnObject() throws {
         let path = "\(dir)/a.txt"
         try "x".write(toFile: path, atomically: true, encoding: .utf8)
-        let args = try callback { done in self.core.exists(path, callback: done) }
-        XCTAssertEqual(args[0] as? Bool, true)
-        XCTAssertEqual(args[1] as? Bool, false)
+        let result = try settle { resolve, reject in
+            self.core.exists(path, resolve: resolve, reject: reject)
+        }
+        guard case .resolved(let value) = result else { return XCTFail("expected resolve") }
+        let dict = try XCTUnwrap(value as? [String: Any])
+        XCTAssertEqual(dict["exists"] as? Bool, true)
+        XCTAssertEqual(dict["isDirectory"] as? Bool, false)
     }
 
-    func testUnlinkSucceedsAndIsIdempotent() throws {
+    func testUnlinkResolvesAndIsIdempotent() throws {
         let path = "\(dir)/gone.txt"
         try "x".write(toFile: path, atomically: true, encoding: .utf8)
-        let first = try callback { done in self.core.unlink(path, callback: done) }
-        XCTAssertTrue(first[0] is NSNull)
-        // Removing a path that is already gone still succeeds.
-        let second = try callback { done in self.core.unlink(path, callback: done) }
-        XCTAssertTrue(second[0] is NSNull, "unlink of a missing path is not an error")
+        _ = try settle { r, j in self.core.unlink(path, resolve: r, reject: j) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: path))
+        // Removing a path that is already gone is still a success.
+        let second = try settle { r, j in self.core.unlink(path, resolve: r, reject: j) }
+        guard case .resolved = second else { return XCTFail("unlink of a missing path must resolve") }
     }
 
     func testRemoveSessionDeletesEveryPath() throws {
         let a = "\(dir)/a.txt", b = "\(dir)/b.txt"
         try "a".write(toFile: a, atomically: true, encoding: .utf8)
         try "b".write(toFile: b, atomically: true, encoding: .utf8)
-        let args = try callback { done in self.core.removeSession([a, b], callback: done) }
-        XCTAssertTrue(args[0] is NSNull)
+        _ = try settle { r, j in self.core.removeSession([a, b], resolve: r, reject: j) }
         XCTAssertFalse(FileManager.default.fileExists(atPath: a))
         XCTAssertFalse(FileManager.default.fileExists(atPath: b))
     }
 
-    func testRemoveSessionReportsTheFirstFailureAndStops() throws {
+    func testRemoveSessionRejectsOnTheFirstFailure() throws {
         let missing = "\(dir)/never.txt"
-        let args = try callback { done in self.core.removeSession([missing], callback: done) }
-        XCTAssertEqual(args[0] as? String, "failed to remove session path at \(missing)")
+        let result = try settle { r, j in self.core.removeSession([missing], resolve: r, reject: j) }
+        let error = try XCTUnwrap(rejection(result))
+        XCTAssertEqual(error.code, "EUNSPECIFIED")
+        XCTAssertEqual(error.message, "failed to remove session path at \(missing)")
     }
 
-    func testCancelRequestForAnUnknownTaskEchoesTheTaskId() throws {
-        // The registry has no such task; nothing throws and the id comes back.
-        // net-after-completion covers the same through the public API.
-        let taskId = "unknown-\(UUID().uuidString)"
-        let args = try callback { done in self.core.cancelRequest(taskId, callback: done) }
-        XCTAssertTrue(args[0] is NSNull)
-        XCTAssertEqual(args[1] as? String, taskId)
+    func testCancelRequestForAnUnknownTaskResolves() throws {
+        let result = try settle { r, j in
+            self.core.cancelRequest("unknown-\(UUID().uuidString)", resolve: r, reject: j)
+        }
+        guard case .resolved = result else { return XCTFail("cancelling an unknown task must resolve") }
     }
 
     /// enableProgressReport for a task that does not exist parks the config
@@ -149,15 +169,114 @@ final class ModuleCoreTests: XCTestCase {
         network.removeRequest(forTaskId: taskId)
     }
 
-    func testEmitExpiredEventDoesNothingAndDoesNotThrow() throws {
-        // Declared by the spec, never implemented on either platform, called by
-        // nothing. It exists so the class conforms.
-        let done = expectation(description: "emitExpiredEvent")
-        core.emitExpiredEvent { _ in done.fulfill() }
-        // The callback is not invoked, so this only asserts the call returns.
-        XCTAssertEqual(sink.events.count, 0)
-        done.fulfill()
-        wait(for: [done], timeout: 1)
+
+    // MARK: - the codes the 1.0 spec promises
+
+    /// Writing to a stream id the registry does not know used to succeed
+    /// silently, so a caller writing to a closed or mistyped stream got no
+    /// signal at all. It rejects EBADF now.
+    func testWritingToAnUnknownStreamRejectsEBADF() throws {
+        let id = "no-such-stream-\(UUID().uuidString)"
+        for (label, run) in [
+            ("writeChunk", { (r: @escaping (Any?) -> Void, j: @escaping (String?, String?, Error?) -> Void) in
+                self.core.writeChunk(id, withData: "x", resolve: r, reject: j) }),
+            ("writeArrayChunk", { r, j in
+                self.core.writeArrayChunk(id, withArray: [1], resolve: r, reject: j) }),
+            ("closeStream", { r, j in
+                self.core.closeStream(id, resolve: r, reject: j) }),
+        ] {
+            let error = try XCTUnwrap(rejection(try settle(run)), "\(label) should reject")
+            XCTAssertEqual(error.code, "EBADF", label)
+            XCTAssertEqual(error.message, "No such write stream '\(id)'", label)
+        }
+    }
+
+    func testAKnownStreamStillResolves() throws {
+        let path = "\(dir)/stream.txt"
+        let opened = try settle { r, j in
+            self.core.writeStream(path, withEncoding: "utf8", appendData: false, resolve: r, reject: j)
+        }
+        guard case .resolved(let value) = opened else { return XCTFail("expected a stream id") }
+        let streamId = try XCTUnwrap(value as? String)
+        XCTAssertFalse(streamId.isEmpty, "writeStream resolves the id itself now, not [null, null, id]")
+
+        guard case .resolved = try settle({ r, j in
+            self.core.writeChunk(streamId, withData: "hello", resolve: r, reject: j)
+        }) else { return XCTFail("writeChunk should resolve") }
+        guard case .resolved = try settle({ r, j in
+            self.core.closeStream(streamId, resolve: r, reject: j)
+        }) else { return XCTFail("closeStream should resolve") }
+        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "hello")
+    }
+
+    func testWriteStreamOntoADirectoryRejectsEISDIR() throws {
+        let result = try settle { r, j in
+            self.core.writeStream(self.dir, withEncoding: "utf8", appendData: false, resolve: r, reject: j)
+        }
+        let error = try XCTUnwrap(rejection(result))
+        XCTAssertEqual(error.code, "EISDIR")
+        XCTAssertEqual(error.message, "Expecting a file but '\(dir)' is a directory")
+    }
+
+    func testStatOnAMissingPathRejectsENOENT() throws {
+        let missing = "\(dir)/missing.txt"
+        let error = try XCTUnwrap(rejection(try settle { r, j in
+            self.core.stat(missing, resolve: r, reject: j)
+        }))
+        XCTAssertEqual(error.code, "ENOENT")
+        XCTAssertEqual(error.message,
+                       "failed to stat path `\(missing)` because it does not exist or it is not a folder")
+    }
+
+    func testLstatOnAMissingPathRejectsENOENT() throws {
+        let missing = "\(dir)/missing.txt"
+        let error = try XCTUnwrap(rejection(try settle { r, j in
+            self.core.lstat(missing, resolve: r, reject: j)
+        }))
+        XCTAssertEqual(error.code, "ENOENT")
+    }
+
+    /// A missing source is ENOENT rather than the catch-all, so a caller can
+    /// tell "no such file" from a real copy failure.
+    func testCopyingAMissingSourceRejectsENOENT() throws {
+        let error = try XCTUnwrap(rejection(try settle { r, j in
+            self.core.cp("\(self.dir)/missing.txt", dest: "\(self.dir)/out.txt", resolve: r, reject: j)
+        }))
+        XCTAssertEqual(error.code, "ENOENT")
+    }
+
+    func testMovingAMissingSourceRejectsENOENT() throws {
+        let error = try XCTUnwrap(rejection(try settle { r, j in
+            self.core.mv("\(self.dir)/missing.txt", dest: "\(self.dir)/out.txt", resolve: r, reject: j)
+        }))
+        XCTAssertEqual(error.code, "ENOENT")
+    }
+
+    func testCopyingOntoAnExistingDestinationRejectsEUNSPECIFIED() throws {
+        let a = "\(dir)/a.txt", b = "\(dir)/b.txt"
+        try "a".write(toFile: a, atomically: true, encoding: .utf8)
+        try "b".write(toFile: b, atomically: true, encoding: .utf8)
+        let error = try XCTUnwrap(rejection(try settle { r, j in
+            self.core.cp(a, dest: b, resolve: r, reject: j)
+        }))
+        // Not ENOENT: the source is there, the destination is in the way. C2 is
+        // where this stops being a rejection at all.
+        XCTAssertEqual(error.code, "EUNSPECIFIED")
+    }
+
+    func testScanFileRejectsAsAndroidOnly() throws {
+        let error = try XCTUnwrap(rejection(try settle { r, j in
+            self.core.scanFile([], resolve: r, reject: j)
+        }))
+        XCTAssertEqual(error.code, "ENOTSUP")
+        XCTAssertEqual(error.message, "scanFile is only available on Android")
+    }
+
+    func testDfResolvesTheUsageDictionary() throws {
+        let result = try settle { r, j in self.core.df(r, reject: j) }
+        guard case .resolved(let value) = result else { return XCTFail("df should resolve") }
+        let usage = try XCTUnwrap(value as? [String: Any])
+        XCTAssertEqual(Set(usage.keys), ["free", "total"])
     }
 
     // MARK: - the event payloads

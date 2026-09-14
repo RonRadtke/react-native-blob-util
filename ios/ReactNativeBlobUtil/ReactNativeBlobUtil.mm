@@ -56,7 +56,7 @@ RCT_EXPORT_MODULE();
 #pragma mark - module plumbing
 
 - (NSArray<NSString*> *)supportedEvents {
-    return @[@"ReactNativeBlobUtilState", @"ReactNativeBlobUtilServerPush", @"ReactNativeBlobUtilProgress", @"ReactNativeBlobUtilProgress-upload", @"ReactNativeBlobUtilExpire", @"ReactNativeBlobUtilMessage", @"ReactNativeBlobUtilFilesystem", @"log", @"warn", @"error", @"data", @"end", @"reportProgress", @"reportUploadProgress"];
+    return @[@"ReactNativeBlobUtilState", @"ReactNativeBlobUtilServerPush", @"ReactNativeBlobUtilProgress", @"ReactNativeBlobUtilProgress-upload", @"ReactNativeBlobUtilMessage", @"ReactNativeBlobUtilFilesystem", @"log", @"warn", @"error", @"data", @"end", @"reportProgress", @"reportUploadProgress"];
 }
 
 - (void)startObserving { hasListeners = YES; }
@@ -122,8 +122,8 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(syncPathAppGroup:(NSString *)groupName) {
     return [self.core syncPathAppGroup:groupName];
 }
 
-RCT_EXPORT_METHOD(exists:(NSString *)path callback:(RCTResponseSenderBlock)callback) {
-    [self.core exists:path callback:callback];
+- (void)exists:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core exists:path resolve:resolve reject:reject];
 }
 
 - (void)writeFile:(NSString *)path encoding:(NSString *)encoding data:(NSString *)data transformFile:(BOOL)transformFile append:(BOOL)append resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
@@ -134,48 +134,48 @@ RCT_EXPORT_METHOD(exists:(NSString *)path callback:(RCTResponseSenderBlock)callb
     [self.core writeFileArray:path data:data append:append resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(writeStream:(NSString *)path withEncoding:(NSString *)encoding appendData:(BOOL)append callback:(RCTResponseSenderBlock)callback) {
-    [self.core writeStream:path withEncoding:encoding appendData:append callback:callback];
+- (void)writeStream:(NSString *)path withEncoding:(NSString *)encoding appendData:(BOOL)append resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core writeStream:path withEncoding:encoding appendData:append resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(writeArrayChunk:(NSString *)streamId withArray:(NSArray *)dataArray callback:(RCTResponseSenderBlock)callback) {
-    [self.core writeArrayChunk:streamId withArray:dataArray callback:callback];
+- (void)writeArrayChunk:(NSString *)streamId withArray:(NSArray *)dataArray resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core writeArrayChunk:streamId withArray:dataArray resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(writeChunk:(NSString *)streamId withData:(NSString *)data callback:(RCTResponseSenderBlock)callback) {
-    [self.core writeChunk:streamId withData:data callback:callback];
+- (void)writeChunk:(NSString *)streamId withData:(NSString *)data resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core writeChunk:streamId withData:data resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(closeStream:(NSString *)streamId callback:(RCTResponseSenderBlock)callback) {
-    [self.core closeStream:streamId callback:callback];
+- (void)closeStream:(NSString *)streamId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core closeStream:streamId resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(unlink:(NSString *)path callback:(RCTResponseSenderBlock)callback) {
-    [self.core unlink:path callback:callback];
+- (void)unlink:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core unlink:path resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(removeSession:(NSArray *)paths callback:(RCTResponseSenderBlock)callback) {
-    [self.core removeSession:paths callback:callback];
+- (void)removeSession:(NSArray *)paths resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core removeSession:paths resolve:resolve reject:reject];
 }
 
 - (void)ls:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [self.core ls:path resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(stat:(NSString *)target callback:(RCTResponseSenderBlock)callback) {
-    [self.core stat:target callback:callback];
+- (void)stat:(NSString *)target resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core stat:target resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(lstat:(NSString *)path callback:(RCTResponseSenderBlock)callback) {
-    [self.core lstat:path callback:callback];
+- (void)lstat:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core lstat:path resolve:resolve reject:reject];
 }
 
-- (void)cp:(NSString *)src dest:(NSString *)dest callback:(RCTResponseSenderBlock)callback {
-    [self.core cp:src dest:dest callback:callback];
+- (void)cp:(NSString *)src dest:(NSString *)dest resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core cp:src dest:dest resolve:resolve reject:reject];
 }
 
-- (void)mv:(NSString *)path dest:(NSString *)dest callback:(RCTResponseSenderBlock)callback {
-    [self.core mv:path dest:dest callback:callback];
+- (void)mv:(NSString *)path dest:(NSString *)dest resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core mv:path dest:dest resolve:resolve reject:reject];
 }
 
 - (void)mkdir:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
@@ -198,12 +198,8 @@ RCT_EXPORT_METHOD(readStream:(NSString *)path encoding:(NSString *)encoding buff
     [self.core readStream:path encoding:encoding bufferSize:bufferSize tick:tick streamId:streamId];
 }
 
-RCT_EXPORT_METHOD(getEnvironmentDirs:(RCTResponseSenderBlock)callback) {
-    [self.core getEnvironmentDirs:callback];
-}
-
-RCT_EXPORT_METHOD(df:(RCTResponseSenderBlock)callback) {
-    [self.core df:callback];
+- (void)df:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core df:resolve reject:reject];
 }
 
 - (void)excludeFromBackupKey:(NSString *)url resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
@@ -212,8 +208,8 @@ RCT_EXPORT_METHOD(df:(RCTResponseSenderBlock)callback) {
 
 #pragma mark - network
 
-RCT_EXPORT_METHOD(cancelRequest:(NSString *)taskId callback:(RCTResponseSenderBlock)callback) {
-    [self.core cancelRequest:taskId callback:callback];
+- (void)cancelRequest:(NSString *)taskId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core cancelRequest:taskId resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(enableProgressReport:(NSString *)taskId interval:(double)interval count:(double)count) {
@@ -222,10 +218,6 @@ RCT_EXPORT_METHOD(enableProgressReport:(NSString *)taskId interval:(double)inter
 
 RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(double)interval count:(double)count) {
     [self.core enableUploadProgressReport:taskId interval:interval count:count];
-}
-
-RCT_EXPORT_METHOD(emitExpiredEvent:(RCTResponseSenderBlock)callback) {
-    [self.core emitExpiredEvent:callback];
 }
 
 #pragma mark - document menus
@@ -280,8 +272,8 @@ RCT_EXPORT_METHOD(emitExpiredEvent:(RCTResponseSenderBlock)callback) {
     [self.core getSDCardApplicationDir:resolve reject:reject];
 }
 
-- (void)scanFile:(NSArray *)pairs callback:(RCTResponseSenderBlock)callback {
-    [self.core scanFile:pairs callback:callback];
+- (void)scanFile:(NSArray *)pairs resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core scanFile:pairs resolve:resolve reject:reject];
 }
 
 - (void)writeToMediaFile:(NSString *)fileUri path:(NSString *)path transformFile:(BOOL)transformFile resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

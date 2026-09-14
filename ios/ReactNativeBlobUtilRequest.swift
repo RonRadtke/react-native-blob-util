@@ -367,6 +367,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         self.error = error
         var errMsg: String?
+        var errCode: String?
         var respStr: String?
         var rnfbRespType: String?
 
@@ -379,8 +380,10 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         if let error = error as NSError? {
             if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
                 errMsg = "task cancelled"
+                errCode = "EUNSPECIFIED"
             } else {
                 errMsg = error.localizedDescription
+                errCode = "EUNSPECIFIED"
             }
         } else if expectedBytes == NSURLSessionTransferSizeUnknown && progressConfig?.shouldReport(1) == true {
             // Chunked downloads. The length is tested first because
@@ -399,6 +402,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                                                                with: transformer, forWrite: true) { transformed, exception in
                         if let exception = exception {
                             errMsg = "Exception on File Transformer: '\(exception)' "
+                            errCode = "EUNSPECIFIED"
                         } else if let transformed = transformed {
                             _ = transformed.withUnsafeBytes { raw -> Int in
                                 guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { return 0 }
@@ -406,10 +410,12 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                             }
                         } else {
                             errMsg = "File transformer returned no data"
+                            errCode = "EUNSPECIFIED"
                         }
                     }
                 } else {
                     errMsg = "Transform file specified but file transfomer not set"
+                            errCode = "EUNSPECIFIED"
                 }
             }
             writeStream?.close()
@@ -436,14 +442,18 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             }
         }
 
-        finish(task: task, errMsg: errMsg, rnfbRespType: rnfbRespType, respStr: respStr, session: session)
+        finish(task: task, errMsg: errMsg, errCode: errCode,
+               rnfbRespType: rnfbRespType, respStr: respStr, session: session)
     }
 
-    private func finish(task: URLSessionTask, errMsg: String?, rnfbRespType: String?,
+    private func finish(task: URLSessionTask, errMsg: String?, errCode: String?, rnfbRespType: String?,
                         respStr: String?, session: URLSession) {
         let response = task.response as? HTTPURLResponse
+        // The error slot is a dictionary now, null on success, so JS reads a code
+        // rather than matching on message text.
+        let errorValue: Any = errMsg.map { ["code": errCode ?? "EUNSPECIFIED", "message": $0] } ?? NSNull()
         callback?([
-            errMsg ?? NSNull(),
+            errorValue,
             rnfbRespType ?? "",
             respStr ?? NSNull(),
             ["status": NSNumber(value: response?.statusCode ?? 0)],

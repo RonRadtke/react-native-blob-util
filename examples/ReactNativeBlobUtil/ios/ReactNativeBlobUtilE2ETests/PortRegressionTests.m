@@ -154,9 +154,13 @@
         withRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://rnbu-regression.invalid/file"]]
         taskOperationQueue:queue callback:^(NSArray *args) {
             XCTAssertEqual(args.count, 4u);
-            XCTAssertTrue([args[0] isKindOfClass:NSString.class]);
-            if ([args[0] isKindOfClass:NSString.class]) {
-                XCTAssertTrue([args[0] containsString:transformer.raises ? @"bad ciphertext" : @"no data"]);
+            // The error slot is a dictionary of {code, message} now, so JS reads
+            // a code instead of matching on message text. The message itself is
+            // unchanged, which is what this still asserts.
+            XCTAssertTrue([args[0] isKindOfClass:NSDictionary.class]);
+            if ([args[0] isKindOfClass:NSDictionary.class]) {
+                XCTAssertEqualObjects(args[0][@"code"], @"EUNSPECIFIED");
+                XCTAssertTrue([args[0][@"message"] containsString:transformer.raises ? @"bad ciphertext" : @"no data"]);
             }
             XCTAssertEqualObjects(args[1], @"path");
             XCTAssertEqualObjects(args[2], path);
@@ -268,14 +272,18 @@
         XCTAssertNil([fm contentsOfDirectoryAtPath:path error:&enumerationError]);
         XCTAssertNotNil(enumerationError);
 
-        __block NSUInteger callbacks = 0;
-        [ReactNativeBlobUtilModuleCore.new lstat:path callback:^(NSArray *args) {
-            callbacks++;
-            XCTAssertEqual(args.count, 2u);
-            XCTAssertEqualObjects(args[0], enumerationError.localizedDescription);
-            XCTAssertEqualObjects(args[1], NSNull.null);
-        }];
-        XCTAssertEqual(callbacks, 1u);
+        // lstat is a promise now: the enumeration error is a rejection carrying
+        // EUNSPECIFIED rather than the first slot of a callback array. The
+        // assertion is the same one - the error is reported, not swallowed.
+        __block NSUInteger rejected = 0;
+        [ReactNativeBlobUtilModuleCore.new lstat:path
+            resolve:^(id value) { XCTFail(@"lstat on an unreadable directory resolved: %@", value); }
+            reject:^(NSString *code, NSString *message, NSError *error) {
+                rejected++;
+                XCTAssertEqualObjects(code, @"EUNSPECIFIED");
+                XCTAssertEqualObjects(message, enumerationError.localizedDescription);
+            }];
+        XCTAssertEqual(rejected, 1u);
     } @finally {
         [fm setAttributes:@{NSFilePosixPermissions: @0700} ofItemAtPath:path error:nil];
     }

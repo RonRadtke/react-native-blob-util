@@ -13,6 +13,7 @@
 //
 
 import XCTest
+@testable import react_native_blob_util
 
 final class NativePayloadFixturesTests: XCTestCase {
 
@@ -50,19 +51,48 @@ final class NativePayloadFixturesTests: XCTestCase {
                        "a chunked response reports NSURLResponseUnknownLength (-1); that row must stay")
     }
 
-    func testExistsFixtureDescribesIosAsTwoBooleans() throws {
-        let ios = try cases("exists-callback")
+    /// The exists result is an object with exactly two booleans now, not a pair
+    /// of callback arguments. utils/existsResult.js is gone with the callback.
+    func testExistsFixtureDescribesIosAsAnObjectOfTwoBooleans() throws {
+        let ios = try cases("exists-result")
         XCTAssertFalse(ios.isEmpty, "no iOS rows in the exists fixture")
 
         for row in ios {
-            let args = try XCTUnwrap(row["args"] as? [Any], "row has no args: \(row)")
-            XCTAssertEqual(args.count, 2, "iOS passes exactly two arguments: \(row)")
-            for arg in args {
+            let result = try XCTUnwrap(row["result"] as? [String: Any], "row has no result: \(row)")
+            XCTAssertEqual(Set(result.keys), ["exists", "isDirectory"],
+                           "exactly those two keys, nothing else: \(row)")
+            for (key, value) in result {
                 // NSNumber bridges both Bool and Int, so check the encoding.
-                let number = try XCTUnwrap(arg as? NSNumber, "argument is not a boolean: \(row)")
+                let number = try XCTUnwrap(value as? NSNumber, "\(key) is not a boolean: \(row)")
                 XCTAssertEqual(String(cString: number.objCType), "c",
-                               "arguments must be booleans, not numbers: \(row)")
+                               "\(key) must be a boolean, not a number: \(row)")
             }
+        }
+    }
+
+    /// What the module actually resolves has to match the fixture it is
+    /// described by, which nothing checked while this was a callback.
+    func testExistsResolvesTheShapeTheFixtureDescribes() throws {
+        let dir = NSTemporaryDirectory().appending("rnbu-exists-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let file = "\(dir)/a.txt"
+        try "x".write(toFile: file, atomically: true, encoding: .utf8)
+
+        let core = ReactNativeBlobUtilModuleCore()
+        for (path, expected) in [(file, [true, false]), (dir, [true, true]), ("\(dir)/no", [false, false])] {
+            let done = expectation(description: path)
+            var resolved: [String: Any]?
+            core.exists(path, resolve: { value in
+                resolved = value as? [String: Any]; done.fulfill()
+            }, reject: { _, _, _ in
+                XCTFail("exists should not reject"); done.fulfill()
+            })
+            wait(for: [done], timeout: 5)
+            let result = try XCTUnwrap(resolved)
+            XCTAssertEqual(Set(result.keys), ["exists", "isDirectory"])
+            XCTAssertEqual(result["exists"] as? Bool, expected[0], path)
+            XCTAssertEqual(result["isDirectory"] as? Bool, expected[1], path)
         }
     }
 }

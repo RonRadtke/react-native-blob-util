@@ -25,7 +25,7 @@
     },
     "cpIntoMissingDir": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "The file “file.txt” doesn’t exist.",
         "name": "Error"
       }
@@ -39,7 +39,7 @@
     },
     "mvIntoMissingDir": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "“moved.txt” couldn’t be moved to “nested2” because either the former doesn’t exist, or the folder containing the latter doesn’t exist.",
         "name": "Error"
       }
@@ -101,7 +101,7 @@
     },
     "lstatMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "failed to lstat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
         "name": "Error"
       }
@@ -137,7 +137,7 @@
     },
     "statMissing": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "ENOENT",
         "message": "failed to stat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
         "name": "Error"
       }
@@ -157,7 +157,7 @@
     },
     "cpMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "The file “missing.txt” couldn’t be opened because there is no such file.",
         "name": "Error"
       }
@@ -177,9 +177,7 @@
       }
     },
     "createFileUriMissing": {
-      "resolved": [
-        null
-      ]
+      "resolved": "<DocumentDir>/parity/errors-write/from-uri.txt"
     },
     "mkdirExistingDir": {
       "rejected": {
@@ -197,7 +195,7 @@
     },
     "mvMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ENOENT",
         "message": "“missing.txt” couldn’t be moved to “errors-write” because either the former doesn’t exist, or the folder containing the latter doesn’t exist.",
         "name": "Error"
       }
@@ -273,7 +271,7 @@
   "fetch-cancel": {
     "isCanceledFetchError": true,
     "rejected": {
-      "code": "<undefined>",
+      "code": "ECANCELED",
       "message": "canceled",
       "name": "ReactNativeBlobUtilCanceledFetch"
     }
@@ -318,14 +316,14 @@
   "fetch-errors": {
     "invalidUrl": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EUNSPECIFIED",
         "message": "Could not connect to the server.",
         "name": "Error"
       }
     },
     "refused": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EUNSPECIFIED",
         "message": "Could not connect to the server.",
         "name": "Error"
       }
@@ -619,7 +617,7 @@
     "gaveUpBeforeServerAnswered": true,
     "result": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EUNSPECIFIED",
         "message": "The request timed out.",
         "name": "Error"
       }
@@ -684,9 +682,7 @@
   },
   "ios-misc": {
     "excludeFromBackupKey": {
-      "resolved": [
-        null
-      ]
+      "resolved": "<undefined>"
     },
     "excludeMissing": {
       "rejected": {
@@ -731,8 +727,8 @@
         "lastModified": "number:epoch-ms",
         "path": "<DocumentDir>/parity/lstat-dir/a.txt",
         "size": [
-          "string",
-          "2"
+          "number",
+          2
         ],
         "type": "file"
       },
@@ -748,8 +744,8 @@
         "lastModified": "number:epoch-ms",
         "path": "<DocumentDir>/parity/lstat-dir/b.txt",
         "size": [
-          "string",
-          "3"
+          "number",
+          3
         ],
         "type": "file"
       },
@@ -764,7 +760,7 @@
         ],
         "lastModified": "number:epoch-ms",
         "path": "<DocumentDir>/parity/lstat-dir/sub",
-        "size": "string",
+        "size": "number",
         "type": "directory"
       }
     ],
@@ -786,10 +782,10 @@
     "ascii": {
       "resolved": [
         104,
-        -61,
-        -87,
+        195,
+        169,
         0,
-        -1,
+        255,
         65
       ]
     },
@@ -810,7 +806,7 @@
         "elementTypes": [
           "number"
         ],
-        "flattenedAreFileBytes": false
+        "flattenedAreFileBytes": true
       },
       "chunkCount": 3,
       "chunkKinds": [
@@ -912,7 +908,7 @@
     },
     "disposeMissing": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EUNSPECIFIED",
         "message": "failed to remove session path at <DocumentDir>/parity/session-dispose/never.txt",
         "name": "Error"
       }
@@ -1181,24 +1177,16 @@
       }
     },
     "createAscii": {
-      "resolved": [
-        null
-      ]
+      "resolved": "<DocumentDir>/parity/write-returns/c2.txt"
     },
     "createBase64": {
-      "resolved": [
-        null
-      ]
+      "resolved": "<DocumentDir>/parity/write-returns/c3.bin"
     },
     "createUri": {
-      "resolved": [
-        null
-      ]
+      "resolved": "<DocumentDir>/parity/write-returns/c4.txt"
     },
     "createUtf8": {
-      "resolved": [
-        null
-      ]
+      "resolved": "<DocumentDir>/parity/write-returns/c1.txt"
     },
     "writeAscii": {
       "resolved": 2
@@ -1222,9 +1210,9 @@
     },
     "asciiNonArray": {
       "rejected": {
-        "code": "<undefined>",
+        "code": "EINVAL",
         "message": "ascii input data must be an Array",
-        "name": "Error"
+        "name": "TypeError"
       }
     },
     "asciiWrite": {
