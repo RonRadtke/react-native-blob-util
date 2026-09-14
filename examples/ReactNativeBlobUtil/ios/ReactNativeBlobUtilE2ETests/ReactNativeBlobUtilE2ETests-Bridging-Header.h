@@ -11,3 +11,6 @@
 //  to `@testable import react_native_blob_util`. ReactNativeBlobUtilFS has made
 //  that move; the module core and the network stack follow in I2 and I3.
 //
+
+// The README's file-transformer snippet is compiled from Objective-C too.
+#import "ReactNativeBlobUtilFileTransformer.h"
