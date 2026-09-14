@@ -623,6 +623,15 @@
       }
     }
   },
+  "fetch-untrusted-cert": {
+    "untrusted": {
+      "rejected": {
+        "code": "ESSL",
+        "message": "The certificate for this server is invalid. You might be connecting to a server that is pretending to be “127.0.0.1” which could put your confidential information at risk.",
+        "name": "Error"
+      }
+    }
+  },
   "hash-algorithms": {
     "md5": {
       "bytes": {
