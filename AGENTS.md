@@ -217,9 +217,12 @@ maintainer decide.
 
 ## Types
 
-`index.d.ts` and `index.js.flow` declare the same public API twice and drift
-apart — the Flow copy was missing both `PATCH` and `HEAD` long after the
-TypeScript one had `PATCH`. Change both, and check they still agree.
+`index.d.ts` is the package's one typed surface (the Flow copy, which drifted,
+was dropped in 1.0). Every runtime method is declared there and every
+declaration exists at runtime. `tests/unit/types.test.js` compiles it under
+`--strict` together with `tests/unit/fixtures/types-usage.ts`, a sample that
+calls every declared API the way an app would: when you add or change an API,
+change the declaration and the sample in the same commit.
 
 ## Releases
 

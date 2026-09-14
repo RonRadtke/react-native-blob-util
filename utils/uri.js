@@ -6,12 +6,6 @@ export default {
         return /^ReactNativeBlobUtil-file\:\/\//.test(uri);
     },
 
-    isJSONStreamURI: (uri: string): boolean => {
-        if (typeof uri !== 'string')
-            return false;
-        return /^JSONStream\:\/\//.test(uri);
-    },
-
     removeURIScheme: (uri: string, iterations: number): string => {
         iterations = iterations || 1;
         let result = uri;

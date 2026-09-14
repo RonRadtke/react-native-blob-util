@@ -80,6 +80,16 @@ string, adjust those comparisons.
   'ECANCELED'` and is also a named export: `import {CanceledFetchError} from
   'react-native-blob-util'`.
 
+### Types
+
+- `index.js.flow` is gone; `index.d.ts` is the only declaration file and now matches
+  the JavaScript. Names that changed: `RNFetchBlobDf` is `ReactNativeBlobUtilDf`
+  (the old name stays as a deprecated alias), `ReactNativeBlobUtilStream` is
+  `ReactNativeBlobUtilReadStream` (alias kept), `ReactNativeBlobUtilFile` and `Net`
+  are removed (nothing implemented them), and `config()` returns `{fetch}` rather than
+  the whole API. `StatefulPromise` gains `stateChange`, `part` and `taskId`;
+  `readFile`, `createFile` and `writeFile` are typed per encoding.
+
 ### Options and defaults
 
 - The config keys `Progress`, `UploadProgress` and `indicator` are gone. Nothing read

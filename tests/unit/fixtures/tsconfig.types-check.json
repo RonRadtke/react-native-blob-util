@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "noEmit": true,
+        "strict": true,
+        "lib": ["es2020"],
+        "types": [],
+        "skipLibCheck": false,
+        "module": "es2020",
+        "moduleResolution": "node"
+    },
+    "files": ["../../../index.d.ts", "types-usage.ts"]
+}

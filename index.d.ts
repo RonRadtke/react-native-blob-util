@@ -1,231 +1,452 @@
-// Type definitions for react-native-fetch-blob 0.10
-// Project: https://github.com/wkh237/react-native-fetch-blob#readme
-// Definitions by: MNB <https://github.com/MNBuyskih>
-// Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
+// Type definitions for react-native-blob-util
+// Project: https://github.com/RonRadtke/react-native-blob-util
+//
+// Declared against the JavaScript in this package: index.js, fetch.js, fs.js,
+// android.js, ios.js, mediacollection.js and class/. Every method here exists
+// at runtime with this signature, and every runtime method is declared here.
 
 declare const ReactNativeBlobUtil: ReactNativeBlobUtilStatic;
 export default ReactNativeBlobUtil;
 export type ReactNativeBlobUtil = ReactNativeBlobUtilStatic;
-import { filedescriptor } from "./types";
-import CanceledFetchError from "./class/ReactNativeBlobUtilCanceledFetchError";
 
-interface ReactNativeBlobUtilStatic {
-    fetch(method: Methods, url: string, headers?: { [key: string]: string }, body?: any | null): StatefulPromise<FetchBlobResponse>;
+export interface ReactNativeBlobUtilStatic {
+    /**
+     * Send an HTTP request with the default configuration. Use
+     * `config(options).fetch(...)` to configure it.
+     * @param method HTTP method.
+     * @param url Request URL.
+     * @param headers Request headers. `null` and `undefined` values are sent as "".
+     * @param body A string, a base64 string, a `wrap(path)` reference to a file,
+     *             or an array of form fields for a multipart request.
+     */
+    fetch(method: Methods, url: string, headers?: RequestHeaders, body?: RequestBody): StatefulPromise<FetchBlobResponse>;
+
+    /**
+     * A `fetch` bound to the given options.
+     */
+    config(options: ReactNativeBlobUtilConfig): { fetch: ReactNativeBlobUtilStatic['fetch'] };
 
     base64: { encode(input: string): string; decode(input: string): string };
     android: AndroidApi;
     ios: IOSApi;
-
-    config(options: ReactNativeBlobUtilConfig): ReactNativeBlobUtilStatic;
-
-    session(name: string): ReactNativeBlobUtilSession;
-
     fs: FS;
     MediaCollection: MediaCollection;
 
+    /**
+     * Get a file cache session; created when it does not exist yet.
+     */
+    session(name: string): ReactNativeBlobUtilSession;
+
+    /**
+     * Prefix a path so that `fetch` reads a request body from that file
+     * (`ReactNativeBlobUtil-file://...`, or `ReactNativeBlobUtil-content://...`
+     * for a content URI).
+     */
     wrap(path: string): string;
 
-    net: Net;
-    CanceledFetchError: CanceledFetchError;
+    CanceledFetchError: typeof CanceledFetchError;
 }
 
+export type Methods = 'POST' | 'GET' | 'DELETE' | 'PUT' | 'PATCH' | 'HEAD' | 'post' | 'get' | 'delete' | 'put' | 'patch' | 'head';
+
+export type RequestHeaders = { [name: string]: string | null | undefined };
+
 /**
- * ReactNativeBlobUtil response object class.
+ * One field of a multipart request. `data` is the field value, a base64
+ * string when `filename` is set, or `wrap(path)` to send a file.
  */
-export interface FetchBlobResponse {
+export interface FormField {
+    name: string;
+    data: string;
+    filename?: string;
+    type?: string;
+}
+
+export type RequestBody = string | FormField[] | null;
+
+/**
+ * The promise `fetch` returns: a Promise with methods to observe and cancel
+ * the task. They can be called after the task has settled and do nothing then.
+ */
+export interface StatefulPromise<T> extends Promise<T> {
+    /** The id native knows the task by. */
+    readonly taskId: string;
+
+    /**
+     * Register a download progress handler. Reports at most every `interval`
+     * milliseconds (default 250), or `count` times in total (default unlimited).
+     * `chunk` carries the received data when native reports it.
+     */
+    progress(callback: ProgressHandler): this;
+    progress(config: ProgressConfig, callback: ProgressHandler): this;
+
+    /**
+     * Register an upload progress handler, with the same options as `progress`.
+     */
+    uploadProgress(callback: UploadProgressHandler): this;
+    uploadProgress(config: ProgressConfig, callback: UploadProgressHandler): this;
+
+    /**
+     * Register a handler for the response headers, called when they arrive and
+     * before the body is complete.
+     */
+    stateChange(callback: (info: ReactNativeBlobUtilResponseInfo) => void): this;
+
+    /**
+     * Register a handler for server-push chunks.
+     */
+    part(callback: (chunk: string) => void): this;
+
+    /**
+     * Cancel the request. The promise rejects with `CanceledFetchError`.
+     */
+    cancel(callback?: (reason?: any) => void): void;
+}
+
+export interface ProgressConfig {
+    count?: number;
+    interval?: number;
+}
+
+export type ProgressHandler = (received: number, total: number, chunk?: string) => void;
+export type UploadProgressHandler = (sent: number, total: number) => void;
+
+/**
+ * The result of a `fetch`: the response body, held as utf8 text, a base64
+ * string, or the path of the file it was written to (`type`).
+ */
+export declare class FetchBlobResponse {
+    constructor(taskId: string, info: ReactNativeBlobUtilResponseInfo, data: any);
+
     taskId: string;
-
-    /**
-     * get path of response temp file
-     * @return File path of temp file.
-     */
-    path(): string;
-
-    type: "base64" | "path" | "utf8";
+    type: 'base64' | 'path' | 'utf8';
     data: any;
-
-    /**
-     * Convert result to text.
-     * @return Decoded base64 string.
-     */
-    text(): string | Promise<any>;
-
-    /**
-     * Convert result to JSON object.
-     * @return Parsed javascript object.
-     */
-    json(): any;
-
-    /**
-     * Return BASE64 string directly.
-     * @return BASE64 string of response body.
-     */
-    base64(): any;
-
-    /**
-     * Remove cahced file
-     */
-    flush(): void;
-
     respInfo: ReactNativeBlobUtilResponseInfo;
 
     info(): ReactNativeBlobUtilResponseInfo;
 
+    /**
+     * The path of the response file, or null when the body is held in memory.
+     */
+    path(): string | null;
+
+    /**
+     * The body as text. A Promise when the body is a file.
+     */
+    text(): string | Promise<string>;
+
+    /**
+     * The body parsed as JSON. A Promise when the body is a file.
+     */
+    json(): any | Promise<any>;
+
+    /**
+     * The body as a base64 string. A Promise when the body is a file.
+     */
+    base64(): string | Promise<string>;
+
+    /**
+     * The body as byte values 0..255.
+     */
+    array(): Promise<number[]>;
+
+    /**
+     * Remove the response file. Does nothing when the body is not a file.
+     */
+    flush(): Promise<void> | undefined;
+
+    /**
+     * Add the response file to a session, or null when the body is not a file.
+     */
     session(name: string): ReactNativeBlobUtilSession | null;
 
     /**
-     * Read file content with given encoding, if the response does not contains
-     * a file path, show warning message
-     * @param  encode Encode type, should be one of `base64`, `ascrii`, `utf8`.
+     * Read the response file with the given encoding, or null when the body is
+     * not a file.
      */
-    readFile(encode: Encoding): Promise<any> | null;
+    readFile(encoding: 'ascii'): Promise<number[]> | null;
+    readFile(encoding: 'utf8' | 'base64'): Promise<string> | null;
 
     /**
-     * Start read stream from cached file
-     * @param  encode Encode type, should be one of `base64`, `ascrii`, `utf8`.
+     * A read stream over the response file, or null when the body is not a file.
      */
-    readStream(encode: Encoding): ReactNativeBlobUtilStream | null;
+    readStream(encoding: Encoding): Promise<ReactNativeBlobUtilReadStream> | null;
 }
 
-export interface Net {
-    /**
-     * Get cookie according to the given url.
-     * @param  domain Domain of the cookies to be removed, remove all
-     * @return     Cookies of a specific domain.
-     */
-    getCookies(domain: string): Promise<string[]>;
-
-    /**
-     * Remove cookies for a specific domain
-     * @param  domain Domain of the cookies to be removed, remove all
-     * cookies when this is null.
-     */
-    removeCookies(domain?: string): Promise<null>;
+export interface ReactNativeBlobUtilResponseInfo {
+    taskId: string;
+    state: string;
+    headers: { [name: string]: string };
+    status: number;
+    /** Every URL a redirect went through. */
+    redirects?: string[];
+    respType: 'text' | 'blob' | '' | 'json';
+    rnfbEncode: 'path' | 'base64' | 'utf8';
+    timeout?: boolean;
 }
 
-type HashAlgorithm = "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512";
+/**
+ * Options for `config()`.
+ */
+export interface ReactNativeBlobUtilConfig {
+    /**
+     * Write the response to a file with a random name in the cache directory
+     * instead of holding it in memory; `response.path()` is then set.
+     */
+    fileCache?: boolean;
+
+    /**
+     * The extension of the random file name `fileCache` creates.
+     */
+    appendExt?: string;
+
+    /**
+     * Write the response to this path. Overrides fileCache and appendExt.
+     */
+    path?: string;
+
+    /**
+     * Cache the response under this key: when a file downloaded with the same
+     * key exists, it is returned without a request.
+     */
+    key?: string;
+
+    /**
+     * Add the response file to this session.
+     */
+    session?: string;
+
+    /**
+     * Overwrite an existing file at `path`. Default true.
+     */
+    overwrite?: boolean;
+
+    /**
+     * Request timeout in milliseconds. Default 60000.
+     */
+    timeout?: number;
+
+    /**
+     * Follow redirects. Default true.
+     */
+    followRedirect?: boolean;
+
+    /**
+     * Run the registered file transformer on the response before it is written
+     * to disk. Only applies when the response is written to a file.
+     */
+    transformFile?: boolean;
+
+    /**
+     * Trust every server certificate. Not for production.
+     */
+    trusty?: boolean;
+
+    /**
+     * Resource names (without extension) of CA certificates bundled with the
+     * app, used as trust anchors instead of the system's: res/raw on Android,
+     * the main bundle on iOS, the app package on Windows. Hostname
+     * verification still applies. When none can be loaded the request fails.
+     */
+    customCACerts?: string[];
+
+    /**
+     * Apply customCACerts to these hosts only; other hosts use system trust.
+     */
+    pinnedHosts?: string[];
+
+    /**
+     * Keep trusting the system's CAs alongside customCACerts. Default false.
+     */
+    trustSystemCerts?: boolean;
+
+    /**
+     * Android only: only send the request over WiFi.
+     */
+    wifiOnly?: boolean;
+
+    /**
+     * Android only: pick the network interface that can reach this IP.
+     */
+    targetHostIp?: string;
+
+    /**
+     * Android only: download through the DownloadManager.
+     */
+    addAndroidDownloads?: AddAndroidDownloads;
+
+    /**
+     * iOS only: use a background session so the download continues when the
+     * app is suspended.
+     */
+    IOSBackgroundTask?: boolean;
+}
+
+export interface AddAndroidDownloads {
+    /** Download through the DownloadManager (required for the other options). */
+    useDownloadManager?: boolean;
+    /** Title shown in the Downloads app. */
+    title?: string;
+    /** Description shown in the Downloads app. */
+    description?: string;
+    /** Destination path; must be on external storage (e.g. DCIMDir). */
+    path?: string;
+    /** MIME type of the file. Default text/plain. */
+    mime?: string;
+    /** Let the media scanner index the file. */
+    mediaScannable?: boolean;
+    /** Android 10+: store the file in the Downloads collection (may override path). */
+    storeInDownloads?: boolean;
+    /** Show a notification while downloading and when complete. */
+    notification?: boolean;
+    /** Store the file in the app's own download directory. */
+    storeLocal?: boolean;
+}
+
+/**
+ * An error rejected by this library: a POSIX-style code such as EINVAL,
+ * ENOENT, EEXIST, EISDIR, ENOTSUP, ECANCELED or EUNSPECIFIED.
+ */
+export interface CodedError extends Error {
+    code: string;
+}
+
+/**
+ * The rejection of a cancelled `fetch`.
+ */
+export declare class CanceledFetchError extends Error {
+    constructor(message?: string);
+    name: 'ReactNativeBlobUtilCanceledFetch';
+    code: 'ECANCELED';
+}
+
+export type Encoding = 'utf8' | 'ascii' | 'base64';
+
+/** Write encodings: `uri` copies the file the data string points at. */
+export type WriteEncoding = Encoding | 'uri';
+
+export type HashAlgorithm = 'md5' | 'sha1' | 'sha224' | 'sha256' | 'sha384' | 'sha512';
 
 export interface FS {
-    ReactNativeBlobUtilSession: ReactNativeBlobUtilSession;
-
     /**
-     * Remove file at path.
-     * @param    path:string Path of target file.
+     * Remove the file or directory at path.
      */
     unlink(path: string): Promise<void>;
 
     /**
-     * Create a directory.
-     * @param  path Path of directory to be created
+     * Create a directory, including missing parents.
      */
-    mkdir(path: string): Promise<void>;
+    mkdir(path: string): Promise<boolean>;
 
     /**
-     * Get a file cache session
-     * @param  name Stream ID
+     * Get a file cache session; created when it does not exist yet.
      */
     session(name: string): ReactNativeBlobUtilSession;
 
+    /**
+     * The names of the entries in a directory.
+     */
     ls(path: string): Promise<string[]>;
 
     /**
-     * Read the file from the given path and calculate a cryptographic hash sum over its contents.
-     *
-     * Note: `sha224` is not available on Windows. Neither WinRT's hash providers
-     * nor CNG offer SHA-224, so the call rejects there. Android and iOS support
-     * every algorithm listed.
-     *
-     * @param path Path to the file
-     * @param algorithm The hash algorithm to use
+     * A cryptographic hash over the file's contents, hex encoded.
+     * `sha224` is not available on Windows.
      */
     hash(path: string, algorithm: HashAlgorithm): Promise<string>;
 
     /**
-     * Create file stream from file at `path`.
-     * @param  path   The file path.
-     * @param  encoding Data encoding, should be one of `base64`, `utf8`, `ascii`
-     * @param  bufferSize Size of stream buffer.
-     * @return ReactNativeBlobUtilStream stream instance.
+     * A read stream over the file. Call `open()` on the result.
+     * @param bufferSize Bytes per chunk. Default 12288; use a multiple of 3 for base64.
+     * @param tick Milliseconds between chunks. Default 10.
      */
-    readStream(path: string, encoding: Encoding, bufferSize?: number, tick?: number): Promise<ReactNativeBlobUtilReadStream>;
+    readStream(path: string, encoding?: Encoding, bufferSize?: number, tick?: number): Promise<ReactNativeBlobUtilReadStream>;
 
+    /**
+     * Move a file. An existing destination is overwritten.
+     */
     mv(path: string, dest: string): Promise<boolean>;
 
+    /**
+     * Copy a file. An existing destination is overwritten.
+     */
     cp(path: string, dest: string): Promise<boolean>;
 
     /**
-     * Create write stream to a file.
-     * @param  path Target path of file stream.
-     * @param  encoding Encoding of input data.
-     * @param  append  A flag represent if data append to existing ones.
-     * @return A promise resolves a `WriteStream` object.
+     * A write stream to the file.
+     * @param append Append to the file instead of replacing it. Default false.
      */
-    writeStream(path: string, encoding: Encoding, append?: boolean): Promise<ReactNativeBlobUtilWriteStream>;
+    writeStream(path: string, encoding?: Encoding, append?: boolean): Promise<ReactNativeBlobUtilWriteStream>;
 
     /**
-     * Write data to file.
-     * @param  path  Path of the file.
-     * @param  data Data to write to the file.
-     * @param  encoding Encoding of data (Optional).
+     * Write data to a file, replacing it.
+     * @param data A string, or byte values 0..255 for the ascii encoding.
+     * @return The number of bytes written.
      */
-    writeFile(path: string, data: string | number[], encoding?: Encoding): Promise<void>;
+    writeFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
+    writeFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
 
     /**
-     * Processes the data and then writes to the file.
-     * @param  path  Path of the file.
-     * @param  data Data to write to the file.
-     * @param  encoding Encoding of data (Optional).
+     * Run the registered file transformer on the data, then write it.
+     * @return The number of bytes written.
      */
-    writeFileWithTransform(path: string, data: string | number[], encoding?: Encoding): Promise<void>;
-
-    appendFile(path: string, data: string | number[], encoding?: Encoding | "uri"): Promise<number>;
+    writeFileWithTransform(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
 
     /**
-     * Wrapper method of readStream.
-     * @param  path Path of the file.
-     * @param  encoding Encoding of read stream.
+     * Append data to a file.
+     * @return The number of bytes written.
      */
-    readFile(path: string, encoding: Encoding, bufferSize?: number): Promise<any>;
+    appendFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
+    appendFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
 
     /**
-     * Reads from a file and then processes the data before returning
-     * @param  path Path of the file.
-     * @param  encoding Encoding of read stream.
+     * Read a file: text for utf8, a base64 string, or byte values 0..255 for ascii.
      */
-    readFileWithTransform(path: string, encoding: Encoding, bufferSize?: number): Promise<any>;
+    readFile(path: string, encoding: 'ascii'): Promise<number[]>;
+    readFile(path: string, encoding?: 'utf8' | 'base64'): Promise<string>;
 
     /**
-     * Check if file exists and if it is a folder.
-     * @param  path Path to check
+     * Read a file and run the registered file transformer on it.
+     */
+    readFileWithTransform(path: string, encoding: 'ascii'): Promise<number[]>;
+    readFileWithTransform(path: string, encoding?: 'utf8' | 'base64'): Promise<string>;
+
+    /**
+     * Whether a file or directory exists at path.
      */
     exists(path: string): Promise<boolean>;
 
     /**
-     * Create a file with the given content.
-     * @return The path of the created file.
+     * Whether a directory exists at path.
      */
-    createFile(path: string, data: string | number[], encoding: Encoding | 'uri'): Promise<string>;
-
     isDir(path: string): Promise<boolean>;
 
     /**
-     * Show statistic data of a path.
-     * @param  path Target path
+     * Create a file with the given content. Rejects with EEXIST when it exists.
+     * @return The path of the created file.
+     */
+    createFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<string>;
+    createFile(path: string, data: number[], encoding: 'ascii'): Promise<string>;
+
+    /**
+     * Information about a file or directory.
      */
     stat(path: string): Promise<ReactNativeBlobUtilStat>;
 
+    /**
+     * Information about every entry of a directory.
+     */
     lstat(path: string): Promise<ReactNativeBlobUtilStat[]>;
 
     /**
-     * Android only method, request media scanner to scan the file.
-     * @param  pairs Array contains Key value pairs with key `path` and `mime`.
+     * Copy the bytes `start` (inclusive) to `end` (exclusive) of a file into a
+     * new file. Negative offsets count from the end.
+     * @return The destination path.
      */
-    scanFile(pairs: Array<{ [key: string]: string }>): Promise<void>;
+    slice(src: string, dest: string, start?: number, end?: number): Promise<string>;
 
-    dirs: Dirs;
-
-    slice(src: string, dest: string, start: number, end: number): Promise<string>;
-
+    /**
+     * The path of a bundled asset, for use with the other fs calls.
+     */
     asset(path: string): string;
 
     /**
@@ -234,11 +455,26 @@ export interface FS {
      */
     df(): Promise<ReactNativeBlobUtilDf>;
 
-    /**
-     * Returns the path for the app group.
-     * @param  {string} groupName Name of app group
-     */
-    pathForAppGroup(groupName: string): Promise<string>;
+    dirs: Dirs;
+
+    ReactNativeBlobUtilSession: typeof ReactNativeBlobUtilSession;
+
+    /** @deprecated use `android.scanFile` */
+    scanFile: AndroidApi['scanFile'];
+    /** @deprecated use `ios.pathForAppGroup` */
+    pathForAppGroup: IOSApi['pathForAppGroup'];
+    /** @deprecated use `ios.syncPathAppGroup` */
+    syncPathAppGroup: IOSApi['syncPathAppGroup'];
+}
+
+export interface ReactNativeBlobUtilStat {
+    filename: string;
+    path: string;
+    /** Bytes. */
+    size: number;
+    type: 'file' | 'directory' | 'asset';
+    /** Milliseconds since the epoch. */
+    lastModified: number;
 }
 
 export interface ReactNativeBlobUtilDf {
@@ -254,433 +490,260 @@ export interface ReactNativeBlobUtilDf {
     external_total?: number;
 }
 
-/** @deprecated use ReactNativeBlobUtilDf */
-export type RNFetchBlobDf = ReactNativeBlobUtilDf;
-
+/**
+ * Well-known directories. A directory that does not exist on the platform is "".
+ */
 export interface Dirs {
     DocumentDir: string;
     CacheDir: string;
-    PictureDir: string;
+    MainBundleDir: string;
     LibraryDir: string;
+    ApplicationSupportDir: string;
+    PictureDir: string;
     MusicDir: string;
     MovieDir: string;
     DownloadDir: string;
     DCIMDir: string;
+    /** @deprecated */
     SDCardDir: string;
-    MainBundleDir: string;
-
+    /** @deprecated */
+    SDCardApplicationDir: string;
     LegacyPictureDir: string;
     LegacyMusicDir: string;
     LegacyMovieDir: string;
     LegacyDownloadDir: string;
     LegacyDCIMDir: string;
-    LegacySDCardDir: string; // Depracated
+    /** @deprecated */
+    LegacySDCardDir: string;
 }
 
-export interface ReactNativeBlobUtilWriteStream {
+export declare class ReactNativeBlobUtilWriteStream {
     id: string;
     encoding: string;
     append: boolean;
 
-    write(data: string): Promise<void>;
+    /**
+     * Write a chunk: a string, or byte values 0..255 for an ascii stream.
+     */
+    write(data: string | number[]): Promise<ReactNativeBlobUtilWriteStream>;
 
     close(): Promise<void>;
 }
 
-export interface ReactNativeBlobUtilReadStream {
+export declare class ReactNativeBlobUtilReadStream {
     path: string;
     encoding: Encoding;
     bufferSize?: number;
-    closed: boolean;
     tick: number;
+    closed: boolean;
+    streamId: string;
 
+    /**
+     * Start reading. Register the handlers first.
+     */
     open(): void;
 
+    /**
+     * Called per chunk: a string, or byte values 0..255 for an ascii stream.
+     */
     onData(fn: (chunk: string | number[]) => void): void;
 
-    onError(fn: (err: any) => void): void;
+    onError(fn: (err: CodedError) => void): void;
 
     onEnd(fn: () => void): void;
 }
 
-export type Encoding = "utf8" | "ascii" | "base64";
+/** @deprecated use ReactNativeBlobUtilReadStream */
+export type ReactNativeBlobUtilStream = ReactNativeBlobUtilReadStream;
 
-/* tslint:disable-next-line interface-name*/
+/**
+ * A named list of files that can be removed together.
+ */
+export declare class ReactNativeBlobUtilSession {
+    constructor(name: string, list?: string[]);
+
+    name: string;
+
+    add(path: string): ReactNativeBlobUtilSession;
+
+    remove(path: string): ReactNativeBlobUtilSession;
+
+    list(): string[];
+
+    /**
+     * Delete every file in the session and forget the session.
+     */
+    dispose(): Promise<void>;
+
+    static getSession(name: string): string[] | undefined;
+
+    static setSession(name: string, list: string[]): void;
+
+    static removeSession(name: string): void;
+}
+
+/**
+ * iOS only. Every call rejects with ENOTSUP on other platforms.
+ */
 export interface IOSApi {
     /**
-     * Open a file in {@link https://developer.apple.com/reference/uikit/uidocumentinteractioncontroller UIDocumentInteractionController},
-     * this is the default document viewer of iOS, supports several kinds of files. On Android, there's an similar method {@link android.actionViewIntent}.
-     * @param path This is a required field, the path to the document. The path should NOT contain any scheme prefix.
-     * @param  {string} scheme URI scheme that needs to support, optional
-     */
-    previewDocument(path: string, scheme?: string): void;
-
-    /**
-     * Show options menu for interact with the file.
-     * @param path This is a required field, the path to the document. The path should NOT contain any scheme prefix.
-     * @param  {string} scheme URI scheme that needs to support, optional
-     */
-    openDocument(path: string, scheme?: string): Promise<void>;
-
-    /**
-     * Displays an options menu using [UIDocumentInteractionController](https://developer.apple.com/reference/uikit/uidocumentinteractioncontroller).[presentOptionsMenu](https://developer.apple.com/documentation/uikit/uidocumentinteractioncontroller/1616814-presentoptionsmenu)
-     * @param  {string} path Path of the file to be open.
-     * @param  {string} scheme URI scheme that needs to support, optional
+     * Show the options menu of UIDocumentInteractionController for the file.
+     * @param path Path without a scheme.
+     * @param scheme A URI scheme the app declares, if any.
      */
     presentOptionsMenu(path: string, scheme?: string): Promise<void>;
 
     /**
-     * Displays a menu for opening the document using [UIDocumentInteractionController](https://developer.apple.com/reference/uikit/uidocumentinteractioncontroller).[presentOpenInMenu](https://developer.apple.com/documentation/uikit/uidocumentinteractioncontroller/1616807-presentopeninmenu)
-     * @param  {string} path Path of the file to be open.
-     * @param  {string} scheme URI scheme that needs to support, optional
+     * Show the "open in" menu of UIDocumentInteractionController for the file.
      */
     presentOpenInMenu(path: string, scheme?: string): Promise<void>;
 
     /**
-     * Displays a full-screen preview of the target document using [UIDocumentInteractionController](https://developer.apple.com/reference/uikit/uidocumentinteractioncontroller).[presentPreview](https://developer.apple.com/documentation/uikit/uidocumentinteractioncontroller/1616828-presentpreview)
-     * @param  {string} path Path of the file to be open.
-     * @param  {string} scheme URI scheme that needs to support, optional
+     * Show a full-screen preview of the file.
      */
     presentPreview(path: string, scheme?: string): Promise<void>;
 
     /**
-     * Marks the file to be excluded from icloud/itunes backup. Works recursively if path is to a directory
-     * @param {string} path  Path to a file or directory to mark to be excluded.
+     * Exclude the file or directory from iCloud and iTunes backups.
      */
     excludeFromBackupKey(path: string): Promise<void>;
+
+    /**
+     * The directory shared by the apps of an app group.
+     */
+    pathForAppGroup(groupName: string): Promise<string>;
+
+    /**
+     * The directory shared by the apps of an app group, synchronously. "" on
+     * other platforms.
+     */
+    syncPathAppGroup(groupName: string): string;
+
+    /** @deprecated use `presentOptionsMenu` */
+    openDocument(path: string, scheme?: string): Promise<void>;
+
+    /** @deprecated use `presentPreview` */
+    previewDocument(path: string, scheme?: string): Promise<void>;
 }
 
-export interface AndroidDownloadOption {
-    /**
-     * Title string to be displayed when the file added to Downloads app.
-     */
-    title: string;
-
-    /**
-     * File description to be displayed when the file added to Downloads app.
-     */
-    description: string;
-
-    /**
-     * MIME string of the file.
-     */
-    mime: string;
-
-    /**
-     * URI string of the file.
-     */
-    path: string;
-
-    /**
-     * Boolean value that determines if notification will be displayed.
-     */
-    showNotification: boolean;
-}
-
+/**
+ * Android only. Every call rejects with ENOTSUP on other platforms.
+ */
 export interface AndroidApi {
     /**
-     * When sending an ACTION_VIEW intent with given file path and MIME type, system will try to open an
-     * App to handle the file. For example, open Gallery app to view an image, or install APK.
-     * @param path Path of the file to be opened.
-     * @param mime Basically system will open an app according to this MIME type.
-     * @param chooserTitle title for chooser, if not set the chooser won't be displayed (see [Android docs](https://developer.android.com/reference/android/content/Intent.html#createChooser(android.content.Intent,%20java.lang.CharSequence)))
+     * Open the file in another app with an ACTION_VIEW intent.
+     * @param chooserTitle Show an app chooser with this title.
      */
     actionViewIntent(path: string, mime: string, chooserTitle?: string): Promise<boolean | null>;
 
     /**
-     *
-     * This method brings up OS default file picker and resolves a file URI when the user selected a file.
-     * However, it does not resolve or reject when user dismiss the file picker via pressing hardware back button,
-     * but you can still handle this behavior via AppState.
-     * @param mime MIME type filter, only the files matches the MIME will be shown.
+     * Show the system file picker and resolve the URI of the chosen file, or
+     * null when the user cancels.
      */
-    getContentIntent(mime: string): Promise<any>;
+    getContentIntent(mime: string): Promise<string | null>;
 
     /**
-     * Using this function to add an existing file to Downloads app.
-     * @param options An object that for setting the title, description, mime, and notification of the item.
+     * Register an existing file with the Downloads app.
      */
     addCompleteDownload(options: AndroidDownloadOption): Promise<void>;
 
     getSDCardDir(): Promise<string>;
 
     getSDCardApplicationDir(): Promise<string>;
+
+    /**
+     * Ask the media scanner to index files, so they show in the gallery and
+     * other apps.
+     */
+    scanFile(pairs: Array<{ path: string; mime?: string }>): Promise<void>;
 }
 
-type Methods = "POST" | "GET" | "DELETE" | "PUT" | "PATCH" | "HEAD" | "post" | "get" | "delete" | "put" | "patch" | "head";
-
-/**
- * A declare class inherits Promise, it has extra method like progress, uploadProgress,
- * and cancel which can help managing an asynchronous task's state.
- */
-export interface StatefulPromise<T> extends Promise<T> {
-    /**
-     * Cancel the request when invoke this method.
-     */
-    cancel(cb?: (reason: any) => void): StatefulPromise<FetchBlobResponse>;
-
-    /**
-     * Add an event listener which triggers when data receiving from server.
-     */
-    progress(callback: (received: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
-
-    /**
-     * Add an event listener with custom configuration
-     */
-    progress(config: { count?: number; interval?: number }, callback: (received: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
-
-    /**
-     * Add an event listener with custom configuration.
-     */
-    uploadProgress(callback: (sent: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
-
-    /**
-     * Add an event listener with custom configuration
-     */
-    uploadProgress(config: { count?: number; interval?: number }, callback: (sent: number, total: number) => void): StatefulPromise<FetchBlobResponse>;
-}
-
-export declare class ReactNativeBlobUtilSession {
-    constructor(name: string, list: string[]);
-
-    add(path: string): ReactNativeBlobUtilSession;
-
-    remove(path: string): ReactNativeBlobUtilSession;
-
-    dispose(): Promise<void>;
-
-    list(): string[];
-
-    name: string;
-
-    static getSession(name: string): any;
-
-    static setSession(name: string): void;
-
-    static removeSession(name: string): void;
-}
-
-/**
- * A set of configurations that will be injected into a fetch method, with the following properties.
- */
-export interface ReactNativeBlobUtilConfig {
-    /**
-     * Cache the response under this key: when a file downloaded with the same key
-     * exists, it is returned without a request. Implies fileCache.
-     */
-    key?: string;
-
-    /**
-     * When this property is true, the downloaded data will overwrite the existing file. (true by default)
-     */
-    overwrite?: boolean;
-
-    /**
-     * Set timeout of the request (in milliseconds).
-     */
-    timeout?: number;
-
-    /**
-     * Set this property to true will allow the request create connection with server have self-signed SSL
-     * certification. This is not recommended to use in production.
-     */
-    trusty?: boolean;
-
-    /**
-     * Set this property to true will only do requests through the WiFi interface, and fail otherwise.
-     */
-    wifiOnly?: boolean;
-
-    /**
-     * Set this property to search for the WiFi interface that uses this targetHostIp
-     */
-    targetHostIp?: string;
-
-    /**
-     * Set this property so redirects are not automatically followed.
-     */
-    followRedirect?: boolean;
-
-    /**
-     * Set this property to true will makes response data of the fetch stored in a temp file, by default the temp
-     * file will stored in App's own root folder with file name template ReactNativeBlobUtil_tmp${timestamp}.
-     */
-    fileCache?: boolean;
-
-    /**
-     * Set this property to true if you want the data to be processed before it gets written onto disk.
-     * This only has effect if the FileTransformer has been registered and the library is configured to write
-     * response onto disk.
-     */
-    transformFile?: boolean;
-
-    /**
-     * Set this property to change temp file extension that created by fetch response data.
-     */
-    appendExt?: string;
-
-    /**
-     * When this property has value, fetch API will try to store response data in the path ignoring fileCache and
-     * appendExt property.
-     */
-    path?: string;
-
-    session?: string;
-
-    addAndroidDownloads?: AddAndroidDownloads;
-
-    /**
-     * Fix IOS request timeout issue #368 by change default request setting to defaultSessionConfiguration, and make backgroundSessionConfigurationWithIdentifier optional
-     */
-    IOSBackgroundTask?: boolean;
-
-    /**
-     * An array of custom CA certificate resource names (without file extension) bundled
-     * in the app. These certificates will be used as trust anchors when evaluating the
-     * server's TLS certificate. Supports .cer, .der, and .pem files.
-     *
-     * On iOS, certificates are loaded from the main bundle.
-     * On Android, certificates are loaded from res/raw/.
-     * On Windows, certificates are loaded from the app package (MainBundleDir).
-     *
-     * Hostname verification still applies on every platform, so the server
-     * certificate must carry the host as a subject alternative name - including
-     * an IP SAN when connecting to an address rather than a name.
-     *
-     * If none of the named certificates can be loaded the request fails rather
-     * than falling back to system trust.
-     */
-    customCACerts?: string[];
-
-    /**
-     * When set, custom CA trust evaluation is only applied to connections matching
-     * these hosts. Other hosts fall through to default system trust evaluation.
-     * If not set, custom CAs apply to all hosts.
-     */
-    pinnedHosts?: string[];
-
-    /**
-     * When true, the system's default trusted CAs are included alongside the custom
-     * CAs specified in customCACerts. When false (default), only the custom CAs are
-     * trusted as anchors.
-     */
-    trustSystemCerts?: boolean;
-}
-
-export interface AddAndroidDownloads {
-    /**
-     * download file using Android download manager or not.
-     */
-    useDownloadManager?: boolean;
-    /**
-     * title of the file
-     */
-    title?: string;
-    /**
-     * File description of the file.
-     */
-    description?: string;
-    /**
-     * The destination which the file will be downloaded, it SHOULD be a location on external storage (DCIMDir). CacheDir and DocumentDir don't work
-     */
-    path?: string;
-    /**
-     * MIME type of the file. By default is text/plain
-     */
-    mime?: string;
-    /**
-     * A boolean value, see Official Document
-     * (https://developer.android.com/reference/android/app/DownloadManager.html#addCompletedDownload(java.lang.String, java.lang.String, boolean, java.lang.String, java.lang.String, long, boolean))
-     */
-    mediaScannable?: boolean;
-    /**
-     * Only for Android >= Q; Enforces the file being stored to the MediaCollection Downloads. This might overwrite any value given in "path"
-     */
-    storeInDownloads?: boolean;
-    /**
-     * A boolean value decide whether show a notification when download complete.
-     */
-    notification?: boolean;
-
-    /**
-     * If true android download manager will try to save the file to the apps Download direcotry
-     */
-    storeLocal?: boolean;
-}
-
-export interface ReactNativeBlobUtilResponseInfo {
-    taskId: string;
-    state: string;
-    headers: any;
-    redirects: string[];
-    status: number;
-    respType: "text" | "blob" | "" | "json";
-    rnfbEncode: "path" | "base64" | "ascii" | "utf8";
-    timeout: boolean;
-}
-
-export interface ReactNativeBlobUtilStream {
-    onData(): void;
-
-    onError(): void;
-
-    onEnd(): void;
-}
-
-export declare class ReactNativeBlobUtilFile {}
-
-export declare class ReactNativeBlobUtilStat {
-    lastModified: number;
-    size: number;
-    type: "directory" | "file";
+export interface AndroidDownloadOption {
+    /** Title shown in the Downloads app. */
+    title: string;
+    /** Description shown in the Downloads app. */
+    description: string;
+    /** MIME type of the file. */
+    mime: string;
+    /** Path of the file. */
     path: string;
-    filename: string;
+    /** Show a notification. */
+    showNotification: boolean;
 }
 
-export type Mediatype = "Audio" | "Image" | "Video" | "Download";
+export type Mediatype = 'Audio' | 'Image' | 'Video' | 'Download';
 
+/**
+ * A file in the Android MediaStore.
+ */
+export interface filedescriptor {
+    /** File name, with extension. */
+    name: string;
+    /** Sub-directory inside the collection; "" for the collection itself. */
+    parentFolder: string;
+    mimeType: string;
+}
+
+/**
+ * The Android MediaStore. Every call rejects with ENOTSUP on other platforms.
+ */
 export interface MediaCollection {
     /**
-     * Creates a new File in the collection.
-     * Promise will resolve to content UIR or error message
-     * @param filedata descriptor for the media store entry
-     * @param mediatype
-     * @param path path of the file being copied
+     * Create an entry in the collection and copy a file into it.
+     * @return The content URI of the entry.
      */
     copyToMediaStore(filedata: filedescriptor, mediatype: Mediatype, path: string): Promise<string>;
 
     /**
-     * Creates a new File in the collection.
-     * @param filedata
-     * @param mediatype
+     * Create an empty entry in the collection.
+     * @return The content URI of the entry.
      */
-    createMediafile(filedata: filedescriptor, mediatype: Mediatype): Promise<string>;
+    createMediaFile(filedata: filedescriptor, mediatype: Mediatype): Promise<string>;
 
     /**
-     * Copies an existing file to a mediastore file
-     * @param uri URI of the destination mediastore file
-     * @param path Path to the existing file which should be copied
+     * Copy a file into an existing entry.
+     * @param uri The entry's content URI.
+     * @param path The file to copy.
      */
-    writeToMediafile(uri: string, path: string): Promise<string>;
+    writeToMediaFile(uri: string, path: string): Promise<string>;
 
     /**
-     * Copies and transforms an existing file to a mediastore file. Make sure FileTransformer is set
-     * @param uri URI of the destination mediastore file
-     * @param path Path to the existing file which should be copied
+     * Run the registered file transformer on a file and copy the result into
+     * an existing entry.
      */
-    writeToMediafileWithTransform(uri: string, path: string): Promise<string>;
+    writeToMediaFileWithTransform(uri: string, path: string): Promise<string>;
 
     /**
-     * Copies a file from the mediastore to the apps internal storage
-     * @param contenturi URI of the mediastore file
-     * @param destpath Path for the file in the internal storage
+     * Copy an entry into the app's own storage.
      */
     copyToInternal(contenturi: string, destpath: string): Promise<string>;
 
     /**
-     * Gets the blob data for a given URI in the mediastore
-     * @param contenturi
-     * @param encoding
+     * Read an entry: text for utf8, a base64 string, or byte values for ascii.
      */
-    getBlob(contenturi: string, encoding: string): Promise<string>;
+    getBlob(contenturi: string, encoding: 'ascii'): Promise<number[]>;
+    getBlob(contenturi: string, encoding: 'utf8' | 'base64'): Promise<string>;
+
+    /** @deprecated use `createMediaFile` */
+    createMediafile(filedata: filedescriptor, mediatype: Mediatype): Promise<string>;
+    /** @deprecated use `writeToMediaFile` */
+    writeToMediafile(uri: string, path: string): Promise<string>;
+    /** @deprecated use `writeToMediaFileWithTransform` */
+    writeToMediafileWithTransform(uri: string, path: string): Promise<string>;
 }
+
+export declare const URIUtil: {
+    /** Whether a string is a `wrap(path)` reference. */
+    isFileURI(uri: string): boolean;
+    /** Strip the `ReactNativeBlobUtil-file://` prefix. */
+    unwrapFileURI(uri: string): string;
+    /** Strip `iterations` URI schemes (default 1). */
+    removeURIScheme(uri: string, iterations?: number): string;
+    /** The same as `ReactNativeBlobUtil.wrap`. */
+    wrap(path: string): string;
+};
+
+/**
+ * A random UUID v4 string.
+ */
+export declare function getUUID(): string;
