@@ -38,6 +38,12 @@ RCT_EXPORT_MODULE();
         _core.eventSink = self;
         // Plain UIKit rather than a React helper, but only the adapter is in a
         // position to reach for it, so the Swift takes it as a provider.
+        // Native warnings belong in the JS console, where the developer who
+        // caused them is looking. Swift cannot import React, so the handler is
+        // injected here once.
+        ReactNativeBlobUtilLog.warningHandler = ^(NSString *message) {
+            RCTLogWarn(@"%@", message);
+        };
         _core.presentingViewController = ^UIViewController * _Nullable {
             return [[[[UIApplication sharedApplication] delegate] window] rootViewController];
         };

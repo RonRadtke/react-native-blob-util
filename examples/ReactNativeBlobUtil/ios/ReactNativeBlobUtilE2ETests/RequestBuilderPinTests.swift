@@ -236,6 +236,50 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertTrue(body.contains("Content-Type: application/json"), body)
     }
 
+    // MARK: - the warnings a JS developer has to see
+
+    /// 63bd089 made the multipart builder say something when a field's base64
+    /// could not be decoded, and the older case says something when a field has
+    /// no name or data. Both went through RCTLogWarn, so they reach the JS
+    /// console and LogBox. Reaching only the device log would lose the point of
+    /// that commit, so these assert the exact text arrives at the handler the
+    /// adapter installs.
+    private func captureWarnings(_ run: () throws -> Void) rethrows -> [String] {
+        var captured: [String] = []
+        let previous = ReactNativeBlobUtilLog.warningHandler
+        ReactNativeBlobUtilLog.warningHandler = { captured.append($0) }
+        defer { ReactNativeBlobUtilLog.warningHandler = previous }
+        try run()
+        return captured
+    }
+
+    /// "A" rather than "@@@@": with .ignoreUnknownCharacters, a string of
+    /// characters that are all ignored decodes to *empty* data, not nil, so it
+    /// never reaches the warning. A lone valid character cannot form a group and
+    /// does fail. Measured, after "@@@@" produced no warning at all.
+    func testUndecodableBase64WarnsWithTheFieldName() throws {
+        let warnings = try captureWarnings {
+            _ = try buildMultipart(form: [
+                ["name": "bad", "filename": "bad.bin", "data": "A"],
+            ])
+        }
+        XCTAssertEqual(warnings, [
+            "ReactNativeBlobUtil multipart request builder could not decode the `data` of field `bad` as base64, the field will be sent with an empty body.",
+        ])
+    }
+
+    func testAFieldWithoutNameOrDataWarnsOnce() throws {
+        let warnings = try captureWarnings {
+            _ = try buildMultipart(form: [
+                ["filename": "nameless.bin", "data": "YWJj"],
+                ["name": "good", "data": "kept"],
+            ])
+        }
+        XCTAssertEqual(warnings, [
+            "ReactNativeBlobUtil multipart request builder has found a field without `data` or `name` property, the field will be removed implicitly.",
+        ])
+    }
+
     // MARK: - network bookkeeping
 
     func testSharedInstanceIsASingleton() {

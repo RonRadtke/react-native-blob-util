@@ -102,7 +102,7 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
             // the crash is the behaviour, and it is on the P5 list.
             if content == nil || name == nil {
                 index += 1
-                NSLog("ReactNativeBlobUtil multipart request builder has found a field without `data` or `name` property, the field will be removed implicitly.")
+                ReactNativeBlobUtilLog.warn("ReactNativeBlobUtil multipart request builder has found a field without `data` or `name` property, the field will be removed implicitly.")
                 handle(form[index])
                 return
             }
@@ -145,7 +145,9 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
             if blobData == nil {
                 // What still fails is genuinely malformed. The part goes out with
                 // its headers and an empty body: survivable, but said out loud.
-                NSLog("ReactNativeBlobUtil multipart request builder could not decode the `data` of field `%@` as base64, the field will be sent with an empty body.", name!)
+                // The %@ substitution the Objective-C did, done here so the text
+                // that reaches the console is byte-identical.
+                ReactNativeBlobUtilLog.warn("ReactNativeBlobUtil multipart request builder could not decode the `data` of field `\(name!)` as base64, the field will be sent with an empty body.")
             }
             append("--\(boundary)\r\n")
             append("Content-Disposition: form-data; name=\"\(name!)\"; filename=\"\(filename!)\"\r\n")
