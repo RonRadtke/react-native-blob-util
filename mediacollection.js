@@ -1,7 +1,9 @@
 import type {ReactNativeBlobUtilNative, filedescriptor} from "./types";
 import {requireNativeModule} from './utils/nativeModule';
 function createMediafile(fd: filedescriptor, mediatype: string): Promise {
-    if ((!'parentFolder' in fd)) fd['parentFolder'] = '';
+    if (fd && typeof fd === 'object' && !('parentFolder' in fd)) {
+        fd = {...fd, parentFolder: ''};
+    }
     return requireNativeModule().createMediaFile(fd, mediatype);
 }
 

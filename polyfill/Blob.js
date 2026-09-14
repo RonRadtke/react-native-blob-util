@@ -9,7 +9,12 @@ import URIUtil from "../utils/uri";
 import EventTarget from './EventTarget';
 
 const log = new Log('Blob');
-const blobCacheDir = fs.dirs.DocumentDir + '/ReactNativeBlobUtil-blobs/';
+
+// Read on first use: fs.dirs reaches native, and this module is imported by
+// the package entry point.
+function blobCacheDir() {
+    return fs.dirs.DocumentDir + '/ReactNativeBlobUtil-blobs/';
+}
 
 log.disable();
 // log.level(3)
@@ -37,7 +42,7 @@ export default class Blob extends EventTarget {
      * @return {Promise}
      */
     static clearCache() {
-        return fs.unlink(blobCacheDir).then(() => fs.mkdir(blobCacheDir));
+        return fs.unlink(blobCacheDir()).then(() => fs.mkdir(blobCacheDir()));
     }
 
     static build(data: any, cType: any): Promise<Blob> {
@@ -76,7 +81,7 @@ export default class Blob extends EventTarget {
         this.isDerived = defer;
         this.type = cType.type || 'text/plain';
         log.verbose('Blob constructor called', 'mime', this.type, 'type', typeof data, 'length', data ? data.length : 0);
-        this._ref = blobCacheDir + this.cacheName;
+        this._ref = blobCacheDir() + this.cacheName;
         let p = null;
         if (!data)
             data = '';
@@ -233,15 +238,15 @@ export default class Blob extends EventTarget {
         log.verbose('slice called', start, end, contentType);
 
 
-        let resPath = blobCacheDir + getBlobName();
+        let resPath = blobCacheDir() + getBlobName();
         let pass = false;
         log.debug('fs.slice new blob will at', resPath);
         let result = new Blob(URIUtil.wrap(resPath), {type: contentType}, true);
-        fs.exists(blobCacheDir)
+        fs.exists(blobCacheDir())
             .then((exist) => {
                 if (exist)
                     return Promise.resolve();
-                return fs.mkdir(blobCacheDir);
+                return fs.mkdir(blobCacheDir());
             })
             .then(() => fs.slice(this._ref, resPath, start, end))
             .then((dest) => {

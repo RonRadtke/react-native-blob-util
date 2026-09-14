@@ -83,7 +83,9 @@ function ensureMessageChannel(resolved) {
             console.warn(e.detail);
         }
         else if (e.event === 'error') {
-            throw e.detail;
+            // Reported, not thrown: a throw inside an event listener is an
+            // uncaught exception that takes the app down.
+            console.error('ReactNativeBlobUtil native error', e.detail);
         }
         else {
             console.log('ReactNativeBlobUtil native message', e.detail);

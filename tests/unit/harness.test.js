@@ -14,8 +14,7 @@ test('package files load with their Flow syntax stripped', async () => {
     assert.equal(typeof fs.dirs, 'object');
 });
 
-// Audit #4: polyfill/Blob.js reads fs.dirs.DocumentDir while it is being imported.
-test('importing the package does not touch native', {todo: 'audit #4, fixed in A4'}, async () => {
+test('importing the package does not touch native', async () => {
     rn.setNativeModule(null);
     const {default: ReactNativeBlobUtil} = await import('../../index.js');
     assert.equal(typeof ReactNativeBlobUtil.fetch, 'function');
