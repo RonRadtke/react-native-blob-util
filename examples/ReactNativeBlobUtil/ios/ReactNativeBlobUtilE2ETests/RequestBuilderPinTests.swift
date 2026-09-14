@@ -428,6 +428,97 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertEqual(disposition, .performDefaultHandling)
     }
 
+    // MARK: - malformed trust options must still fail closed
+
+    /// A protection space carrying a real SecTrust, which is what the custom-CA
+    /// branch needs before it will do anything. Built from the CA the e2e suite
+    /// bundles, so no network handshake is involved.
+    private final class TrustingProtectionSpace: URLProtectionSpace {
+        private let trust: SecTrust
+        init?(host: String) {
+            guard let path = Bundle.main.path(forResource: "test_ca", ofType: "pem"),
+                  let pem = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+            let base64 = pem
+                .replacingOccurrences(of: "-----BEGIN CERTIFICATE-----", with: "")
+                .replacingOccurrences(of: "-----END CERTIFICATE-----", with: "")
+                .replacingOccurrences(of: "\n", with: "")
+                .replacingOccurrences(of: "\r", with: "")
+            guard let der = Data(base64Encoded: base64, options: .ignoreUnknownCharacters),
+                  let cert = SecCertificateCreateWithData(nil, der as CFData) else { return nil }
+            var created: SecTrust?
+            let status = SecTrustCreateWithCertificates([cert] as CFArray,
+                                                        SecPolicyCreateSSL(true, host as CFString),
+                                                        &created)
+            guard status == errSecSuccess, let trust = created else { return nil }
+            self.trust = trust
+            super.init(host: host, port: 443, protocol: "https", realm: nil,
+                       authenticationMethod: NSURLAuthenticationMethodServerTrust)
+        }
+        required init?(coder: NSCoder) { fatalError("unused") }
+        override var serverTrust: SecTrust? { trust }
+    }
+
+    private func decideWithRealTrust(options: [String: Any], host: String = "localhost")
+        throws -> URLSession.AuthChallengeDisposition {
+        let space = try XCTUnwrap(TrustingProtectionSpace(host: host),
+                                  "could not build a SecTrust from the bundled test CA")
+        let challenge = URLAuthenticationChallenge(protectionSpace: space, proposedCredential: nil,
+                                                  previousFailureCount: 0, failureResponse: nil,
+                                                  error: nil, sender: RecordingChallengeSender())
+        let request = ReactNativeBlobUtilRequest()
+        request.options = options
+        let done = expectation(description: "challenge")
+        var disposition: URLSession.AuthChallengeDisposition?
+        var fired = false
+        request.urlSession(URLSession.shared, didReceive: challenge) { result, _ in
+            if !fired { fired = true; disposition = result; done.fulfill() }
+        }
+        wait(for: [done], timeout: 5)
+        return try XCTUnwrap(disposition)
+    }
+
+    /// The heart of it. A customCACerts array holding a non-string is still an
+    /// array the caller meant as pinning. Reading it as [String] fails the cast,
+    /// skips the whole block and hands the connection to the system trust store -
+    /// **failing open** for a caller who explicitly asked not to trust it.
+    /// Nothing loads here, so the only correct answer is to refuse.
+    func testMalformedCustomCertsArrayStillFailsClosed() throws {
+        let disposition = try decideWithRealTrust(options: [
+            "customCACerts": [NSNull(), "missing_name"],
+        ])
+        XCTAssertEqual(disposition, .cancelAuthenticationChallenge,
+                       "a malformed customCACerts array must refuse, not fall back to system trust")
+    }
+
+    func testCustomCertsArrayOfOnlyUnloadableNamesFailsClosed() throws {
+        let disposition = try decideWithRealTrust(options: ["customCACerts": ["no_such_cert"]])
+        XCTAssertEqual(disposition, .cancelAuthenticationChallenge)
+    }
+
+    /// A pinnedHosts array holding a non-string used to read as unset, which
+    /// applied the pinning to every host instead of the named one.
+    func testMixedPinnedHostsStillScopesToItsStringEntries() throws {
+        let other = try decideWithRealTrust(options: [
+            "customCACerts": ["missing_name"],
+            "pinnedHosts": [NSNull(), "example.com"],
+        ], host: "localhost")
+        XCTAssertEqual(other, .performDefaultHandling, "localhost is not pinned, so it is out of scope")
+
+        let pinned = try decideWithRealTrust(options: [
+            "customCACerts": ["missing_name"],
+            "pinnedHosts": [NSNull(), "localhost"],
+        ], host: "localhost")
+        XCTAssertEqual(pinned, .cancelAuthenticationChallenge,
+                       "localhost is pinned, so the unloadable cert must refuse")
+    }
+
+    /// Objective-C's -boolValue accepts NSString, so "true" meant trusty.
+    func testTrustyAcceptsAStringBoolTheWayObjectiveCDid() throws {
+        XCTAssertEqual(try decide(options: ["trusty": "true"]), .useCredential)
+        XCTAssertEqual(try decide(options: ["trusty": "YES"]), .useCredential)
+        XCTAssertEqual(try decide(options: ["trusty": "false"]), .performDefaultHandling)
+    }
+
     func testNoTlsOptionsFallsThroughToDefaultHandling() throws {
         XCTAssertEqual(try decide(options: [:]), .performDefaultHandling)
     }

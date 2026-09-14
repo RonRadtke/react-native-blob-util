@@ -553,21 +553,39 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     // silently disables the pinning the caller asked for while still looking
     // correct. Do not reorder or simplify.
 
+    /// Objective-C read these with `-boolValue`, which NSString implements too:
+    /// "true" and "YES" are true there. A strict `as? NSNumber` silently turns
+    /// such a value into false, which for `trusty` and `trustSystemCerts` changes
+    /// the trust decision rather than just the type.
+    private func optionBool(_ key: String) -> Bool {
+        switch options?[key] {
+        case let number as NSNumber: return number.boolValue
+        case let string as NSString: return string.boolValue
+        default: return false
+        }
+    }
+
     public func urlSession(_ session: URLSession,
                            didReceive challenge: URLAuthenticationChallenge,
                            completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        if let trusty = options?[ReactNativeBlobUtilConst.configTrusty] as? NSNumber, trusty.boolValue {
+        if optionBool(ReactNativeBlobUtilConst.configTrusty) {
             completionHandler(.useCredential, challenge.protectionSpace.serverTrust.map { URLCredential(trust: $0) })
             return
         }
 
-        let customCACerts = options?[ReactNativeBlobUtilConst.configCustomCaCerts] as? [String]
+        // [Any], not [String]. The Objective-C checked only isKindOfClass:
+        // NSArray and count, so one non-string element still entered this block;
+        // a strict [String] cast fails outright and falls through to the system
+        // trust store, which fails *open* for a caller who asked for pinning.
+        let customCACerts = options?[ReactNativeBlobUtilConst.configCustomCaCerts] as? [Any]
         if let customCACerts = customCACerts, !customCACerts.isEmpty,
            challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
 
-            if let pinnedHosts = options?[ReactNativeBlobUtilConst.configPinnedHosts] as? [String], !pinnedHosts.isEmpty {
+            // Same reasoning: a mixed pinnedHosts array read as [String] would be
+            // treated as unset, and the pinning would silently apply to every host.
+            if let pinnedHosts = options?[ReactNativeBlobUtilConst.configPinnedHosts] as? [Any], !pinnedHosts.isEmpty {
                 let host = challenge.protectionSpace.host
-                if !pinnedHosts.contains(host) {
+                if !pinnedHosts.contains(where: { ($0 as? String) == host }) {
                     completionHandler(.performDefaultHandling, nil)
                     return
                 }
@@ -579,7 +597,10 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             }
 
             var anchorCerts: [SecCertificate] = []
-            for certName in customCACerts {
+            for entry in customCACerts {
+                // Skip anything that is not a name; if that leaves nothing, the
+                // refusal below is what the caller gets.
+                guard let certName = entry as? String else { continue }
                 if let cert = loadCertificateFromBundle(certName) {
                     anchorCerts.append(cert)
                 }
@@ -597,7 +618,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
 
             SecTrustSetAnchorCertificates(serverTrust, anchorCerts as CFArray)
 
-            let trustSystemCerts = (options?[ReactNativeBlobUtilConst.configTrustSystemCerts] as? NSNumber)?.boolValue ?? false
+            let trustSystemCerts = optionBool(ReactNativeBlobUtilConst.configTrustSystemCerts)
             SecTrustSetAnchorCertificatesOnly(serverTrust, !trustSystemCerts)
 
             var trustError: CFError?
