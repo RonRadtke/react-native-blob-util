@@ -316,14 +316,14 @@
   "fetch-errors": {
     "invalidUrl": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ECONNREFUSED",
         "message": "Could not connect to the server.",
         "name": "Error"
       }
     },
     "refused": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ECONNREFUSED",
         "message": "Could not connect to the server.",
         "name": "Error"
       }
@@ -617,7 +617,7 @@
     "gaveUpBeforeServerAnswered": true,
     "result": {
       "rejected": {
-        "code": "EUNSPECIFIED",
+        "code": "ETIMEDOUT",
         "message": "The request timed out.",
         "name": "Error"
       }

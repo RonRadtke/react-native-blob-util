@@ -60,6 +60,40 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    /// Maps an NSURLError onto the code JS branches on. The message is left
+    /// alone: a caller that wants to show something reads that, and a caller
+    /// that wants to retry reads the code. Anything unrecognised stays
+    /// EUNSPECIFIED rather than being guessed at.
+    private static func networkErrorCode(_ error: NSError) -> String {
+        guard error.domain == NSURLErrorDomain else { return "EUNSPECIFIED" }
+        switch error.code {
+        case NSURLErrorTimedOut:
+            return "ETIMEDOUT"
+        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed:
+            return "ENOTFOUND"
+        case NSURLErrorCannotConnectToHost:
+            return "ECONNREFUSED"
+        case NSURLErrorNetworkConnectionLost:
+            return "ECONNRESET"
+        case NSURLErrorNotConnectedToInternet:
+            return "ENETUNREACH"
+        case NSURLErrorSecureConnectionFailed,
+             NSURLErrorServerCertificateHasBadDate,
+             NSURLErrorServerCertificateUntrusted,
+             NSURLErrorServerCertificateHasUnknownRoot,
+             NSURLErrorServerCertificateNotYetValid,
+             NSURLErrorClientCertificateRejected,
+             NSURLErrorClientCertificateRequired:
+            return "ESSL"
+        case NSURLErrorCancelled:
+            return "ECANCELED"
+        case NSURLErrorBadURL, NSURLErrorUnsupportedURL:
+            return "EINVAL"
+        default:
+            return "EUNSPECIFIED"
+        }
+    }
+
     private func shouldTransformFile() -> Bool {
         (options?[ReactNativeBlobUtilConst.configTransformFile] as? NSNumber)?.boolValue ?? false
     }
@@ -378,12 +412,12 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         }
 
         if let error = error as NSError? {
+            errCode = Self.networkErrorCode(error)
             if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
+                // The message a cancelled task has always reported.
                 errMsg = "task cancelled"
-                errCode = "EUNSPECIFIED"
             } else {
                 errMsg = error.localizedDescription
-                errCode = "EUNSPECIFIED"
             }
         } else if expectedBytes == NSURLSessionTransferSizeUnknown && progressConfig?.shouldReport(1) == true {
             // Chunked downloads. The length is tested first because

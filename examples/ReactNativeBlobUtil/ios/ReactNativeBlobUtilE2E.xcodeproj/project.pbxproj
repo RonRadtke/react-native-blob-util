@@ -17,6 +17,7 @@
 		6F4B11524A02EFBF89101681 /* ConstantsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF8FB65DFBD67F41DDA817A /* ConstantsTests.swift */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		85F59D867426312725757AEE /* NetworkErrorCodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62524347F0EBBF516B644F16 /* NetworkErrorCodeTests.swift */; };
 		AABB001122334455DEADBEEF /* test_ca.pem in Resources */ = {isa = PBXBuildFile; fileRef = AABB001122334455DEADBEE0 /* test_ca.pem */; };
 		AC6DD6E9A9F02C8B56CC10A3 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 47B416002D05443254A6FC58 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a */; };
 		BD3184611DFDF032D1C66107 /* ReadmeSwiftSnippetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB30FF4EF54AD4B140E2374 /* ReadmeSwiftSnippetsTests.swift */; };
@@ -54,6 +55,7 @@
 		5709B34CF0A7D63546082F79 /* Pods-ReactNativeBlobUtilE2E.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeBlobUtilE2E.release.xcconfig"; path = "Target Support Files/Pods-ReactNativeBlobUtilE2E/Pods-ReactNativeBlobUtilE2E.release.xcconfig"; sourceTree = "<group>"; };
 		5D27F713FF4B2FAD89F8B8E2 /* ReadmeObjCSnippetsTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = ReadmeObjCSnippetsTests.m; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-ReactNativeBlobUtilE2E.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ReactNativeBlobUtilE2E.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		62524347F0EBBF516B644F16 /* NetworkErrorCodeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkErrorCodeTests.swift; sourceTree = "<group>"; };
 		67A7CC319B78869ACD1AE76F /* ModuleCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleCoreTests.swift; sourceTree = "<group>"; };
 		6AC9FC46F59DB2566A2F2E3C /* RequestBuilderPinTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestBuilderPinTests.swift; sourceTree = "<group>"; };
 		6D98C8F69C66BB30D0C9CC0B /* FileSystemPinTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileSystemPinTests.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				8AB30FF4EF54AD4B140E2374 /* ReadmeSwiftSnippetsTests.swift */,
 				5D27F713FF4B2FAD89F8B8E2 /* ReadmeObjCSnippetsTests.m */,
 				CA719A425B9B438297AAB020 /* PortRegressionTests.m */,
+				62524347F0EBBF516B644F16 /* NetworkErrorCodeTests.swift */,
 			);
 			name = ReactNativeBlobUtilE2ETests;
 			path = ReactNativeBlobUtilE2ETests;
@@ -450,6 +453,7 @@
 				BD3184611DFDF032D1C66107 /* ReadmeSwiftSnippetsTests.swift in Sources */,
 				CB3F7F7C30A9F1E73D6434F8 /* ReadmeObjCSnippetsTests.m in Sources */,
 				CA719A425B9B438297AAB021 /* PortRegressionTests.m in Sources */,
+				85F59D867426312725757AEE /* NetworkErrorCodeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
