@@ -793,6 +793,18 @@
     ],
     "kind": "array"
   },
+  "net-after-completion": {
+    "cancelAfterFinish": {
+      "resolved": "returned"
+    },
+    "cancelTwice": {
+      "resolved": "returned"
+    },
+    "status": 200,
+    "textStillReadable": {
+      "resolved": "héllo wörld ✓"
+    }
+  },
   "read-encodings": {
     "ascii": {
       "resolved": [
