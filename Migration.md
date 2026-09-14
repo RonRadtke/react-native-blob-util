@@ -61,6 +61,25 @@ The same call resolved different values per platform. 1.0 resolves one value eve
 If you compared ascii bytes against negative values, or read `df().internal_free` as a
 string, adjust those comparisons.
 
+### Platform-specific calls
+
+- A call that only exists on one platform now rejects on the others with an `Error`
+  whose `code` is `ENOTSUP`. Before, `android.*` and `ios.present*` rejected with a
+  bare string, `fs.pathForAppGroup` and `ios.excludeFromBackupKey` never settled on
+  Android, and MediaCollection resolved `""` or `[]` on Windows as if it had worked.
+- `fs.scanFile` is now `android.scanFile`; `fs.pathForAppGroup` and
+  `fs.syncPathAppGroup` are now `ios.pathForAppGroup` and `ios.syncPathAppGroup`. The
+  `fs` names still work and print one deprecation warning.
+- `ios.openDocument` and `ios.previewDocument` were crossed: `openDocument` showed the
+  preview and `previewDocument` the options menu. They now do what their names say
+  (`presentOptionsMenu` and `presentPreview`), and are deprecated in favour of those.
+- `MediaCollection.createMediaFile`, `writeToMediaFile` and
+  `writeToMediaFileWithTransform` are the spellings that match native; the old
+  `...Mediafile` names still work and warn once.
+- A cancelled `fetch` rejects with `CanceledFetchError`, which now has `code:
+  'ECANCELED'` and is also a named export: `import {CanceledFetchError} from
+  'react-native-blob-util'`.
+
 ## Android
 
 Apps that follow the README don't need to change anything.

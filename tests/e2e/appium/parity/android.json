@@ -323,7 +323,7 @@
   "fetch-cancel": {
     "isCanceledFetchError": true,
     "rejected": {
-      "code": "<undefined>",
+      "code": "ECANCELED",
       "message": "canceled",
       "name": "ReactNativeBlobUtilCanceledFetch"
     }

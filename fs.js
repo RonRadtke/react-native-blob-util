@@ -5,10 +5,14 @@
 // import type {ReactNativeBlobUtilConfig, ReactNativeBlobUtilNative, ReactNativeBlobUtilStream} from './types'
 
 import {Platform} from 'react-native';
+import android from './android';
+import ios from './ios';
 import ReactNativeBlobUtilSession from './class/ReactNativeBlobUtilSession';
 import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStream';
 import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
 import {toUnsignedBytes} from './utils/bytes';
+import {deprecatedAlias} from './utils/deprecate';
+import {addCode} from './utils/errors';
 import toExistsResult from './utils/existsResult';
 import {requireNativeModule} from './utils/nativeModule';
 import type {ReactNativeBlobUtilStat} from './types';
@@ -55,11 +59,6 @@ for (const name of [
         enumerable: true,
         get: () => getConstants()[name],
     });
-}
-
-function addCode(code: string, error: Error): Error {
-    error.code = code;
-    return error;
 }
 
 /** Native reports size and lastModified as strings on some platforms. */
@@ -221,29 +220,6 @@ function mkdir(path: string): Promise {
 }
 
 /**
- * Returns the path for the app group.
- * @param  {string} groupName Name of app group
- * @return {Promise}
- */
-function pathForAppGroup(groupName: string): Promise {
-    return requireNativeModule().pathForAppGroup(groupName);
-}
-
-/**
- * Returns the path for the app group synchronous.
- * @param  {string} groupName Name of app group
- * @return {string} Path of App Group dir
- */
-function syncPathAppGroup(groupName: string): string {
-    if (Platform.OS === 'ios') {
-        return requireNativeModule().syncPathAppGroup(groupName);
-    }
-    else {
-        return '';
-    }
-}
-
-/**
  * Wrapper method of readStream.
  * @param  {string} path Path of the file.
  * @param  {'base64' | 'utf8' | 'ascii'} encoding Encoding of read stream.
@@ -376,25 +352,6 @@ function stat(path: string): Promise<ReactNativeBlobUtilStat> {
             else {
                 resolve(stat ? normalizeStat(stat) : stat);
             }
-        });
-    });
-}
-
-/**
- * Android only method, request media scanner to scan the file.
- * @param  {Array<Object<string, string>>} pairs Array contains Key value pairs with key `path` and `mime`.
- * @return {Promise}
- */
-function scanFile(pairs: any): Promise {
-    return new Promise((resolve, reject) => {
-        if (pairs === undefined) {
-            return reject(addCode('EINVAL', new TypeError('Missing argument')));
-        }
-        requireNativeModule().scanFile(pairs, (err) => {
-            if (err)
-                reject(addCode('EUNSPECIFIED', new Error(err)));
-            else
-                resolve();
         });
     });
 }
@@ -575,8 +532,6 @@ export default {
     writeFileWithTransform,
     readFileWithTransform,
     appendFile,
-    pathForAppGroup,
-    syncPathAppGroup,
     readFile,
     hash,
     exists,
@@ -584,9 +539,12 @@ export default {
     isDir,
     stat,
     lstat,
-    scanFile,
     dirs,
     slice,
     asset,
-    df
+    df,
+    // Platform-specific calls moved to android.* and ios.*; these names warn once.
+    scanFile: deprecatedAlias('fs.scanFile', 'android.scanFile', android.scanFile),
+    pathForAppGroup: deprecatedAlias('fs.pathForAppGroup', 'ios.pathForAppGroup', ios.pathForAppGroup),
+    syncPathAppGroup: deprecatedAlias('fs.syncPathAppGroup', 'ios.syncPathAppGroup', ios.syncPathAppGroup),
 };

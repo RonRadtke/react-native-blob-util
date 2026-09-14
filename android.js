@@ -2,8 +2,13 @@
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
-import { Platform } from 'react-native';
+import {addCode} from './utils/errors';
 import {requireNativeModule} from './utils/nativeModule';
+import {platformOnly} from './utils/platform';
+
+// Every call here rejects with ENOTSUP on other platforms.
+const androidOnly = (name, fn) => platformOnly('android', `ReactNativeBlobUtil.android.${name}`, fn);
+
 /**
  * Send an intent to open the file.
  * @param  {string} path Path of the file to be open.
@@ -11,47 +16,51 @@ import {requireNativeModule} from './utils/nativeModule';
  * @param  {string} chooserTitle for chooser, if not set the chooser won't be displayed (see https://developer.android.com/reference/android/content/Intent.html#createChooser(android.content.Intent,%20java.lang.CharSequence))
  * @return {Promise}
  */
-function actionViewIntent(path, mime, chooserTitle) {
-  if(typeof chooserTitle === 'undefined') chooserTitle = null;
-  if(Platform.OS === 'android')
-    return requireNativeModule().actionViewIntent(path, mime, chooserTitle);
-  else
-    return Promise.reject('ReactNativeBlobUtil.android.actionViewIntent only supports Android.');
-}
+const actionViewIntent = androidOnly('actionViewIntent', (path: string, mime: string, chooserTitle: ?string) => {
+    return requireNativeModule().actionViewIntent(path, mime, chooserTitle === undefined ? null : chooserTitle);
+});
 
-function getContentIntent(mime) {
-  if(Platform.OS === 'android')
+const getContentIntent = androidOnly('getContentIntent', (mime: string) => {
     return requireNativeModule().getContentIntent(mime);
-  else
-    return Promise.reject('ReactNativeBlobUtil.android.getContentIntent only supports Android.');
-}
+});
 
-function addCompleteDownload(config) {
-  if(Platform.OS === 'android')
+const addCompleteDownload = androidOnly('addCompleteDownload', (config: Object) => {
     return requireNativeModule().addCompleteDownload(config);
-  else
-    return Promise.reject('ReactNativeBlobUtil.android.addCompleteDownload only supports Android.');
-}
+});
 
-function getSDCardDir() {
-  if(Platform.OS === 'android')
+const getSDCardDir = androidOnly('getSDCardDir', () => {
     return requireNativeModule().getSDCardDir();
-  else
-    return Promise.reject('ReactNativeBlobUtil.android.getSDCardDir only supports Android.');
-}
+});
 
-function getSDCardApplicationDir() {
-  if(Platform.OS === 'android')
+const getSDCardApplicationDir = androidOnly('getSDCardApplicationDir', () => {
     return requireNativeModule().getSDCardApplicationDir();
-  else
-    return Promise.reject('ReactNativeBlobUtil.android.getSDCardApplicationDir only supports Android.');
-}
+});
 
+/**
+ * Request the media scanner to scan files, so they show up in the gallery
+ * and other apps.
+ * @param  {Array<{path: string, mime?: string}>} pairs Files to scan.
+ * @return {Promise}
+ */
+const scanFile = androidOnly('scanFile', (pairs: Array<Object>) => {
+    return new Promise((resolve, reject) => {
+        if (pairs === undefined) {
+            return reject(addCode('EINVAL', new TypeError('Missing argument')));
+        }
+        requireNativeModule().scanFile(pairs, (err) => {
+            if (err)
+                reject(addCode('EUNSPECIFIED', new Error(err)));
+            else
+                resolve();
+        });
+    });
+});
 
 export default {
-  actionViewIntent,
-  getContentIntent,
-  addCompleteDownload,
-  getSDCardDir,
-  getSDCardApplicationDir,
+    actionViewIntent,
+    getContentIntent,
+    addCompleteDownload,
+    getSDCardDir,
+    getSDCardApplicationDir,
+    scanFile,
 };

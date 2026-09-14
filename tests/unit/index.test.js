@@ -31,7 +31,7 @@ test('the default export carries the public API and nothing that was removed', (
 
 test('every named export is defined at runtime (audit #15)', () => {
     const named = Object.fromEntries(Object.entries(entry).filter(([name]) => name !== 'default'));
-    assert.deepEqual(Object.keys(named).sort(), ['FetchBlobResponse', 'URIUtil', 'getUUID']);
+    assert.deepEqual(Object.keys(named).sort(), ['CanceledFetchError', 'FetchBlobResponse', 'URIUtil', 'getUUID']);
     for (const [name, value] of Object.entries(named)) {
         assert.notEqual(value, undefined, `${name} is defined`);
     }

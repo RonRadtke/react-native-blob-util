@@ -16,6 +16,7 @@ const wrap = URIUtil.wrap;
 
 export type {ReactNativeBlobUtilConfig, ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from './types';
 export {default as URIUtil} from './utils/uri';
+export {default as CanceledFetchError} from './class/ReactNativeBlobUtilCanceledFetchError';
 export {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 export { getUUID } from './utils/uuid';
 export default {
