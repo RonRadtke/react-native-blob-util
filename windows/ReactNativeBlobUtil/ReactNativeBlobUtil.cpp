@@ -1606,6 +1606,16 @@ winrt::fire_and_forget ReactNativeBlobUtil::ls(
 {
     try
     {
+        if (!std::filesystem::exists(path))
+        {
+            promise.Reject(rejection("ENOENT", "No such file '" + path + "'"));
+            co_return;
+        }
+        if (!std::filesystem::is_directory(path))
+        {
+            promise.Reject(rejection("ENOTDIR", "Not a directory '" + path + "'"));
+            co_return;
+        }
         winrt::hstring directoryPath, fileName;
         splitPath(path, directoryPath, fileName);
 
@@ -1660,7 +1670,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::stat(
         fileInfo["size"] = properties.Size();
         fileInfo["filename"] = givenPath.filename().string();
         fileInfo["path"] = givenPath.string();
-        fileInfo["lastModified"] = winrt::clock::to_time_t(properties.DateModified());;
+        fileInfo["lastModified"] = static_cast<int64_t>(winrt::clock::to_time_t(properties.DateModified())) * 1000;
         fileInfo["type"] = isDirectory ? "directory" : "file";
 
         promise.Resolve(::React::JSValue{ std::move(fileInfo) });
@@ -1688,7 +1698,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::lstat(
             itemInfo["path"] = to_string(item.Path());
             itemInfo["size"] = properties.Size();
             itemInfo["type"] = item.IsOfType(StorageItemTypes::Folder) ? "directory" : "file";
-            itemInfo["lastModified"] = properties.DateModified().time_since_epoch() / std::chrono::seconds(1) - UNIX_EPOCH_IN_WINRT_SECONDS;
+            itemInfo["lastModified"] = properties.DateModified().time_since_epoch() / std::chrono::milliseconds(1) - UNIX_EPOCH_IN_WINRT_SECONDS * 1000;
 
             return itemInfo;
         };
@@ -1745,7 +1755,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::cp(
         StorageFolder destFolder = co_await StorageFolder::GetFolderFromPathAsync(destDirectoryPath);
 
         StorageFile file = co_await srcFolder.GetFileAsync(srcFileName);
-        co_await file.CopyAsync(destFolder, destFileName, NameCollisionOption::FailIfExists);
+        co_await file.CopyAsync(destFolder, destFileName, NameCollisionOption::ReplaceExisting);
 
         promise.Resolve();
     }
@@ -1791,12 +1801,17 @@ void ReactNativeBlobUtil::mkdir(
         std::filesystem::path dirPath(path);
         dirPath.make_preferred();
 
-        // Consistent with Apple's createDirectoryAtPath method and result, but not with Android's
+        if (std::filesystem::exists(dirPath))
+        {
+            const bool isDirectory = std::filesystem::is_directory(dirPath);
+            promise.Reject(rejection("EEXIST", std::string(isDirectory ? "Folder" : "File") + " '" + path + "' already exists"));
+            return;
+        }
         std::error_code ec;
         bool created = std::filesystem::create_directories(dirPath, ec);
         if (!created && !std::filesystem::exists(dirPath))
         {
-            promise.Reject(winrt::Microsoft::ReactNative::ReactError{ "ENOENT", "ENOENT: no such file or directory, open " + path });
+            promise.Reject(rejection("EUNSPECIFIED", "mkdir failed to create some or all directories in '" + path + "'"));
         }
         else
         {
