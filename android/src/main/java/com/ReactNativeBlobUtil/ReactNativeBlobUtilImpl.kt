@@ -43,12 +43,13 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         RCTContext = reactContext
         reactContext.addActivityEventListener(object : ActivityEventListener {
             override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
-                if (requestCode == GET_CONTENT_INTENT && resultCode == RESULT_OK) {
-                    // A missing result or promise throws here, as it did in Java.
-                    val d = data!!.data
-                    promiseTable.get(GET_CONTENT_INTENT)!!.resolve(d!!.toString())
-                    promiseTable.remove(GET_CONTENT_INTENT)
-                }
+                if (requestCode != GET_CONTENT_INTENT) return
+                val pending = promiseTable.get(GET_CONTENT_INTENT) ?: return
+                promiseTable.remove(GET_CONTENT_INTENT)
+                val uri = if (resultCode == RESULT_OK) data?.data else null
+                // The user dismissed the picker, or it returned nothing: resolve null
+                // instead of leaving the promise pending forever.
+                pending.resolve(uri?.toString())
             }
 
             override fun onNewIntent(intent: Intent) {
@@ -102,11 +103,13 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
 
             ActionViewVisible = true
 
+            // The promise settled above; the listener only clears the flag when
+            // the app comes back. Resolving again here was a no-op that the
+            // bridge logged as a double resolve.
             val listener = object : LifecycleEventListener {
 
                 override fun onHostResume() {
-                    if (ActionViewVisible)
-                        promise.resolve(null)
+                    ActionViewVisible = false
                     RCTContext.removeLifecycleEventListener(this)
                 }
 
@@ -263,14 +266,22 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
     }
 
     fun getContentIntent(mime: String?, promise: Promise) {
+        if (promiseTable.get(GET_CONTENT_INTENT) != null) {
+            promise.reject("EBUSY", "A file picker is already open")
+            return
+        }
         val i = Intent(Intent.ACTION_GET_CONTENT)
         if (mime != null)
             i.setType(mime)
         else
             i.setType("*/*")
         promiseTable.put(GET_CONTENT_INTENT, promise)
-        RCTContext.startActivityForResult(i, GET_CONTENT_INTENT, null)
-
+        try {
+            RCTContext.startActivityForResult(i, GET_CONTENT_INTENT, null)
+        } catch (ex: Exception) {
+            promiseTable.remove(GET_CONTENT_INTENT)
+            promise.reject("EUNSPECIFIED", ex.localizedMessage)
+        }
     }
 
     fun addCompleteDownload(config: ReadableMap?, promise: Promise) {

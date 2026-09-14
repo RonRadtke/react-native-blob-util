@@ -227,10 +227,18 @@ class ReactNativeBlobUtilUtils {
          * @return Converted data byte array
          */
         @JvmStatic
+        private val BASE64_ALPHABET = Regex("[A-Za-z0-9+/=\\s]*")
+
         fun stringToBytes(data: String, encoding: String): ByteArray {
             if (encoding.equals("ascii", ignoreCase = true)) {
                 return data.toByteArray(Charset.forName("US-ASCII"))
             } else if (encoding.lowercase(Locale.ROOT).contains("base64")) {
+                // Android's decoder skips characters outside the alphabet, so
+                // "@@@@" decoded to nothing and a write of it succeeded with 0 bytes.
+                // iOS rejects such input; so does Android now.
+                if (!BASE64_ALPHABET.matches(data)) {
+                    throw IllegalArgumentException("Invalid base64 data")
+                }
                 return Base64.decode(data, Base64.NO_WRAP)
             } else if (encoding.equals("utf8", ignoreCase = true)) {
                 return data.toByteArray(Charset.forName("UTF-8"))

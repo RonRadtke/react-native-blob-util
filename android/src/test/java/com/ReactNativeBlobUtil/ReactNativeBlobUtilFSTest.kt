@@ -118,11 +118,11 @@ class ReactNativeBlobUtilFSTest {
     }
 
     @Test
-    fun `writeFile onto a folder rejects with ENOENT`() {
+    fun `writeFile onto a folder rejects with EISDIR`() {
         val dir = tmp.newFolder("folder")
         val p = RecordingPromise()
         ReactNativeBlobUtilFS.writeFile(dir.plain, "utf8", "x", false, false, p.promise)
-        assertEquals("ENOENT" to "File '${dir.plain}' does not exist and could not be created, or it is a directory", p.rejected())
+        assertEquals("EISDIR" to "Expecting a file but '${dir.plain}' is a directory", p.rejected())
     }
 
     @Test
@@ -305,11 +305,20 @@ class ReactNativeBlobUtilFSTest {
     }
 
     @Test
-    fun `unlink of a missing path rejects with the failed delete`() {
+    fun `unlink of a missing path resolves, the path is gone either way`() {
         val missing = File(tmp.root, "missing.txt")
         val p = RecordingPromise()
         ReactNativeBlobUtilFS.unlink(missing.plain, p.promise)
-        assertEquals("EUNSPECIFIED" to "Failed to delete '${File(missing.plain)}'", p.rejected())
+        assertEquals(null, p.resolved())
+    }
+
+    @Test
+    fun `writeFile with invalid base64 rejects EINVAL and writes nothing`() {
+        val file = File(tmp.root, "bad.bin")
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.writeFile(file.plain, "base64", "@@@@", false, false, p.promise)
+        assertEquals("EINVAL" to "Invalid base64 data", p.rejected())
+        assertEquals(0L, file.length())
     }
 
     @Test

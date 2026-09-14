@@ -123,6 +123,34 @@ error had neither a code nor the response info. Now:
 - Messages are unchanged where they existed, so string matching on messages keeps
   working; switch to `err.code` when you can.
 
+### Behaviour brought in line across platforms
+
+Where the platforms disagreed, 1.0 picks one behaviour:
+
+| Operation | Before | 1.0 |
+|---|---|---|
+| `fs.unlink` on a missing path | rejected on Android, resolved on iOS | resolves everywhere |
+| `session.dispose` with a missing file | resolved on Android, rejected on iOS | resolves everywhere |
+| `fs.cp` / `fs.mv` onto an existing file | Android overwrote, iOS and Windows rejected (cp) | overwrite everywhere |
+| `fs.writeFile` onto a directory | ENOENT (Android), EISDIR (iOS) | EISDIR |
+| `fs.writeStream` onto a directory | EUNSPECIFIED (Android), EISDIR (iOS) | EISDIR |
+| `fs.writeFile` with invalid base64 | resolved 0 (Android), EINVAL (iOS) | EINVAL |
+| `fs.readFile` on a directory | EISDIR (Android), resolved "" (iOS) | EISDIR |
+| `fs.readFile` utf8 of invalid bytes | U+FFFD (Android), null (iOS) | U+FFFD |
+| utf8 `readStream` with a character split across chunks | ok (Android), error (iOS) | ok |
+| `fs.createFile(path, src, 'uri')` with a missing source | ENOENT (Android), empty file (iOS) | ENOENT |
+| `fs.hash` / `fs.slice` on a missing file | ENOENT (Android), EUNSPECIFIED (iOS) | ENOENT |
+| `fs.mkdir` on an existing directory | EEXIST (Android, iOS), resolved (Windows) | EEXIST |
+| `fs.ls` on a missing path | ENOENT (Android, iOS), ENOTDIR (Windows) | ENOENT |
+| `lstat` `lastModified` on Windows | seconds | milliseconds, like the other platforms |
+| `android.getContentIntent` when the user cancels | never settled | resolves `null`; a second call while the picker is open rejects `EBUSY` |
+| `android.actionViewIntent` | resolved `true`, then `null` again on resume | resolves `true` once |
+
+Network-level differences stay documented rather than aligned: Android reports
+`respType` as `""` where iOS says `text`/`blob`, only iOS puts `rnfbEncode` on the first
+`stateChange`, and a request body without a Content-Type is sent chunked on Android and
+with a Content-Length as `application/octet-stream` on iOS.
+
 ### Options and defaults
 
 - The config keys `Progress`, `UploadProgress` and `indicator` are gone. Nothing read

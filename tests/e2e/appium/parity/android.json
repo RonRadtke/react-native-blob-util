@@ -253,21 +253,21 @@
       }
     },
     "unlinkMissing": {
-      "rejected": {
-        "code": "EUNSPECIFIED",
-        "message": "Failed to delete '<DocumentDir>/parity/errors-write/missing.txt'",
-        "name": "Error"
-      }
+      "resolved": "<undefined>"
     },
     "writeFileOntoDir": {
       "rejected": {
-        "code": "ENOENT",
-        "message": "File '<DocumentDir>/parity/errors-write' does not exist and could not be created, or it is a directory",
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
         "name": "Error"
       }
     },
     "writeInvalidBase64": {
-      "resolved": 0
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Invalid base64 data",
+        "name": "Error"
+      }
     },
     "writeStreamOntoDir": {
       "rejected": {

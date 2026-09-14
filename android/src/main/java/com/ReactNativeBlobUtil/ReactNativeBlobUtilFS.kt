@@ -123,6 +123,10 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 var written = 0
                 val f = File(path)
                 val dir = f.parentFile
+                if (f.isDirectory) {
+                    promise.reject("EISDIR", "Expecting a file but '$path' is a directory")
+                    return
+                }
                 if (!f.exists()) {
                     if (dir != null && !dir.exists()) {
                         if (!dir.mkdirs() && !dir.exists()) {
@@ -178,7 +182,9 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 promise.resolve(written)
             } catch (e: FileNotFoundException) {
                 // According to https://docs.oracle.com/javase/7/docs/api/java/io/FileOutputStream.html
-                promise.reject("ENOENT", "File '$path' does not exist and could not be created, or it is a directory")
+                promise.reject("ENOENT", "File '$path' does not exist and could not be created")
+            } catch (e: IllegalArgumentException) {
+                promise.reject("EINVAL", e.message)
             } catch (e: Exception) {
                 promise.reject("EUNSPECIFIED", e.localizedMessage)
             }
@@ -436,7 +442,12 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
         fun unlink(path: String?, promise: Promise) {
             try {
                 val normalizedPath = ReactNativeBlobUtilUtils.normalizePath(path)
-                deleteRecursive(File(normalizedPath))
+                val target = File(normalizedPath)
+                // Removing what is not there is not a failure: the path is gone
+                // either way, as on iOS.
+                if (target.exists()) {
+                    deleteRecursive(target)
+                }
                 promise.resolve(null)
             } catch (err: Exception) {
                 promise.reject("EUNSPECIFIED", err.localizedMessage)
