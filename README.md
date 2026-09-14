@@ -12,7 +12,7 @@ The project will be continued in this repository. React-Native-Blob-Util is full
 
 # Version Compatibility Warning
 
-react-native-blob-util version **0.26.0** and up supports the **New Architecture only** and is only compatible with react native **0.84** and up (Android `minSdk` 24, iOS 15.1). See [Migration.md](Migration.md).
+react-native-blob-util version **1.0.0** and up supports the **New Architecture only** and is only compatible with react native **0.84** and up (Android `minSdk` 24, iOS 15.1). 1.0 also changes the JavaScript API: see [Migration.md](Migration.md) for what was removed, renamed or made consistent across platforms.
 
 react-native-blob-util version **0.22.0** and up is only compatible with react native **0.76** and up.
 "0.22.0" -> 0.76 RN
@@ -32,8 +32,19 @@ react-native-blob-util version **0.10.16** and up is only compatible with react 
 - File stream support for dealing with large file
 
 ## React Native New Architecture
-Since 0.26.0 the library runs on the New Architecture only; 0.25 is the last release that also supports the Old Architecture. The native modules are written in Kotlin (Android), Swift (iOS) and C++/WinRT (Windows).
+Since 1.0.0 the library runs on the New Architecture only; 0.25 is the last release that also supports the Old Architecture. The native modules are written in Kotlin (Android), Swift (iOS) and C++/WinRT (Windows).
 Further information about the New Architecture: https://reactnative.dev/architecture/landing-page
+
+## Errors and platform differences
+
+Every rejection is an `Error` with a `code`: POSIX-style names such as `ENOENT`, `EEXIST`,
+`EISDIR`, `ENOTDIR`, `EINVAL`, `EBADF`, `ENOTSUP` (a call that only exists on another platform),
+`ECANCELED`, and for requests `ETIMEDOUT`, `ENOTFOUND`, `ECONNREFUSED`, `ECONNRESET`,
+`ENETUNREACH` and `ESSL`. `EUNSPECIFIED` is the fallback; the message says what happened.
+A failed `fetch` also carries `err.respInfo`. Where Android, iOS and Windows used to answer
+the same call differently, 1.0 resolves one value and one behaviour; the tables in
+[Migration.md](Migration.md) list them. Platform-specific APIs live under
+`ReactNativeBlobUtil.android`, `ReactNativeBlobUtil.ios` and `ReactNativeBlobUtil.MediaCollection`.
 
 ## Android 10 & 11
 
@@ -548,7 +559,7 @@ ReactNativeBlobUtil
             path: dirs.DCIMDir + '/music.mp3'
         })
         .fetch('GET', 'http://example.com/music.mp3')
-        .then((res) => ReactNativeBlobUtil.fs.scanFile([{path: res.path(), mime: 'audio/mpeg'}]))
+        .then((res) => ReactNativeBlobUtil.android.scanFile([{path: res.path(), mime: 'audio/mpeg'}]))
         .then(() => {
             // scan file success
         })
@@ -694,7 +705,7 @@ Currently it's not possible to write data directly from a string recevied by fet
 Creates a new file in the specified collection without writing any data
 
 ````js
-let path = await ReactNativeBlobUtil.MediaCollection.createMediafile({
+let path = await ReactNativeBlobUtil.MediaCollection.createMediaFile({
             name: filename, // name of the file
             parentFolder: '', // subdirectory in the Media Store, e.g. HawkIntech/Files to create a folder HawkIntech with a subfolder Files and save the image within this folder
             mimeType: 'image/png' // MIME type of the file
@@ -706,7 +717,7 @@ let path = await ReactNativeBlobUtil.MediaCollection.createMediafile({
 
 Writes data from a file in the apps storage to an existing entry of the Media Store
 ````js
-await ReactNativeBlobUtil.MediaCollection.writeToMediafile('content://....', // content uri of the entry in the media storage
+await ReactNativeBlobUtil.MediaCollection.writeToMediaFile('content://....', // content uri of the entry in the media storage
         localpath // path to the file that should be copied
 );
 ````
@@ -714,7 +725,7 @@ await ReactNativeBlobUtil.MediaCollection.writeToMediafile('content://....', // 
 Copies and tranforms data from a file in the apps storage to an existing entry of the Media Store. NOTE: you must set a transformer on the file in order for the transformation to happen (see [Setting a File Transformer](#Setting-A-File-Transformer)).
 
 ````js
-await ReactNativeBlobUtil.MediaCollection.writeToMediafileWithTransform('content://....', // content uri of the entry in the media storage
+await ReactNativeBlobUtil.MediaCollection.writeToMediaFileWithTransform('content://....', // content uri of the entry in the media storage
         localpath // path to the file that should be copied
 );
 ````
