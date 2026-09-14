@@ -43,8 +43,13 @@ Every rejection is an `Error` with a `code`: POSIX-style names such as `ENOENT`,
 `ENETUNREACH` and `ESSL`. `EUNSPECIFIED` is the fallback; the message says what happened.
 A failed `fetch` also carries `err.respInfo`. Where Android, iOS and Windows used to answer
 the same call differently, 1.0 resolves one value and one behaviour; the tables in
-[Migration.md](Migration.md) list them. Platform-specific APIs live under
-`ReactNativeBlobUtil.android`, `ReactNativeBlobUtil.ios` and `ReactNativeBlobUtil.MediaCollection`.
+[Migration.md](Migration.md) list them.
+
+The API is grouped by capability: `fetch`/`config` for requests, `fs` for files,
+`open` for showing a file in another app or picking one, and `media` for the device's
+media library (Android's MediaStore, Downloads app and media scanner). A call a platform
+cannot make rejects with `ENOTSUP`. The pre-1.0 `android`, `ios` and `MediaCollection`
+namespaces still work and warn once per name.
 
 ## Android 10 & 11
 
@@ -559,7 +564,7 @@ ReactNativeBlobUtil
             path: dirs.DCIMDir + '/music.mp3'
         })
         .fetch('GET', 'http://example.com/music.mp3')
-        .then((res) => ReactNativeBlobUtil.android.scanFile([{path: res.path(), mime: 'audio/mpeg'}]))
+        .then((res) => ReactNativeBlobUtil.media.scan([{path: res.path(), mime: 'audio/mpeg'}]))
         .then(() => {
             // scan file success
         })
@@ -705,7 +710,7 @@ Currently it's not possible to write data directly from a string recevied by fet
 Creates a new file in the specified collection without writing any data
 
 ````js
-let path = await ReactNativeBlobUtil.MediaCollection.createMediaFile({
+let path = await ReactNativeBlobUtil.media.createFile({
             name: filename, // name of the file
             parentFolder: '', // subdirectory in the Media Store, e.g. HawkIntech/Files to create a folder HawkIntech with a subfolder Files and save the image within this folder
             mimeType: 'image/png' // MIME type of the file
@@ -717,7 +722,7 @@ let path = await ReactNativeBlobUtil.MediaCollection.createMediaFile({
 
 Writes data from a file in the apps storage to an existing entry of the Media Store
 ````js
-await ReactNativeBlobUtil.MediaCollection.writeToMediaFile('content://....', // content uri of the entry in the media storage
+await ReactNativeBlobUtil.media.write('content://....', // content uri of the entry in the media storage
         localpath // path to the file that should be copied
 );
 ````
@@ -725,8 +730,9 @@ await ReactNativeBlobUtil.MediaCollection.writeToMediaFile('content://....', // 
 Copies and tranforms data from a file in the apps storage to an existing entry of the Media Store. NOTE: you must set a transformer on the file in order for the transformation to happen (see [Setting a File Transformer](#Setting-A-File-Transformer)).
 
 ````js
-await ReactNativeBlobUtil.MediaCollection.writeToMediaFileWithTransform('content://....', // content uri of the entry in the media storage
-        localpath // path to the file that should be copied
+await ReactNativeBlobUtil.media.write('content://....', // content uri of the entry in the media storage
+        localpath, // path to the file that should be copied
+        {transform: true}
 );
 ````
 

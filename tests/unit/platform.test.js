@@ -119,7 +119,7 @@ test('the fs aliases of platform calls still work, warn once, and are the same f
 
     const deprecations = warnings.filter((w) => /deprecated/i.test(w));
     assert.equal(deprecations.length, 3, 'one warning per alias, not per call');
-    assert.match(deprecations[0], /fs\.scanFile.*android\.scanFile/);
+    assert.match(deprecations[0], /fs\.scanFile.*media\.scan/);
 });
 
 test('the ios.js legacy aliases point at what their names say (audit #11)', async () => {
@@ -140,6 +140,7 @@ test('MediaCollection has correctly cased names and keeps the old ones as deprec
     assert.deepEqual(calls.map((c) => c[0]), ['createMediaFile', 'createMediaFile', 'writeToMediaFile', 'writeToMediaFile']);
     assert.deepEqual(calls[2].slice(1), ['content://1', '/a', false]);
     assert.deepEqual(calls[3].slice(1), ['content://1', '/a', true]);
+    // The properly cased names already warned earlier in this file; the three old spellings warn here.
     assert.equal(warnings.filter((w) => /deprecated/i.test(w)).length, 3);
 });
 

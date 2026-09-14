@@ -27,6 +27,30 @@ Architecture.
 
 ## JavaScript API
 
+### One namespace per capability
+
+The API is grouped by what a call does, not by which platform implements it. A call a
+platform cannot make rejects with `ENOTSUP`. The old names keep working for one release
+and print one deprecation warning each.
+
+| Before | 1.0 |
+|---|---|
+| `android.actionViewIntent(path, mime)` / `ios.presentPreview(path)` | `open.file(path, {mime, scheme})` |
+| `android.actionViewIntent(path, mime, title)` / `ios.presentOpenInMenu(path)` | `open.chooser(path, {mime, scheme, title})` |
+| `ios.presentOptionsMenu(path)` | `open.optionsMenu(path, {scheme})` |
+| `android.getContentIntent(mime)` | `open.pick(mime)` (resolves `null` when cancelled) |
+| `MediaCollection.createMediaFile` | `media.createFile(fd, collection)` |
+| `MediaCollection.writeToMediaFile` / `...WithTransform` | `media.write(uri, path, {transform})` |
+| `MediaCollection.copyToMediaStore`, `copyToInternal` | `media.copyToMediaStore`, `media.copyToInternal` |
+| `MediaCollection.getBlob(uri, encoding)` | `media.read(uri, encoding)` |
+| `android.addCompleteDownload(options)` | `media.addDownload(options)` |
+| `android.scanFile(files)`, `fs.scanFile` | `media.scan(files)` |
+| `android.getSDCardDir()`, `getSDCardApplicationDir()` | `media.sdCardDir()`, `media.sdCardApplicationDir()` |
+| `ios.excludeFromBackupKey(path)` | `fs.excludeFromBackup(path)` |
+| `ios.pathForAppGroup`, `syncPathAppGroup`, `fs.pathForAppGroup`, `fs.syncPathAppGroup` | `fs.appGroupDir(name)`, `fs.appGroupDirSync(name)` |
+| `fs.readFileWithTransform(path, encoding)` | `fs.readFile(path, encoding, {transform: true})` |
+| `fs.writeFileWithTransform(path, data, encoding)` | `fs.writeFile(path, data, encoding, {transform: true})` |
+
 ### Removed
 
 - **The Web API polyfills** (`ReactNativeBlobUtil.polyfill`: Blob, File, XMLHttpRequest,

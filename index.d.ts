@@ -27,9 +27,14 @@ export interface ReactNativeBlobUtilStatic {
     config(options: ReactNativeBlobUtilConfig): { fetch: ReactNativeBlobUtilStatic['fetch'] };
 
     base64: { encode(input: string): string; decode(input: string): string };
-    android: AndroidApi;
-    ios: IOSApi;
     fs: FS;
+    open: OpenApi;
+    media: MediaApi;
+    /** @deprecated every member forwards to `open.*` or `media.*` */
+    android: AndroidApi;
+    /** @deprecated every member forwards to `open.*` or `fs.*` */
+    ios: IOSApi;
+    /** @deprecated every member forwards to `media.*` */
     MediaCollection: MediaCollection;
 
     /**
@@ -385,10 +390,9 @@ export interface FS {
     writeFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
     writeFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
 
-    /**
-     * Run the registered file transformer on the data, then write it.
-     * @return The number of bytes written.
-     */
+    writeFile(path: string, data: string, encoding: 'utf8' | 'base64' | 'uri' | undefined, options: {transform?: boolean}): Promise<number>;
+
+    /** @deprecated use `writeFile(path, data, encoding, {transform: true})` */
     writeFileWithTransform(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
 
     /**
@@ -404,10 +408,12 @@ export interface FS {
     readFile(path: string, encoding: 'ascii'): Promise<number[]>;
     readFile(path: string, encoding?: 'utf8' | 'base64'): Promise<string>;
 
-    /**
-     * Read a file and run the registered file transformer on it.
-     */
+    readFile(path: string, encoding: 'ascii', options: {transform?: boolean}): Promise<number[]>;
+    readFile(path: string, encoding: 'utf8' | 'base64' | undefined, options: {transform?: boolean}): Promise<string>;
+
+    /** @deprecated use `readFile(path, encoding, {transform: true})` */
     readFileWithTransform(path: string, encoding: 'ascii'): Promise<number[]>;
+    /** @deprecated use `readFile(path, encoding, {transform: true})` */
     readFileWithTransform(path: string, encoding?: 'utf8' | 'base64'): Promise<string>;
 
     /**
@@ -459,12 +465,82 @@ export interface FS {
 
     ReactNativeBlobUtilSession: typeof ReactNativeBlobUtilSession;
 
-    /** @deprecated use `android.scanFile` */
-    scanFile: AndroidApi['scanFile'];
-    /** @deprecated use `ios.pathForAppGroup` */
-    pathForAppGroup: IOSApi['pathForAppGroup'];
-    /** @deprecated use `ios.syncPathAppGroup` */
-    syncPathAppGroup: IOSApi['syncPathAppGroup'];
+    /**
+     * iOS: exclude the file or directory from iCloud and iTunes backups. ENOTSUP elsewhere.
+     */
+    excludeFromBackup(path: string): Promise<void>;
+
+    /**
+     * iOS: the directory shared by the apps of an app group. ENOTSUP elsewhere.
+     */
+    appGroupDir(groupName: string): Promise<string>;
+
+    /**
+     * iOS: the app group directory, synchronously. "" elsewhere.
+     */
+    appGroupDirSync(groupName: string): string;
+
+    /** @deprecated use `media.scan` */
+    scanFile: MediaApi['scan'];
+    /** @deprecated use `fs.appGroupDir` */
+    pathForAppGroup: FS['appGroupDir'];
+    /** @deprecated use `fs.appGroupDirSync` */
+    syncPathAppGroup: FS['appGroupDirSync'];
+}
+
+/**
+ * Opening files in other apps, and picking files. A call a platform cannot
+ * make rejects with ENOTSUP.
+ */
+export interface OpenApi {
+    /**
+     * Open the file in another app: the default app for its MIME type on
+     * Android, a full-screen preview on iOS.
+     */
+    file(path: string, options?: {mime?: string; scheme?: string}): Promise<void>;
+
+    /**
+     * Let the user choose the app: an app chooser on Android (`title`), the
+     * "open in" menu on iOS.
+     */
+    chooser(path: string, options?: {mime?: string; scheme?: string; title?: string}): Promise<void>;
+
+    /**
+     * iOS: the options menu of UIDocumentInteractionController.
+     */
+    optionsMenu(path: string, options?: {scheme?: string}): Promise<void>;
+
+    /**
+     * Android: the system file picker. Resolves the chosen file's content URI,
+     * or null when the user cancels.
+     */
+    pick(mime?: string): Promise<string | null>;
+}
+
+/**
+ * The device's shared media library (Android: MediaStore, Downloads app,
+ * media scanner). Every call rejects with ENOTSUP elsewhere.
+ */
+export interface MediaApi {
+    /** Create an empty entry in a collection; resolves its content URI. */
+    createFile(fd: filedescriptor, collection: Mediatype): Promise<string>;
+    /** Copy a file into an existing entry, optionally through the file transformer. */
+    write(uri: string, path: string, options?: {transform?: boolean}): Promise<void>;
+    /** Create an entry and copy a file into it; resolves its content URI. */
+    copyToMediaStore(fd: filedescriptor, collection: Mediatype, path: string): Promise<string>;
+    /** Copy an entry into the app's own storage. */
+    copyToInternal(uri: string, dest: string): Promise<string>;
+    /** Read an entry: text, a base64 string, or bytes 0..255. */
+    read(uri: string, encoding: 'ascii'): Promise<number[]>;
+    read(uri: string, encoding?: 'utf8' | 'base64'): Promise<string>;
+    /** Register a finished download with the Downloads app. */
+    addDownload(options: AndroidDownloadOption): Promise<void>;
+    /** Ask the media scanner to index files. */
+    scan(files: Array<{ path: string; mime?: string }>): Promise<void>;
+    /** The external storage root. */
+    sdCardDir(): Promise<string>;
+    /** The app's directory on external storage. */
+    sdCardApplicationDir(): Promise<string>;
 }
 
 export interface ReactNativeBlobUtilStat {
@@ -583,7 +659,7 @@ export declare class ReactNativeBlobUtilSession {
 }
 
 /**
- * iOS only. Every call rejects with ENOTSUP on other platforms.
+ * @deprecated The names from before 1.0; each forwards to `open.*` or `fs.*`.
  */
 export interface IOSApi {
     /**
@@ -627,7 +703,7 @@ export interface IOSApi {
 }
 
 /**
- * Android only. Every call rejects with ENOTSUP on other platforms.
+ * @deprecated The names from before 1.0; each forwards to `open.*` or `media.*`.
  */
 export interface AndroidApi {
     /**
@@ -685,7 +761,7 @@ export interface filedescriptor {
 }
 
 /**
- * The Android MediaStore. Every call rejects with ENOTSUP on other platforms.
+ * @deprecated The names from before 1.0; each forwards to `media.*`.
  */
 export interface MediaCollection {
     /**

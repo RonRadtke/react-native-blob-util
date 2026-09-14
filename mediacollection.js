@@ -1,47 +1,19 @@
+// The names from before 1.0. Each warns once and forwards to media.*.
+import media from './media';
 import {deprecatedAlias} from './utils/deprecate';
-import {requireNativeModule} from './utils/nativeModule';
-import {platformOnly} from './utils/platform';
-import type {filedescriptor} from './types';
 
-// The MediaStore is Android's; every call rejects with ENOTSUP elsewhere.
-const androidOnly = (name, fn) => platformOnly('android', `ReactNativeBlobUtil.MediaCollection.${name}`, fn);
-
-const createMediaFile = androidOnly('createMediaFile', (fd: filedescriptor, mediatype: string) => {
-    if (fd && typeof fd === 'object' && !('parentFolder' in fd)) {
-        fd = {...fd, parentFolder: ''};
-    }
-    return requireNativeModule().createMediaFile(fd, mediatype);
-});
-
-const writeToMediaFile = androidOnly('writeToMediaFile', (uri: string, path: string) => {
-    return requireNativeModule().writeToMediaFile(uri, path, false);
-});
-
-const writeToMediaFileWithTransform = androidOnly('writeToMediaFileWithTransform', (uri: string, path: string) => {
-    return requireNativeModule().writeToMediaFile(uri, path, true);
-});
-
-const copyToInternal = androidOnly('copyToInternal', (contenturi: string, destpath: string) => {
-    return requireNativeModule().copyToInternal(contenturi, destpath);
-});
-
-const getBlob = androidOnly('getBlob', (contenturi: string, encoding: string) => {
-    return requireNativeModule().getBlob(contenturi, encoding);
-});
-
-const copyToMediaStore = androidOnly('copyToMediaStore', (fd: filedescriptor, mediatype: string, path: string) => {
-    return requireNativeModule().copyToMediaStore(fd, mediatype, path);
-});
+const alias = (name, target, fn) => deprecatedAlias(`MediaCollection.${name}`, `media.${target}`, fn);
 
 export default {
-    createMediaFile,
-    writeToMediaFile,
-    writeToMediaFileWithTransform,
-    copyToInternal,
-    getBlob,
-    copyToMediaStore,
-    // The names as they were spelled before 1.0.
-    createMediafile: deprecatedAlias('MediaCollection.createMediafile', 'MediaCollection.createMediaFile', createMediaFile),
-    writeToMediafile: deprecatedAlias('MediaCollection.writeToMediafile', 'MediaCollection.writeToMediaFile', writeToMediaFile),
-    writeToMediafileWithTransform: deprecatedAlias('MediaCollection.writeToMediafileWithTransform', 'MediaCollection.writeToMediaFileWithTransform', writeToMediaFileWithTransform),
+    createMediaFile: alias('createMediaFile', 'createFile', media.createFile),
+    createMediafile: alias('createMediafile', 'createFile', media.createFile),
+    writeToMediaFile: alias('writeToMediaFile', 'write', (uri: string, path: string) => media.write(uri, path)),
+    writeToMediafile: alias('writeToMediafile', 'write', (uri: string, path: string) => media.write(uri, path)),
+    writeToMediaFileWithTransform: alias('writeToMediaFileWithTransform', 'write(uri, path, {transform: true})',
+        (uri: string, path: string) => media.write(uri, path, {transform: true})),
+    writeToMediafileWithTransform: alias('writeToMediafileWithTransform', 'write(uri, path, {transform: true})',
+        (uri: string, path: string) => media.write(uri, path, {transform: true})),
+    copyToInternal: alias('copyToInternal', 'copyToInternal', media.copyToInternal),
+    getBlob: alias('getBlob', 'read', media.read),
+    copyToMediaStore: alias('copyToMediaStore', 'copyToMediaStore', media.copyToMediaStore),
 };

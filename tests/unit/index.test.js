@@ -21,6 +21,8 @@ test('the default export carries the public API and nothing that was removed', (
         'fetch',
         'fs',
         'ios',
+        'media',
+        'open',
         'session',
         'wrap',
     ]);

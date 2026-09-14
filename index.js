@@ -2,14 +2,16 @@
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
-import fs from './fs';
-import MediaCollection from './mediacollection';
 import base64 from 'base-64';
 import android from './android';
-import ios from './ios';
-import {config, fetch} from './fetch';
-import URIUtil from './utils/uri';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
+import {config, fetch} from './fetch';
+import fs from './fs';
+import ios from './ios';
+import media from './media';
+import MediaCollection from './mediacollection';
+import open from './open';
+import URIUtil from './utils/uri';
 
 const {session} = fs;
 const wrap = URIUtil.wrap;
@@ -21,13 +23,16 @@ export {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 export { getUUID } from './utils/uuid';
 export default {
     fetch,
-    base64,
-    android,
-    ios,
     config,
     session,
     fs,
+    open,
+    media,
     wrap,
+    base64,
+    CanceledFetchError,
+    // The namespaces from before 1.0; every member warns once and forwards.
+    android,
+    ios,
     MediaCollection,
-    CanceledFetchError
 };

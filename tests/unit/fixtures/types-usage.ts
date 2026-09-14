@@ -15,7 +15,38 @@ import type {
     filedescriptor,
 } from '../../../index';
 
-const {fs, android, ios, MediaCollection, base64, config, session, wrap} = ReactNativeBlobUtil;
+const {fs, open, media, android, ios, MediaCollection, base64, config, session, wrap} = ReactNativeBlobUtil;
+
+async function capabilities(): Promise<void> {
+    await open.file('/p/a.pdf', {mime: 'application/pdf'});
+    await open.chooser('/p/a.pdf', {mime: 'application/pdf', title: 'Open with'});
+    await open.optionsMenu('/p/a.pdf', {scheme: 'myapp'});
+    const picked: string | null = await open.pick('image/*');
+    void picked;
+
+    const fd: filedescriptor = {name: 'a.png', parentFolder: 'shots', mimeType: 'image/png'};
+    const uri: string = await media.createFile(fd, 'Image');
+    await media.write(uri, '/p/a.png');
+    await media.write(uri, '/p/a.png', {transform: true});
+    const stored: string = await media.copyToMediaStore(fd, 'Download', '/p/a.png');
+    const internal: string = await media.copyToInternal(uri, '/p/copy.png');
+    const bytes: number[] = await media.read(uri, 'ascii');
+    const text: string = await media.read(uri);
+    await media.addDownload({title: 't', description: 'd', mime: 'text/plain', path: '/p', showNotification: true});
+    await media.scan([{path: '/p/a.jpg'}]);
+    const sd: string = await media.sdCardDir();
+    const sdApp: string = await media.sdCardApplicationDir();
+    void stored; void internal; void bytes; void text; void sd; void sdApp;
+
+    await fs.excludeFromBackup('/p');
+    const group: string = await fs.appGroupDir('group.example');
+    const groupSync: string = fs.appGroupDirSync('group.example');
+    const transformed: string = await fs.readFile('/p/t.txt', 'utf8', {transform: true});
+    const transformedBytes: number[] = await fs.readFile('/p/t.bin', 'ascii', {transform: true});
+    const written: number = await fs.writeFile('/p/t.txt', 'secret', 'utf8', {transform: true});
+    void group; void groupSync; void transformed; void transformedBytes; void written;
+}
+void capabilities;
 
 async function network(): Promise<void> {
     const options: ReactNativeBlobUtilConfig = {

@@ -5,15 +5,15 @@
 // import type {ReactNativeBlobUtilConfig, ReactNativeBlobUtilNative, ReactNativeBlobUtilStream} from './types'
 
 import {Platform} from 'react-native';
-import android from './android';
-import ios from './ios';
 import ReactNativeBlobUtilSession from './class/ReactNativeBlobUtilSession';
 import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStream';
 import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
+import media from './media';
 import {toUnsignedBytes} from './utils/bytes';
 import {deprecatedAlias} from './utils/deprecate';
 import {addCode} from './utils/errors';
 import {requireNativeModule} from './utils/nativeModule';
+import {platformOnly} from './utils/platform';
 import type {ReactNativeBlobUtilStat} from './types';
 
 /**
@@ -212,12 +212,13 @@ function mkdir(path: string): Promise {
 }
 
 /**
- * Wrapper method of readStream.
+ * Read a file.
  * @param  {string} path Path of the file.
- * @param  {'base64' | 'utf8' | 'ascii'} encoding Encoding of read stream.
+ * @param  {'base64' | 'utf8' | 'ascii'} encoding Encoding of the result.
+ * @param  {{transform?: boolean}} options Run the registered file transformer on the data.
  * @return {Promise<Array<number> | string>}
  */
-function readFile(path: string, encoding: string = 'utf8'): Promise<any> {
+function readFile(path: string, encoding: string = 'utf8', options: ?{transform?: boolean} = null): Promise<any> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
@@ -225,34 +226,18 @@ function readFile(path: string, encoding: string = 'utf8'): Promise<any> {
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
-    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, false));
+    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, Boolean(options && options.transform)));
 }
 
 /**
- * Reads the file, then transforms it before returning the content
- * @param  {string} path Path of the file.
- * @param  {'base64' | 'utf8' | 'ascii'} encoding Encoding of read stream.
- * @return {Promise<Array<number> | string>}
- */
-function readFileWithTransform(path: string, encoding: string = 'utf8'): Promise<any> {
-    if (typeof path !== 'string') {
-        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
-    }
-    encoding = normalizeEncoding(encoding, READ_ENCODINGS);
-    if (encoding instanceof Error) {
-        return Promise.reject(encoding);
-    }
-    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, true));
-}
-
-/**
- * Write data to file.
+ * Write data to a file, replacing it.
  * @param  {string} path  Path of the file.
  * @param  {string | number[]} data Data to write to the file.
  * @param  {string} encoding Encoding of data (Optional).
- * @return {Promise}
+ * @param  {{transform?: boolean}} options Run the registered file transformer on the data first (not for ascii).
+ * @return {Promise<number>} The number of bytes written.
  */
-function writeFile(path: string, data: string | Array<number>, encoding: ?string = 'utf8'): Promise {
+function writeFile(path: string, data: string | Array<number>, encoding: ?string = 'utf8', options: ?{transform?: boolean} = null): Promise<number> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
@@ -260,7 +245,11 @@ function writeFile(path: string, data: string | Array<number>, encoding: ?string
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
+    const transform = Boolean(options && options.transform);
     if (encoding === 'ascii') {
+        if (transform) {
+            return Promise.reject(addCode('EINVAL', new TypeError('ascii is not supported for converted files')));
+        }
         if (!Array.isArray(data)) {
             return Promise.reject(addCode('EINVAL', new TypeError('"data" must be an Array when encoding is "ascii"')));
         }
@@ -272,35 +261,7 @@ function writeFile(path: string, data: string | Array<number>, encoding: ?string
             return Promise.reject(addCode('EINVAL', new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`)));
         }
         else
-            return requireNativeModule().writeFile(path, encoding, data, false, false);
-    }
-}
-
-/**
- * Transforms the data and then writes to the file.
- * @param  {string} path  Path of the file.
- * @param  {string | number[]} data Data to write to the file.
- * @param  {string} encoding Encoding of data (Optional).
- * @return {Promise}
- */
-function writeFileWithTransform(path: string, data: string | Array<number>, encoding: ?string = 'utf8'): Promise {
-    if (typeof path !== 'string') {
-        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
-    }
-    encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
-    if (encoding instanceof Error) {
-        return Promise.reject(encoding);
-    }
-    if (encoding === 'ascii') {
-        return Promise.reject(addCode('EINVAL', new TypeError('ascii is not supported for converted files')));
-    }
-    else {
-        if (typeof data !== 'string') {
-            return Promise.reject(addCode('EINVAL', new TypeError(`"data" must be a String when encoding is "utf8" or "base64", but it is "${typeof data}"`)));
-        }
-
-        else
-            return requireNativeModule().writeFile(path, encoding, data, true, false);
+            return requireNativeModule().writeFile(path, encoding, data, transform, false);
     }
 }
 
@@ -326,6 +287,36 @@ function appendFile(path: string, data: string | Array<number>, encoding?: strin
         else
             return requireNativeModule().writeFile(path, encoding, data, false, true);
     }
+}
+
+/**
+ * Exclude a file or directory from iCloud and iTunes backups (iOS).
+ * @param  {string} path Path of the file or directory.
+ * @return {Promise<void>}
+ */
+const excludeFromBackup = platformOnly('ios', 'ReactNativeBlobUtil.fs.excludeFromBackup', (path: string) => {
+    if (typeof path !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    }
+    return requireNativeModule().excludeFromBackupKey('file://' + path).then(() => undefined);
+});
+
+/**
+ * The directory shared by the apps of an app group (iOS).
+ * @param  {string} groupName
+ * @return {Promise<string>}
+ */
+const appGroupDir = platformOnly('ios', 'ReactNativeBlobUtil.fs.appGroupDir', (groupName: string) => {
+    return requireNativeModule().pathForAppGroup(groupName);
+});
+
+/**
+ * The directory shared by the apps of an app group, synchronously (iOS); '' elsewhere.
+ * @param  {string} groupName
+ * @return {string}
+ */
+function appGroupDirSync(groupName: string): string {
+    return Platform.OS === 'ios' ? requireNativeModule().syncPathAppGroup(groupName) : '';
 }
 
 /**
@@ -460,10 +451,11 @@ export default {
     cp,
     writeStream,
     writeFile,
-    writeFileWithTransform,
-    readFileWithTransform,
     appendFile,
     readFile,
+    excludeFromBackup,
+    appGroupDir,
+    appGroupDirSync,
     hash,
     exists,
     createFile,
@@ -474,8 +466,12 @@ export default {
     slice,
     asset,
     df,
-    // Platform-specific calls moved to android.* and ios.*; these names warn once.
-    scanFile: deprecatedAlias('fs.scanFile', 'android.scanFile', android.scanFile),
-    pathForAppGroup: deprecatedAlias('fs.pathForAppGroup', 'ios.pathForAppGroup', ios.pathForAppGroup),
-    syncPathAppGroup: deprecatedAlias('fs.syncPathAppGroup', 'ios.syncPathAppGroup', ios.syncPathAppGroup),
+    // Names from before 1.0; each warns once.
+    readFileWithTransform: deprecatedAlias('fs.readFileWithTransform', 'fs.readFile(path, encoding, {transform: true})',
+        (path: string, encoding: string = 'utf8') => readFile(path, encoding, {transform: true})),
+    writeFileWithTransform: deprecatedAlias('fs.writeFileWithTransform', 'fs.writeFile(path, data, encoding, {transform: true})',
+        (path: string, data: any, encoding: ?string = 'utf8') => writeFile(path, data, encoding, {transform: true})),
+    scanFile: deprecatedAlias('fs.scanFile', 'media.scan', media.scan),
+    pathForAppGroup: deprecatedAlias('fs.pathForAppGroup', 'fs.appGroupDir', appGroupDir),
+    syncPathAppGroup: deprecatedAlias('fs.syncPathAppGroup', 'fs.appGroupDirSync', appGroupDirSync),
 };
