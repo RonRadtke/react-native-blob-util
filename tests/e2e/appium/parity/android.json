@@ -11,7 +11,7 @@
         "created": "content://media/external_primary/downloads/<n>",
         "matchesPng": true,
         "written": {
-          "resolved": "Success"
+          "resolved": "<undefined>"
         }
       }
     },

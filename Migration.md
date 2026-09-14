@@ -40,7 +40,7 @@ and print one deprecation warning each.
 | `ios.presentOptionsMenu(path)` | `open.optionsMenu(path, {scheme})` |
 | `android.getContentIntent(mime)` | `open.pick(mime)` (resolves `null` when cancelled) |
 | `MediaCollection.createMediaFile` | `media.createFile(fd, collection)` |
-| `MediaCollection.writeToMediaFile` / `...WithTransform` | `media.write(uri, path, {transform})` |
+| `MediaCollection.writeToMediaFile` / `...WithTransform` | `media.write(uri, path, {transform})` (resolves `undefined`; the old names keep resolving `"Success"`) |
 | `MediaCollection.copyToMediaStore`, `copyToInternal` | `media.copyToMediaStore`, `media.copyToInternal` |
 | `MediaCollection.getBlob(uri, encoding)` | `media.read(uri, encoding)` |
 | `android.addCompleteDownload(options)` | `media.addDownload(options)` |

@@ -875,7 +875,7 @@ define('upload-multipart', async (ctx) => {
 define('android-media-store', async (ctx) => {
     const source = await ReactNativeBlobUtil.config({fileCache: true}).fetch('GET', ctx.url('/image.png'));
     const dir = await freshDir('android-media-store');
-    const MC = ReactNativeBlobUtil.MediaCollection;
+    const MC = ReactNativeBlobUtil.media;
     const stamp = Date.now();
 
     const copied = await settle(() => MC.copyToMediaStore({name: `parity-${stamp}.png`, parentFolder: 'parity', mimeType: 'image/png'}, 'Download', source.path()));
@@ -884,16 +884,16 @@ define('android-media-store', async (ctx) => {
     if (typeof uri === 'string') {
         const raw = await MC.copyToMediaStore({name: `parity-b-${stamp}.png`, parentFolder: 'parity', mimeType: 'image/png'}, 'Download', source.path());
         out.getBlobBase64 = await settle(async () => {
-            const blob = await MC.getBlob(raw, 'base64');
+            const blob = await MC.read(raw, 'base64');
             return {kind: Array.isArray(blob) ? 'array' : typeof blob, matchesPng: blob === PNG_BASE64};
         });
         out.copyToInternal = await settle(() => MC.copyToInternal(raw, `${dir}/copy.png`));
         out.internalCopyMatches = await settle(async () => (await fs.readFile(`${dir}/copy.png`, 'base64')) === PNG_BASE64);
     }
     out.created = await settle(async () => {
-        const created = await MC.createMediafile({name: `parity-c-${stamp}.png`, parentFolder: 'parity', mimeType: 'image/png'}, 'Download');
-        const written = await settle(() => MC.writeToMediafile(created, source.path()));
-        const blob = await MC.getBlob(created, 'base64');
+        const created = await MC.createFile({name: `parity-c-${stamp}.png`, parentFolder: 'parity', mimeType: 'image/png'}, 'Download');
+        const written = await settle(() => MC.write(created, source.path()));
+        const blob = await MC.read(created, 'base64');
         return {created, written, matchesPng: blob === PNG_BASE64};
     });
     return out;
@@ -904,10 +904,10 @@ define('android-misc', async () => {
     const file = `${dir}/scan.txt`;
     await fs.createFile(file, 'scan me', 'utf8');
     return {
-        sdCardDir: await settle(() => ReactNativeBlobUtil.android.getSDCardDir()),
-        sdCardApplicationDir: await settle(() => ReactNativeBlobUtil.android.getSDCardApplicationDir()),
-        scanFile: await settle(() => fs.scanFile([{path: file, mime: 'text/plain'}])),
-        addCompleteDownload: await settle(() => ReactNativeBlobUtil.android.addCompleteDownload({
+        sdCardDir: await settle(() => ReactNativeBlobUtil.media.sdCardDir()),
+        sdCardApplicationDir: await settle(() => ReactNativeBlobUtil.media.sdCardApplicationDir()),
+        scanFile: await settle(() => ReactNativeBlobUtil.media.scan([{path: file, mime: 'text/plain'}])),
+        addCompleteDownload: await settle(() => ReactNativeBlobUtil.media.addDownload({
             title: 'parity',
             description: 'parity',
             mime: 'text/plain',
@@ -922,10 +922,10 @@ define('ios-misc', async () => {
     const file = `${dir}/backup.txt`;
     await fs.createFile(file, 'backup', 'utf8');
     return {
-        excludeFromBackupKey: await settle(() => ReactNativeBlobUtil.ios.excludeFromBackupKey(file)),
-        excludeMissing: await settle(() => ReactNativeBlobUtil.ios.excludeFromBackupKey(`${dir}/missing.txt`)),
-        pathForAppGroup: await settle(() => fs.pathForAppGroup('group.invalid.rnbu.parity')),
-        syncPathAppGroup: await settle(() => fs.syncPathAppGroup('group.invalid.rnbu.parity')),
+        excludeFromBackupKey: await settle(() => fs.excludeFromBackup(file)),
+        excludeMissing: await settle(() => fs.excludeFromBackup(`${dir}/missing.txt`)),
+        pathForAppGroup: await settle(() => fs.appGroupDir('group.invalid.rnbu.parity')),
+        syncPathAppGroup: await settle(() => fs.appGroupDirSync('group.invalid.rnbu.parity')),
     };
 }, ['ios']);
 
