@@ -200,7 +200,11 @@ export interface FS {
      */
     exists(path: string): Promise<boolean>;
 
-    createFile(path: string, data: string, encoding: Encoding): Promise<void>;
+    /**
+     * Create a file with the given content.
+     * @return The path of the created file.
+     */
+    createFile(path: string, data: string | number[], encoding: Encoding | 'uri'): Promise<string>;
 
     isDir(path: string): Promise<boolean>;
 
@@ -224,7 +228,11 @@ export interface FS {
 
     asset(path: string): string;
 
-    df(): Promise<RNFetchBlobDf>;
+    /**
+     * Free and total storage in bytes. Android also reports the internal and
+     * external volumes separately.
+     */
+    df(): Promise<ReactNativeBlobUtilDf>;
 
     /**
      * Returns the path for the app group.
@@ -233,19 +241,21 @@ export interface FS {
     pathForAppGroup(groupName: string): Promise<string>;
 }
 
-export interface RNFetchBlobDfIOS {
-    free?: number;
-    total?: number;
+export interface ReactNativeBlobUtilDf {
+    free: number;
+    total: number;
+    /** Android only */
+    internal_free?: number;
+    /** Android only */
+    internal_total?: number;
+    /** Android only */
+    external_free?: number;
+    /** Android only */
+    external_total?: number;
 }
 
-export interface RNFetchBlobDfAndroid {
-    external_free?: string;
-    external_total?: string;
-    internal_free?: string;
-    internal_total?: string;
-}
-
-export type RNFetchBlobDf = RNFetchBlobDfIOS & RNFetchBlobDfAndroid;
+/** @deprecated use ReactNativeBlobUtilDf */
+export type RNFetchBlobDf = ReactNativeBlobUtilDf;
 
 export interface Dirs {
     DocumentDir: string;
@@ -317,21 +327,21 @@ export interface IOSApi {
      * @param  {string} path Path of the file to be open.
      * @param  {string} scheme URI scheme that needs to support, optional
      */
-    presentOptionsMenu(path: string, scheme?: string): void;
+    presentOptionsMenu(path: string, scheme?: string): Promise<void>;
 
     /**
      * Displays a menu for opening the document using [UIDocumentInteractionController](https://developer.apple.com/reference/uikit/uidocumentinteractioncontroller).[presentOpenInMenu](https://developer.apple.com/documentation/uikit/uidocumentinteractioncontroller/1616807-presentopeninmenu)
      * @param  {string} path Path of the file to be open.
      * @param  {string} scheme URI scheme that needs to support, optional
      */
-    presentOpenInMenu(path: string, scheme?: string): void;
+    presentOpenInMenu(path: string, scheme?: string): Promise<void>;
 
     /**
      * Displays a full-screen preview of the target document using [UIDocumentInteractionController](https://developer.apple.com/reference/uikit/uidocumentinteractioncontroller).[presentPreview](https://developer.apple.com/documentation/uikit/uidocumentinteractioncontroller/1616828-presentpreview)
      * @param  {string} path Path of the file to be open.
      * @param  {string} scheme URI scheme that needs to support, optional
      */
-    presentPreview(path: string, scheme?: string): void;
+    presentPreview(path: string, scheme?: string): Promise<void>;
 
     /**
      * Marks the file to be excluded from icloud/itunes backup. Works recursively if path is to a directory

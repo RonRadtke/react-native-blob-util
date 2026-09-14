@@ -65,7 +65,7 @@
   },
   "cp-mv": {
     "cp": {
-      "resolved": "<undefined>"
+      "resolved": true
     },
     "cpIntoMissingDir": {
       "rejected": {
@@ -79,7 +79,7 @@
       "moved.txt"
     ],
     "mv": {
-      "resolved": "<undefined>"
+      "resolved": true
     },
     "mvIntoMissingDir": {
       "rejected": {
@@ -104,10 +104,12 @@
     }
   },
   "df": {
-    "external_free": "string",
-    "external_total": "string",
-    "internal_free": "string",
-    "internal_total": "string"
+    "external_free": "number",
+    "external_total": "number",
+    "free": "number",
+    "internal_free": "number",
+    "internal_total": "number",
+    "total": "number"
   },
   "errors-read": {
     "hashDir": {
@@ -213,7 +215,7 @@
       }
     },
     "cpOntoExisting": {
-      "resolved": "<undefined>"
+      "resolved": true
     },
     "createFileExisting": {
       "rejected": {
@@ -751,11 +753,11 @@
           "size",
           "type"
         ],
-        "lastModified": "string:epoch-ms",
+        "lastModified": "number:epoch-ms",
         "path": "<DocumentDir>/parity/lstat-dir/a.txt",
         "size": [
-          "string",
-          "2"
+          "number",
+          2
         ],
         "type": "file"
       },
@@ -768,11 +770,11 @@
           "size",
           "type"
         ],
-        "lastModified": "string:epoch-ms",
+        "lastModified": "number:epoch-ms",
         "path": "<DocumentDir>/parity/lstat-dir/b.txt",
         "size": [
-          "string",
-          "3"
+          "number",
+          3
         ],
         "type": "file"
       },
@@ -785,9 +787,9 @@
           "size",
           "type"
         ],
-        "lastModified": "string:epoch-ms",
+        "lastModified": "number:epoch-ms",
         "path": "<DocumentDir>/parity/lstat-dir/sub",
-        "size": "string",
+        "size": "number",
         "type": "directory"
       }
     ],
@@ -809,10 +811,10 @@
     "ascii": {
       "resolved": [
         104,
-        -61,
-        -87,
+        195,
+        169,
         0,
-        -1,
+        255,
         65
       ]
     },
@@ -835,7 +837,7 @@
         "elementTypes": [
           "number"
         ],
-        "flattenedAreFileBytes": false
+        "flattenedAreFileBytes": true
       },
       "chunkCount": 3,
       "chunkKinds": [

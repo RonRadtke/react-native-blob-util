@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import UUID from '../utils/uuid';
+import {toUnsignedBytes} from '../utils/bytes';
 
 import {getEventEmitter, requireNativeModule} from '../utils/nativeModule';
 
@@ -36,7 +37,8 @@ export default class ReactNativeBlobUtilReadStream {
             if (e.streamId !== this.streamId) return; // wrong stream
             let {event, code, detail} = e;
             if (this._onData && event === 'data') {
-                this._onData(detail);
+                // ascii chunks are bytes 0..255; Android and iOS send them signed
+                this._onData(this.encoding === 'ascii' ? toUnsignedBytes(detail) : detail);
                 return;
             }
             else if (this._onEnd && event === 'end') {

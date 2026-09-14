@@ -45,6 +45,22 @@ Architecture.
   stream API without `cancel`, `taskId` or progress. Use `fs.readFile` or
   `fs.readStream`.
 
+### Resolved values
+
+The same call resolved different values per platform. 1.0 resolves one value everywhere:
+
+| Call | 0.25 | 1.0 |
+|---|---|---|
+| `fs.createFile` | the path (Android), `[null]` (iOS), `undefined` (Windows) | the path |
+| `fs.cp`, `fs.mv` | `undefined` (Android), `true` (iOS, Windows) | `true` |
+| `fs.df` | four strings `internal_free`, `internal_total`, `external_free`, `external_total` (Android); `{free, total}` numbers (iOS, Windows) | `{free, total}` as numbers on every platform; Android keeps its four fields, as numbers |
+| `fs.lstat` entries | `size` a string; `lastModified` a string (Android) or number (iOS) | `size` and `lastModified` numbers, like `fs.stat` |
+| `fs.readFile(path, 'ascii')`, ascii `readStream` chunks, `response.array()` | bytes -128..127 (Android, iOS) or 0..255 (Windows) | bytes 0..255 |
+| `ios.presentOptionsMenu`, `ios.presentOpenInMenu`, `ios.presentPreview`, `ios.excludeFromBackupKey` | `[null]` (iOS), `[]` (Windows) | `undefined` |
+
+If you compared ascii bytes against negative values, or read `df().internal_free` as a
+string, adjust those comparisons.
+
 ## Android
 
 Apps that follow the README don't need to change anything.

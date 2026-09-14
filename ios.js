@@ -12,7 +12,7 @@ import {requireNativeModule} from './utils/nativeModule';
  */
 function presentOptionsMenu(path: string, scheme: string) {
   if (Platform.OS === "ios")
-    return requireNativeModule().presentOptionsMenu("file://" + path, scheme);
+    return requireNativeModule().presentOptionsMenu("file://" + path, scheme).then(() => undefined);
   else return Promise.reject("ReactNativeBlobUtil.openDocument only supports IOS.");
 }
 
@@ -24,7 +24,7 @@ function presentOptionsMenu(path: string, scheme: string) {
  */
 function presentOpenInMenu(path: string, scheme: string) {
   if (Platform.OS === "ios")
-    return requireNativeModule().presentOpenInMenu("file://" + path, scheme);
+    return requireNativeModule().presentOpenInMenu("file://" + path, scheme).then(() => undefined);
   else return Promise.reject("ReactNativeBlobUtil.openDocument only supports IOS.");
 }
 
@@ -36,7 +36,7 @@ function presentOpenInMenu(path: string, scheme: string) {
  */
 function presentPreview(path: string, scheme: string) {
   if (Platform.OS === "ios")
-    return requireNativeModule().presentPreview("file://" + path, scheme);
+    return requireNativeModule().presentPreview("file://" + path, scheme).then(() => undefined);
   else return Promise.reject("ReactNativeBlobUtil.previewDocument only supports IOS.");
 }
 
@@ -47,7 +47,8 @@ function presentPreview(path: string, scheme: string) {
  * @return {Promise}
  */
 function excludeFromBackupKey(path: string) {
-  return requireNativeModule().excludeFromBackupKey("file://" + path);
+  // Resolves undefined; native resolves [null] on iOS and [] on Windows.
+  return requireNativeModule().excludeFromBackupKey("file://" + path).then(() => undefined);
 }
 
 export default {

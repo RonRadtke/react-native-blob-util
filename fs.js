@@ -8,6 +8,7 @@ import {Platform} from 'react-native';
 import ReactNativeBlobUtilSession from './class/ReactNativeBlobUtilSession';
 import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStream';
 import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
+import {toUnsignedBytes} from './utils/bytes';
 import toExistsResult from './utils/existsResult';
 import {requireNativeModule} from './utils/nativeModule';
 import type {ReactNativeBlobUtilStat} from './types';
@@ -59,6 +60,32 @@ for (const name of [
 function addCode(code: string, error: Error): Error {
     error.code = code;
     return error;
+}
+
+/** Native reports size and lastModified as strings on some platforms. */
+function normalizeStat(entry: Object): ReactNativeBlobUtilStat {
+    return {...entry, size: Number(entry.size), lastModified: Number(entry.lastModified)};
+}
+
+/**
+ * Android reports internal and external storage as four strings; iOS and
+ * Windows report {free, total} numbers. Every platform resolves numeric
+ * `free` and `total`; Android keeps its four fields as numbers as well.
+ */
+function normalizeDf(space: Object): Object {
+    const numbers = {};
+    for (const key of Object.keys(space)) {
+        numbers[key] = Number(space[key]);
+    }
+    if ('internal_free' in numbers && !('free' in numbers)) {
+        return {free: numbers.internal_free, total: numbers.internal_total, ...numbers};
+    }
+    return numbers;
+}
+
+/** ascii reads resolve bytes 0..255; Android and iOS return them signed. */
+function withUnsignedBytes(encoding: string, promise: Promise<any>): Promise<any> {
+    return encoding === 'ascii' ? promise.then(toUnsignedBytes) : promise;
 }
 
 const READ_ENCODINGS = ['utf8', 'ascii', 'base64'];
@@ -113,13 +140,15 @@ function createFile(path: string, data: string, encoding: 'base64' | 'ascii' | '
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
+    // Resolves the path on every platform (Android did, iOS resolved [null],
+    // Windows undefined).
     if (encoding === 'ascii') {
         return Array.isArray(data) ?
-            requireNativeModule().createFileASCII(path, data) :
+            requireNativeModule().createFileASCII(path, data).then(() => path) :
             Promise.reject(addCode('EINVAL', new TypeError('`data` of ASCII file must be an array with 0..255 numbers')));
     }
     else {
-        return requireNativeModule().createFile(path, data, encoding);
+        return requireNativeModule().createFile(path, data, encoding).then(() => path);
     }
 }
 
@@ -228,7 +257,7 @@ function readFile(path: string, encoding: string = 'utf8'): Promise<any> {
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
-    return requireNativeModule().readFile(path, encoding, false);
+    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, false));
 }
 
 /**
@@ -245,7 +274,7 @@ function readFileWithTransform(path: string, encoding: string = 'utf8'): Promise
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
-    return requireNativeModule().readFile(path, encoding, true);
+    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, true));
 }
 
 /**
@@ -345,11 +374,7 @@ function stat(path: string): Promise<ReactNativeBlobUtilStat> {
             if (err)
                 reject(new Error(err));
             else {
-                if (stat) {
-                    stat.size = parseInt(stat.size);
-                    stat.lastModified = parseInt(stat.lastModified);
-                }
-                resolve(stat);
+                resolve(stat ? normalizeStat(stat) : stat);
             }
         });
     });
@@ -397,11 +422,11 @@ function cp(path: string, dest: string): Promise<boolean> {
         if (typeof path !== 'string' || typeof dest !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
         }
-        requireNativeModule().cp(path, dest, (err, res) => {
+        requireNativeModule().cp(path, dest, (err) => {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
-                resolve(res);
+                resolve(true); // Android resolves undefined, iOS and Windows true
         });
     });
 }
@@ -411,11 +436,11 @@ function mv(path: string, dest: string): Promise<boolean> {
         if (typeof path !== 'string' || typeof dest !== 'string') {
             return reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
         }
-        requireNativeModule().mv(path, dest, (err, res) => {
+        requireNativeModule().mv(path, dest, (err) => {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
-                resolve(res);
+                resolve(true); // Android resolves undefined, iOS and Windows true
         });
     });
 }
@@ -429,7 +454,7 @@ function lstat(path: string): Promise<Array<ReactNativeBlobUtilStat>> {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
-                resolve(stat);
+                resolve(Array.isArray(stat) ? stat.map(normalizeStat) : stat);
         });
     });
 }
@@ -531,7 +556,7 @@ function df(): Promise<{ free: number, total: number }> {
             if (err)
                 reject(addCode('EUNSPECIFIED', new Error(err)));
             else
-                resolve(stat);
+                resolve(stat ? normalizeDf(stat) : stat);
         });
     });
 }

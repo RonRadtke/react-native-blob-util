@@ -20,6 +20,17 @@ export function bytesOfBinaryString(binary: string): Array<number> {
 }
 
 /**
+ * Byte values 0..255 from what native returns for ascii reads: Android and
+ * iOS hand back signed bytes (-128..127), Windows unsigned ones. Anything
+ * that is not an array is returned as it is.
+ * @param  {any} bytes
+ * @return {any}
+ */
+export function toUnsignedBytes(bytes: any): any {
+    return Array.isArray(bytes) ? bytes.map((b) => b & 0xff) : bytes;
+}
+
+/**
  * The UTF-8 encoding of a string, as byte values 0..255. Lone surrogates are
  * encoded as U+FFFD, the way TextEncoder does.
  * @param  {string} text
