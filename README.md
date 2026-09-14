@@ -12,6 +12,8 @@ The project will be continued in this repository. React-Native-Blob-Util is full
 
 # Version Compatibility Warning
 
+react-native-blob-util version **0.26.0** and up supports the **New Architecture only** and is only compatible with react native **0.84** and up (Android `minSdk` 24, iOS 15.1). See [Migration.md](Migration.md).
+
 react-native-blob-util version **0.22.0** and up is only compatible with react native **0.76** and up.
 "0.22.0" -> 0.76 RN
 "0.22.1" -> 0.77 RN
@@ -32,9 +34,8 @@ react-native-blob-util version **0.10.16** and up is only compatible with react 
 - JSON stream supported base on [Oboe.js](https://github.com/jimhigson/oboe.js/) @jimhigson
 
 ## React Native New Architecture
-With React Native 0.68.0 the switch to enable the new aritechture was introduced.
-Starting with version 0.17.0 this library introduces support for the new architecture as well. Of course the old architecture will still be supported.
-Further information about it and how to use it you can find here: https://reactnative.dev/docs/next/the-new-architecture/landing-page
+Since 0.26.0 the library runs on the New Architecture only; 0.25 is the last release that also supports the Old Architecture. The native modules are written in Kotlin (Android), Swift (iOS) and C++/WinRT (Windows).
+Further information about the New Architecture: https://reactnative.dev/architecture/landing-page
 
 ## Android 10 & 11
 
@@ -107,7 +108,7 @@ cd ios; pod install; cd ..
 
 **Okhttp**
 
-For using the library okhttp3 is required. It's in general included in react-native. The library uses the okhttp version shipped with react-native or used by your app. For very old devices android devices okhttp 3.12 can be used.
+For using the library okhttp3 is required. It's in general included in react-native. The library uses the okhttp version shipped with react-native or used by your app.
 
 **Manually Link Native Modules**
 
@@ -937,56 +938,57 @@ ReactNativeBlobUtil.fetch('POST', 'http://example.com/upload', {'Transfer-Encodi
 
 By default, react-native-blob-util does NOT allow connection to unknown certification provider since it's dangerous. To connect a server with self-signed certification, you need to add `trusty` to `config` explicitly. This function is available for version >= `0.5.3`
 In addition since ``0.16.0`` you'll have to define your own trust manager for android.
-````java
-....
-import com.ReactNativeBlobUtil.ReactNativeBlobUtilUtils;
-...
-
-public class MainApplication extends Application implements ReactApplication {
-    ...
-    @Override
-    public void onCreate() {
-       ...
-        ReactNativeBlobUtilUtils.sharedTrustManager = x509TrustManager = new X509TrustManager() {
-                @Override
-                public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
-                }
-
-                @Override
-                public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
-                }
-
-                @Override
-                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                    return new java.security.cert.X509Certificate[]{};
-                }
-        };
-        ...
-    }
-````
 
 #### Kotlin
 ````kotlin
-....
-import com.ReactNativeBlobUtil.ReactNativeBlobUtilUtils;
+// MainApplication.kt
+import com.ReactNativeBlobUtil.ReactNativeBlobUtilUtils
+import java.security.cert.X509Certificate
 import javax.net.ssl.X509TrustManager
-...
+
+class MainApplication : Application(), ReactApplication {
+    override fun onCreate() {
+        super.onCreate()
+        // ...
+        ReactNativeBlobUtilUtils.sharedTrustManager = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        }
+    }
+}
+````
+
+#### Java
+````java
+// MainApplication.java
+import com.ReactNativeBlobUtil.ReactNativeBlobUtilUtils;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.X509TrustManager;
 
 public class MainApplication extends Application implements ReactApplication {
-    ...
+    @Override
     public void onCreate() {
-       ...
-        ReactNativeBlobUtilUtils.sharedTrustManager = object : X509TrustManager {
-          override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+        super.onCreate();
+        // ...
+        ReactNativeBlobUtilUtils.sharedTrustManager = new X509TrustManager() {
+            @Override
+            public void checkClientTrusted(X509Certificate[] chain, String authType) {
+            }
 
-          override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+            @Override
+            public void checkServerTrusted(X509Certificate[] chain, String authType) {
+            }
 
-          override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> {
-            return arrayOf()
-          }
+            @Override
+            public X509Certificate[] getAcceptedIssuers() {
+                return new X509Certificate[]{};
+            }
         };
-        ...
     }
+}
 ````
 
 ```js
@@ -1108,9 +1110,27 @@ If you want to use a file transformer, you must implement an interface defined i
 
 [ReactNativeBlobUtilFileTransformer.java (Android)](/android/src/main/java/com/ReactNativeBlobUtil/ReactNativeBlobUtilFileTransformer.java)
 
+Both stay in Objective-C and Java on purpose, so implementations written in Kotlin or Swift keep compiling as well.
+
 Then you set the File Transformer during app startup
 
-Android:
+Android (Kotlin):
+```kotlin
+class MyCustomEncryptor : ReactNativeBlobUtilFileTransformer.FileTransformer {
+    override fun onWriteFile(data: ByteArray): ByteArray = data // encrypt here
+    override fun onReadFile(data: ByteArray): ByteArray = data // decrypt here
+}
+
+class MainApplication : Application(), ReactApplication {
+    override fun onCreate() {
+        super.onCreate()
+        // ...
+        ReactNativeBlobUtilFileTransformer.sharedFileTransformer = MyCustomEncryptor()
+    }
+}
+```
+
+Android (Java):
 ```java
 public class MainApplication extends Application implements ReactApplication {
     ...
@@ -1122,7 +1142,20 @@ public class MainApplication extends Application implements ReactApplication {
     }
 ```
 
-iOS:
+iOS (Swift). The protocol imports as `FileTransformer`, the class must inherit from `NSObject`, and the methods take and return non-optional `Data`:
+```swift
+import react_native_blob_util
+
+final class MyCustomEncryptor: NSObject, FileTransformer {
+    func onWriteFile(_ data: Data) -> Data { data } // encrypt here
+    func onReadFile(_ data: Data) -> Data { data } // decrypt here
+}
+
+// in application(_:didFinishLaunchingWithOptions:)
+ReactNativeBlobUtilFileTransformer.setFileTransformer(MyCustomEncryptor())
+```
+
+iOS (Objective-C):
 ```m
 @implementation AppDelegate
 ...
@@ -1179,4 +1212,4 @@ See [release notes](https://github.com/RonRadtke/react-native-blob-util/releases
 
 ### Development
 
-If you're interested in hacking this module, check our [development guide](https://github.com/RonRadtke/react-native-blob-util/wiki/Home), there might be some helpful information. Please feel free to make a PR or file an issue.
+If you're interested in working on this module, see [CONTRIBUTING.md](CONTRIBUTING.md). Please feel free to make a PR or file an issue.
