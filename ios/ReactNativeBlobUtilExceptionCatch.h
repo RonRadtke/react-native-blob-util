@@ -2,8 +2,7 @@
 //  ReactNativeBlobUtilExceptionCatch.h
 //  ReactNativeBlobUtil
 //
-//  One path in the file system layer depends on an Objective-C exception that
-//  Swift can neither raise nor catch.
+//  Objective-C exception boundaries for the Swift implementation.
 //
 //  A read-stream chunk that splits a multi-byte character decodes to nil, and
 //  the original built its event payload with that nil in it. The dictionary
@@ -19,10 +18,20 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "ReactNativeBlobUtilFileTransformer.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ReactNativeBlobUtilExceptionCatch : NSObject
+
+/// Invokes the transformer entirely inside Objective-C. Completion is called
+/// synchronously, after leaving the exception handler, so no Swift frame has to
+/// unwind when an app's transformer raises. A nil result stays nil.
++ (void)transformData:(NSData *)data
+     withTransformer:(id<FileTransformer>)transformer
+            forWrite:(BOOL)forWrite
+          completion:(void (^)(NSData * _Nullable result, NSString * _Nullable exception))completion
+    NS_SWIFT_NAME(transform(_:with:forWrite:completion:));
 
 /// Builds the read-stream data payload and hands it to `consume`. Returns nil
 /// on success, or the raised exception's `description` when `detail` is nil.

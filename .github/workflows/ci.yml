@@ -95,10 +95,8 @@ jobs:
       - run: bash ./gradlew assembleDebug --no-daemon
         working-directory: examples/ReactNativeBlobUtil/android
 
-      # The library's JVM tests. npm run test:android wraps the same task, but it
-      # starts gradlew directly and would hit the missing executable bit.
-      - run: bash ./gradlew :react-native-blob-util:testDebugUnitTest --no-daemon
-        working-directory: examples/ReactNativeBlobUtil/android
+      # Exercise the same runner contributors use, including its Bash wrapper.
+      - run: npm run test:android -- --no-daemon
 
   ios:
     name: iOS build (${{ matrix.linkage }})

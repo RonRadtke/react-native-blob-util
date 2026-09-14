@@ -394,15 +394,22 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
 
         if respFile {
             if shouldTransformFile() {
-                guard let transformer = ReactNativeBlobUtilFileTransformer.getFileTransformer() else {
+                if let transformer = ReactNativeBlobUtilFileTransformer.getFileTransformer() {
+                    ReactNativeBlobUtilExceptionCatch.transform((respData ?? NSMutableData()) as Data,
+                                                               with: transformer, forWrite: true) { transformed, exception in
+                        if let exception = exception {
+                            errMsg = "Exception on File Transformer: '\(exception)' "
+                        } else if let transformed = transformed {
+                            _ = transformed.withUnsafeBytes { raw -> Int in
+                                guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { return 0 }
+                                return self.writeStream?.write(base, maxLength: transformed.count) ?? 0
+                            }
+                        } else {
+                            errMsg = "File transformer returned no data"
+                        }
+                    }
+                } else {
                     errMsg = "Transform file specified but file transfomer not set"
-                    finish(task: task, errMsg: errMsg, rnfbRespType: ReactNativeBlobUtilConst.respTypePath, respStr: destPath, session: session)
-                    return
-                }
-                let transformed = transformer.onWriteFile((respData ?? NSMutableData()) as Data) ?? Data()
-                _ = transformed.withUnsafeBytes { raw -> Int in
-                    guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { return 0 }
-                    return writeStream?.write(base, maxLength: transformed.count) ?? 0
                 }
             }
             writeStream?.close()

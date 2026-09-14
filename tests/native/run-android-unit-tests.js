@@ -19,7 +19,9 @@ const args = [':react-native-blob-util:testDebugUnitTest', '--console=plain', ..
 
 const result = isWin
     ? spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', wrapper, ...args], {cwd: androidDir, stdio: 'inherit'})
-    : spawnSync(wrapper, args, {cwd: androidDir, stdio: 'inherit'});
+    // gradlew is checked in without its executable bit. Pass it to Bash just
+    // as CI does, with separate arguments so paths and test filters survive.
+    : spawnSync('bash', [wrapper, ...args], {cwd: androidDir, stdio: 'inherit'});
 
 if (result.error) {
     console.error(result.error.message);

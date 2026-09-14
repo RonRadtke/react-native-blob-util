@@ -1,7 +1,7 @@
 const {runFilesystemScenario} = require('./filesystem');
 const {runNetworkScenario} = require('./network');
-const {runTlsScenario} = require('./tls');
 const {runParityScenario} = require('./parity');
+const {runTlsScenario} = require('./tls');
 
 const SCENARIOS = {
     filesystem: runFilesystemScenario,
@@ -12,9 +12,13 @@ const SCENARIOS = {
 
 const DEFAULT_SCENARIOS = ['filesystem', 'network', 'tls', 'parity'];
 
-const resolveScenarioNames = (rawScenarios) => {
+const resolveScenarioNames = (rawScenarios, platform) => {
     if (!rawScenarios) {
-        return DEFAULT_SCENARIOS;
+        // The native port has Android/iOS recordings only. Windows keeps its
+        // existing suite; parity can still be selected explicitly to record it.
+        return platform === 'windows'
+            ? DEFAULT_SCENARIOS.filter((name) => name !== 'parity')
+            : DEFAULT_SCENARIOS;
     }
 
     const names = rawScenarios

@@ -428,11 +428,14 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         var res: [Any] = []
 
         if isDir.boolValue {
-            let files = (try? fm.contentsOfDirectory(atPath: path)) ?? []
-            for p in files {
-                if let stat = ReactNativeBlobUtilFS.stat("\(path)/\(p)", error: &error) {
-                    res.append(stat)
+            do {
+                for p in try fm.contentsOfDirectory(atPath: path) {
+                    if let stat = ReactNativeBlobUtilFS.stat("\(path)/\(p)", error: &error) {
+                        res.append(stat)
+                    }
                 }
+            } catch let caught as NSError {
+                error = caught
             }
         } else {
             // Only a directory is enumerated. This used to call

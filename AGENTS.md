@@ -153,7 +153,8 @@ Some files stay in their old language on purpose:
   interface would force one nullability on implementers.
 - `ios/ReactNativeBlobUtilExceptionCatch.{h,m}` reproduces the NSException a utf8
   read stream raises when a chunk splits a multi-byte character, which Swift cannot
-  raise. It goes away when that bug is fixed.
+  raise. It also catches exceptions from app-provided file transformers before
+  they reach Swift; that boundary must stay even after the stream bug is fixed.
 
 Public Kotlin classes keep their Java shape, with `@JvmStatic` and `@JvmField` on
 companion members, because apps call them from Java. The tests in

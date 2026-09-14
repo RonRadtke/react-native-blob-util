@@ -20,7 +20,7 @@ const runSuiteForPlatform = async (platform) => {
         await resetFixtures(context);
         await clearLog(context);
 
-        const scenarios = resolveScenarioNames(process.env.E2E_SCENARIOS);
+        const scenarios = resolveScenarioNames(process.env.E2E_SCENARIOS, platform);
         for (const scenarioName of scenarios) {
             console.log(`[e2e] Running scenario: ${scenarioName}`);
             await runScenario(scenarioName, context);

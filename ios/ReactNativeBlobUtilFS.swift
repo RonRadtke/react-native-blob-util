@@ -371,7 +371,17 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             guard let transformer = ReactNativeBlobUtilFileTransformer.getFileTransformer() else {
                 return reject("EUNSPECIFIED", "Transform specified but transformer not set", nil)
             }
-            content = transformer.onWriteFile(content ?? Data())
+            var failure: String?
+            ReactNativeBlobUtilExceptionCatch.transform(content ?? Data(), with: transformer, forWrite: true) { result, exception in
+                content = result
+                failure = exception
+            }
+            if let failure = failure {
+                return reject("EUNSPECIFIED", failure, nil)
+            }
+            guard content != nil else {
+                return reject("EUNSPECIFIED", "File transformer returned no data", nil)
+            }
         }
 
         let payload = content ?? Data()
@@ -379,9 +389,14 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             guard let handle = FileHandle(forWritingAtPath: path) else {
                 return reject("ENOENT", "File '\(path)' does not exist and could not be created", nil)
             }
-            handle.seekToEndOfFile()
-            handle.write(payload)
-            handle.closeFile()
+            do {
+                try handle.seekToEnd()
+                try handle.write(contentsOf: payload)
+                try handle.close()
+            } catch {
+                try? handle.close()
+                return reject("EUNSPECIFIED", (error as NSError).description, error)
+            }
         } else {
             do {
                 try payload.write(to: URL(fileURLWithPath: path), options: .atomic)
@@ -432,12 +447,17 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             guard let handle = FileHandle(forWritingAtPath: path) else {
                 return reject("ENOENT", "File '\(path)' does not exist and could not be created", nil)
             }
-            handle.seekToEndOfFile()
-            handle.write(content)
-            handle.closeFile()
+            do {
+                try handle.seekToEnd()
+                try handle.write(contentsOf: content)
+                try handle.close()
+            } catch {
+                try? handle.close()
+                return reject("EUNSPECIFIED", (error as NSError).description, error)
+            }
         } else {
             do {
-                try content.write(to: URL(fileURLWithPath: path))
+                try content.write(to: URL(fileURLWithPath: path), options: .atomic)
             } catch {
                 return reject("EUNSPECIFIED", "File '\(path)' could not be written.", nil)
             }
@@ -494,7 +514,21 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
                     onComplete(nil, "EUNSPECIFIED", "Transform specified but transformer not set")
                     return
                 }
-                fileContent = transformer.onReadFile(fileContent)
+                var transformed: Data?
+                var failure: String?
+                ReactNativeBlobUtilExceptionCatch.transform(fileContent, with: transformer, forWrite: false) { result, exception in
+                    transformed = result
+                    failure = exception
+                }
+                if let failure = failure {
+                    onComplete(nil, "EUNSPECIFIED", "Exception on File Transformer: '\(failure)' ")
+                    return
+                }
+                guard let transformed = transformed else {
+                    onComplete(nil, "EUNSPECIFIED", "File transformer returned no data")
+                    return
+                }
+                fileContent = transformed
             }
 
             guard let encoding = encoding else {
@@ -567,7 +601,7 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         guard let handle = FileHandle(forReadingAtPath: path) else {
             return reject("EUNKNOWN", "Error opening '\(path)' for reading", nil)
         }
-        defer { handle.closeFile() }
+        defer { try? handle.close() }
 
         let lengths: [String: Int] = [
             "md5": Int(CC_MD5_DIGEST_LENGTH),
@@ -601,7 +635,12 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
 
         let chunkSize = 1024 * 1024 // 1 megabyte, as before
         while true {
-            let chunk = handle.readData(ofLength: chunkSize)
+            let chunk: Data
+            do {
+                chunk = try handle.read(upToCount: chunkSize) ?? Data()
+            } catch {
+                return reject("EREAD", "Error reading file '\(path)'", error)
+            }
             if chunk.isEmpty { break }
             chunk.withUnsafeBytes { raw in
                 let base = raw.baseAddress
