@@ -1,41 +1,65 @@
-# Migration to the New Architecture
+# Migrating to 0.26
 
-This file is a tracker for what has been done to work on the migration of this library and to keep also track of the various todo:
+0.26.0 rewrites the native layers: Android moves from Java to Kotlin, and iOS from
+Objective-C++ to Swift. Windows stays C++. The JavaScript API does not change. Before
+the old Android and iOS code was removed, the new code was checked call by call against
+recordings of how 0.25 behaved on the same device.
 
-## TODO
+Most apps only need to meet the new requirements below.
 
-- [] Write JS spec in Flow for the New Architecture
-- [] Implent the new Native Code on iOS
-- [] Implent the new Native Code on Android
-- [] Test on OldArch app (iOS)
-- [] Test on OldArch app (Android)
-- [] Test on NewArch app (iOS)
-- [] Test on NewArch app (Android)
-- [] Open PR
+## Requirements
 
-## Done
+| | 0.25 | 0.26 |
+|---|---|---|
+| React Native architecture | Old or New | **New Architecture only** |
+| React Native | 0.76 and up | 0.84 and up (tested on 0.84 and the newest release) |
+| Android `minSdk` | the app's (library fallback 16) | 24 |
+| Android build | Java 8 bytecode | Java 17 bytecode, Kotlin compiled with the app's Kotlin setup |
+| iOS deployment target | 11.0 | 15.1 |
+| Xcode | | 16.1 or newer |
+| iOS integration | CocoaPods or the bundled Xcode project | CocoaPods only |
 
-### Setup
-1. Forked and cloned the repo
-1. Checked the list of APIs to migrate.
-1. Created an `OldArch` app (0.70) configured for the Old Architecture.
-1. Run the app to make sure that it works properly.
-1. Created a `NewArch` app (0.70) configured for the New Architecture.
-1. Switched the flags for iOS and Android to have the new arch enabled by default
-1. Run the app to make sure that it works properly.
-1. Moved the apps in the `examples` folder
+If your app still runs on the Old Architecture, stay on 0.25 until it moves to the New
+Architecture.
 
-### Installing blob-utils
-1. Move to `OldArch`
-1. Run `yarn add ../..` to install the blob utils.
-1. `cd ios`
-1. `bundle install && bundle exec pod install`
-1. `cd ..`
-1. `npx react-native run-ios`
-1. Copy the app JS code from `examples/ReactNativeBlobUtil/App.js` to `examples/OldArch/App.js`
-1. Fixed various JS issues
-1. The app depends on the `Picker`. *Note:* It does not support the New Arch, we need to figure out another way to choose.
-    1. run `yarn add @react-native-picker/picker`
-    1. run `bundle exec pod install` from the iOS folder
-    1. re-run the app
-1. Repeat the above steps for `NewArch`
+## Android
+
+Apps that follow the README don't need to change anything.
+
+- `ReactNativeBlobUtilUtils.sharedTrustManager` is still a static field. Java and
+  Kotlin code that sets it compiles unchanged.
+- `ReactNativeBlobUtilFileTransformer` stays a Java class, so existing
+  `FileTransformer` implementations in Java or Kotlin keep compiling, whatever
+  nullability a Kotlin implementation declared.
+- `ReactNativeBlobUtilPackage` keeps its name and no-argument constructor, for apps
+  that register it by hand.
+- The library no longer applies `kotlin-android` when the app already provides Kotlin
+  (AGP 9 with `android.builtInKotlin=true`).
+- The library no longer depends on `commons-lang3`. If your app used it without
+  declaring it, add it to your own dependencies.
+- `ReactNativeBlobUtilReq.enableTls12OnPreLollipop` returns the builder unchanged.
+  It only ever did something on Android 4.1 to 4.4, which `minSdk` 24 excludes.
+
+Classes that were package-private in Java (`ReactNativeBlobUtilFS`,
+`ReactNativeBlobUtilImpl`, `ReactNativeBlobUtilConfig`, `ReactNativeBlobUtilBody`) are
+now `internal` Kotlin classes. Code outside the library couldn't use them before either.
+
+## iOS
+
+Apps that follow the README don't need to change anything.
+
+- `ReactNativeBlobUtilFileTransformer.h` stays Objective-C. The `FileTransformer`
+  protocol and `+setFileTransformer:` are unchanged and work from an Objective-C or a
+  Swift `AppDelegate`.
+- The pod now contains Swift (`swift_version` 5.0) and defines a module. CocoaPods
+  handles this under static libraries, static frameworks and dynamic frameworks alike.
+- The only public headers are `ReactNativeBlobUtilFileTransformer.h` and
+  `ReactNativeBlobUtilExceptionCatch.h`. The other headers, including
+  `ReactNativeBlobUtilConst.h`, are gone: those classes are Swift now. App code that
+  imported them has to stop, and apps had no documented reason to.
+- `ios/ReactNativeBlobUtil.xcodeproj` is deleted. It no longer matched the sources, so
+  linking the library through that project stopped working long ago. Use CocoaPods.
+
+## Windows
+
+No changes.

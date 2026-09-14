@@ -31,23 +31,32 @@ Two rules, both non-negotiable:
    reverting the fix and watching the test fail.
 
 ```sh
-npm test          # unit tests (node --test), requires Node >= 22
-npm run e2e:all   # appium e2e; android / ios / windows variants exist
+npm test               # JS unit tests (node --test), requires Node >= 22
+npm run test:android   # Kotlin/JVM unit tests through the example app's Gradle
+npm run test:ios       # XCTest target in the example app (macOS, after pod install)
+npm run e2e:all        # appium e2e; android / ios / windows variants exist
 ```
 
-Unit tests live in `tests/unit/*.test.js` and use Node's built-in runner — no
+JS unit tests live in `tests/unit/*.test.js` and use Node's built-in runner — no
 jest, no babel, no new dependencies. That constrains what is testable: the
 package source is Flow-annotated ESM that plain Node cannot parse, so testable
 logic belongs in small dependency-free helpers under `utils/`, which the tests
 import directly. `utils/byteCount.js` and `tests/unit/byteCount.test.js` are
 the pattern to follow.
 
+Native unit tests live in `android/src/test/java` and in the example app's
+`ReactNativeBlobUtilE2ETests` target. The JS, JVM and iOS tests read the same
+payload fixtures in `tests/fixtures/native-payloads`, so a payload shape is defined
+once for all of them.
+
 Where a runtime test genuinely is not reachable — anything needing a booted
 app, a device, or the native layer — say so plainly instead of claiming
 coverage you do not have, and describe what you verified statically instead.
 
-CI does not run the unit tests yet; the e2e workflow pins Node 20. Do not treat
-a green CI run as evidence that `npm test` passes.
+CI (`.github/workflows/ci.yml`) runs lint, `npm test`, the Android and iOS unit tests,
+the example app builds (iOS with static libraries, static frameworks and dynamic
+frameworks), a throwaway app on the newest React Native template, and an Expo prebuild
+with the config plugin. The e2e suites stay manual in `e2e-mobile.yml`.
 
 ## Linting and style
 
@@ -56,7 +65,7 @@ npm run lint      # eslint over the package's own JS; must stay free of errors
 ```
 
 Run it before committing, alongside `npm test`. It currently reports **0
-errors and 149 warnings** and exits 0, so a non-zero exit or any error line is
+errors and 150 warnings** and exits 0, so a non-zero exit or any error line is
 something you introduced.
 
 The warnings are a real backlog, not noise to ignore wholesale — mostly
@@ -128,16 +137,48 @@ from Android and iOS but as int64 (and `null`) from Windows, so the declared
 Before fixing native code on the platform you can test, check what the other
 two do. Windows is the one that gets forgotten.
 
+## Native code
+
+`android/` is Kotlin. `ios/` is Swift behind a thin Objective-C++ adapter,
+`ios/ReactNativeBlobUtil/ReactNativeBlobUtil.mm`. `windows/` is C++/WinRT. Codegen
+only generates a Java spec and an Objective-C++ protocol, which is why the Kotlin
+module subclasses a Java class and why the iOS adapter exists: it is the only iOS
+file that imports React, and each of its methods forwards to
+`ReactNativeBlobUtilModuleCore` in Swift.
+
+Some files stay in their old language on purpose:
+
+- `android/.../ReactNativeBlobUtilFileTransformer.java` and
+  `ios/ReactNativeBlobUtilFileTransformer.h`, because apps implement them. A Kotlin
+  interface would force one nullability on implementers.
+- `ios/ReactNativeBlobUtilExceptionCatch.{h,m}` reproduces the NSException a utf8
+  read stream raises when a chunk splits a multi-byte character, which Swift cannot
+  raise. It goes away when that bug is fixed.
+
+Public Kotlin classes keep their Java shape, with `@JvmStatic` and `@JvmField` on
+companion members, because apps call them from Java. The tests in
+`android/src/test/java/com/ReactNativeBlobUtil/apicheck/` compile the README's setup
+from Java and Kotlin and fail if that shape breaks. Swift classes keep their
+Objective-C names and selectors through explicit `@objc(...)`.
+
+Parameters that arrive from JS are nullable, and a null fails where it always did.
+The `parity` e2e scenario records every native call's result in
+`tests/e2e/appium/parity/<platform>.json`, and a run that differs from the recording
+fails. Re-record (`E2E_PARITY_RECORD=1`, optionally limited with
+`E2E_PARITY_CASES`) only for an intended change, and say so in the commit.
+
 ## Codegen
 
 `codegenSpecs/` is parsed by React Native's codegen; the eager
 `TurboModuleRegistry.get<Spec>('ReactNativeBlobUtil')` export must stay exactly
-as it is, because that call is how codegen discovers the module. If you change
-anything in that directory, diff the generated schema before and after:
+as it is, because that call is how codegen discovers the module.
+`tests/unit/codegenSchema.test.js`, part of `npm test`, compares the schema codegen
+derives from the spec with `tests/unit/fixtures/codegen-schema.json`, so an
+accidental signature change fails. After an intended change, regenerate the
+snapshot in the same commit:
 
 ```sh
-node node_modules/@react-native/codegen/lib/cli/combine/combine-js-to-schema-cli.js \
-  --platform ios /tmp/schema.json codegenSpecs
+node tests/unit/codegenSchema.test.js --update
 ```
 
 ## Building the Windows module
