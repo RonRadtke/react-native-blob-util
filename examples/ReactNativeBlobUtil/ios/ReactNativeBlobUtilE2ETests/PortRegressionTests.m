@@ -5,11 +5,12 @@
 #import <objc/runtime.h>
 #import "ReactNativeBlobUtilFileTransformer.h"
 
-#if __has_include(<react_native_blob_util/react_native_blob_util-Swift.h>)
-#import <react_native_blob_util/react_native_blob_util-Swift.h>
-#else
-#import "react_native_blob_util-Swift.h"
-#endif
+// A module import rather than the generated header. The __has_include pair the
+// library's own .mm files use resolves inside the pod target, where that header
+// is on the search path; from the test target neither form does - the framework
+// form needs frameworks linkage and the quoted form needs the pod's build
+// products directory. Importing the module works under every linkage.
+@import react_native_blob_util;
 
 @interface RNBURegressionTransformer : NSObject <FileTransformer>
 @property (nonatomic) BOOL raises;
@@ -232,7 +233,7 @@
             rejecter:^(NSString *code, NSString *message, NSError *error) {
                 rejected++;
                 XCTAssertEqualObjects(code, @"EREAD");
-                XCTAssertEqualObjects(message, [NSString stringWithFormat:@"Error reading file '%@'", path]);
+                XCTAssertEqualObjects(message, ([NSString stringWithFormat:@"Error reading file '%@'", path]));
                 XCTAssertNotNil(error);
             }];
         XCTAssertEqual(rejected, 1u);
