@@ -496,14 +496,17 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
 
             let path = resolved ?? ""
             var isDir: ObjCBool = false
+            // The directory branch used to sit inside the "does not exist"
+            // case, where isDir is never true, so a directory fell through to
+            // the read: -contents(atPath:) returns nil for one and the call
+            // resolved "". Android reported EISDIR and 1.0 does the same, so
+            // the two checks are separate now.
             if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) {
-                // isDir is only meaningful when the file exists, so this reports
-                // ENOENT in practice - kept as it was.
-                if isDir.boolValue {
-                    onComplete(nil, "EISDIR", "Expecting a file but '\(path)' is a directory")
-                } else {
-                    onComplete(nil, "ENOENT", "No such file '\(path)'")
-                }
+                onComplete(nil, "ENOENT", "No such file '\(path)'")
+                return
+            }
+            if isDir.boolValue {
+                onComplete(nil, "EISDIR", "Expecting a file but '\(path)' is a directory")
                 return
             }
 

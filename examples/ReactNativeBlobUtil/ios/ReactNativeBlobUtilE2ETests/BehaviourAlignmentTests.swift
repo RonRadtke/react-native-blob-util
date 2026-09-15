@@ -166,4 +166,45 @@ final class BehaviourAlignmentTests: XCTestCase {
         }
         XCTAssertEqual(code, "EUNSPECIFIED")
     }
+
+    // MARK: - `fs.readFile` on a directory: EISDIR
+
+    func testReadFileOnADirectoryRejectsEISDIR() throws {
+        let outcome = try settle { resolve, reject in
+            core.readFile(dir, encoding: "utf8", transformFile: false, resolve: resolve, reject: reject)
+        }
+
+        guard case let .rejected(code, message) = outcome else {
+            return XCTFail("reading a directory resolved: \(outcome)")
+        }
+        XCTAssertEqual(code, "EISDIR")
+        XCTAssertEqual(message, "Expecting a file but '\(dir)' is a directory")
+    }
+
+    /// The directory check must not swallow the missing-file case, which shares
+    /// the same fileExists call and reports a different code.
+    func testReadFileOfAMissingPathStillRejectsENOENT() throws {
+        let missing = "\(dir)/missing.txt"
+        let outcome = try settle { resolve, reject in
+            core.readFile(missing, encoding: "utf8", transformFile: false, resolve: resolve, reject: reject)
+        }
+
+        guard case let .rejected(code, message) = outcome else {
+            return XCTFail("reading a missing file resolved: \(outcome)")
+        }
+        XCTAssertEqual(code, "ENOENT")
+        XCTAssertEqual(message, "No such file '\(missing)'")
+    }
+
+    func testReadFileOfARealFileStillResolves() throws {
+        let path = try write("body ✓", to: "read.txt")
+        let outcome = try settle { resolve, reject in
+            core.readFile(path, encoding: "utf8", transformFile: false, resolve: resolve, reject: reject)
+        }
+
+        guard case let .resolved(value) = outcome else {
+            return XCTFail("reading a file rejected: \(outcome)")
+        }
+        XCTAssertEqual(value as? String, "body ✓")
+    }
 }
