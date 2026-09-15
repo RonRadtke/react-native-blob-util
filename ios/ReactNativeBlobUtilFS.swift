@@ -540,15 +540,13 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
 
             switch encoding.lowercased() {
             case "utf8":
-                // Latin-1 is the fallback for bytes that are not valid UTF-8.
-                if String(data: fileContent, encoding: .utf8) != nil {
-                    onComplete(fileContent, nil, nil)
-                } else if let latin1 = String(data: fileContent, encoding: .isoLatin1),
-                          let latin1Data = latin1.data(using: .isoLatin1) {
-                    onComplete(latin1Data, nil, nil)
-                } else {
-                    onComplete(fileContent, nil, nil)
-                }
+                // The bytes, whatever they are. There was a Latin-1 fallback
+                // here for content that is not valid UTF-8, but decoding and
+                // re-encoding Latin-1 returns those same bytes, so it only ever
+                // decided which of two identical values to hand back. Turning
+                // them into text, with U+FFFD where the bytes are not valid, is
+                // the caller's side of the boundary.
+                onComplete(fileContent, nil, nil)
             case "base64":
                 // Round-trips through base64 and back, so the result is the
                 // original bytes again.

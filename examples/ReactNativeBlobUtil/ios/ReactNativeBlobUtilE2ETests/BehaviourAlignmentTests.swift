@@ -207,4 +207,65 @@ final class BehaviourAlignmentTests: XCTestCase {
         }
         XCTAssertEqual(value as? String, "body ✓")
     }
+
+    // MARK: - `fs.readFile` utf8 of invalid bytes: U+FFFD
+
+    /// h, é, NUL, 0xff, A. 0xff is not valid UTF-8 in any position.
+    private static let invalidUTF8 = Data([0x68, 0xC3, 0xA9, 0x00, 0xFF, 0x41])
+
+    func testReadFileUtf8ReplacesInvalidBytes() throws {
+        let path = "\(dir)/invalid.bin"
+        try Self.invalidUTF8.write(to: URL(fileURLWithPath: path))
+
+        let outcome = try settle { resolve, reject in
+            core.readFile(path, encoding: "utf8", transformFile: false, resolve: resolve, reject: reject)
+        }
+
+        guard case let .resolved(value) = outcome else {
+            return XCTFail("reading invalid utf8 rejected: \(outcome)")
+        }
+        let text = try XCTUnwrap(value as? String, "utf8 used to resolve nil here, which reached JS as undefined")
+        XCTAssertEqual(text.unicodeScalars.map { $0.value }, [104, 233, 0, 65533, 65],
+                       "the bad byte becomes U+FFFD and the rest survives, as on Android")
+    }
+
+    /// The replacement must not touch bytes that are already valid: a file that
+    /// round-tripped before must still come back identical.
+    func testReadFileUtf8OfValidBytesIsUnchanged() throws {
+        let text = "héllo ✓ 漢字"
+        let path = try write(text, to: "valid.txt")
+
+        let outcome = try settle { resolve, reject in
+            core.readFile(path, encoding: "utf8", transformFile: false, resolve: resolve, reject: reject)
+        }
+
+        guard case let .resolved(value) = outcome else {
+            return XCTFail("reading valid utf8 rejected: \(outcome)")
+        }
+        XCTAssertEqual(value as? String, text)
+    }
+
+    /// base64 and ascii read the same bytes and must not start replacing
+    /// anything: they are how a caller reads a file that is not text at all.
+    func testInvalidBytesSurviveBase64AndAscii() throws {
+        let path = "\(dir)/invalid.bin"
+        try Self.invalidUTF8.write(to: URL(fileURLWithPath: path))
+
+        let asBase64 = try settle { resolve, reject in
+            core.readFile(path, encoding: "base64", transformFile: false, resolve: resolve, reject: reject)
+        }
+        guard case let .resolved(b64) = asBase64 else {
+            return XCTFail("base64 read rejected: \(asBase64)")
+        }
+        XCTAssertEqual(b64 as? String, Self.invalidUTF8.base64EncodedString())
+
+        let asAscii = try settle { resolve, reject in
+            core.readFile(path, encoding: "ascii", transformFile: false, resolve: resolve, reject: reject)
+        }
+        guard case let .resolved(bytes) = asAscii else {
+            return XCTFail("ascii read rejected: \(asAscii)")
+        }
+        XCTAssertEqual((bytes as? [NSNumber])?.map { $0.intValue }, [104, -61, -87, 0, -1, 65],
+                       "ascii stays signed per byte, untouched by the utf8 change")
+    }
 }

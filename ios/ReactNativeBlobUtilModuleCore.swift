@@ -572,7 +572,11 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
             } else if encoding == "base64" {
                 resolve((content as? Data)?.base64EncodedString(options: []))
             } else {
-                resolve(String(data: (content as? Data) ?? Data(), encoding: .utf8))
+                // Bytes that are not valid UTF-8 used to make this nil, which
+                // reached JS as undefined and broke the caller rather than the
+                // read. Decoding with replacement puts U+FFFD in their place,
+                // as Android does.
+                resolve(String(decoding: (content as? Data) ?? Data(), as: UTF8.self))
             }
         }
     }
