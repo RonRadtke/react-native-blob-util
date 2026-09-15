@@ -132,13 +132,10 @@ final class ModuleCoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: b))
     }
 
-    func testRemoveSessionRejectsOnTheFirstFailure() throws {
-        let missing = "\(dir)/never.txt"
-        let result = try settle { r, j in self.core.removeSession([missing], resolve: r, reject: j) }
-        let error = try XCTUnwrap(rejection(result))
-        XCTAssertEqual(error.code, "EUNSPECIFIED")
-        XCTAssertEqual(error.message, "failed to remove session path at \(missing)")
-    }
+    // Disposing a session over a path that is already gone used to reject
+    // EUNSPECIFIED here. 1.0 skips it; BehaviourAlignmentTests pins both halves
+    // of that - the skip, and the rejection that a real removal failure still
+    // produces.
 
     func testCancelRequestForAnUnknownTaskResolves() throws {
         let result = try settle { r, j in

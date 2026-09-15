@@ -131,4 +131,39 @@ final class BehaviourAlignmentTests: XCTestCase {
 
         XCTAssertEqual(contents(path), "keep me")
     }
+
+    // MARK: - `session.dispose` with a missing file: resolves everywhere
+
+    func testDisposeResolvesWhenAFileIsAlreadyGone() throws {
+        let present = try write("here", to: "present.txt")
+        let missing = "\(dir)/never.txt"
+
+        let outcome = try settle { resolve, reject in
+            core.removeSession([present, missing], resolve: resolve, reject: reject)
+        }
+
+        guard case .resolved = outcome else {
+            return XCTFail("dispose rejected over a missing file: \(outcome)")
+        }
+        XCTAssertFalse(fm.fileExists(atPath: present), "the files that were there are still removed")
+    }
+
+    /// Skipping what is already gone must not turn into skipping everything: a
+    /// removal that genuinely fails is still reported.
+    func testDisposeStillRejectsWhenARemovalFails() throws {
+        let locked = "\(dir)/locked"
+        try fm.createDirectory(atPath: locked, withIntermediateDirectories: true)
+        try "child".write(toFile: "\(locked)/child.txt", atomically: true, encoding: .utf8)
+        try fm.setAttributes([.immutable: true], ofItemAtPath: locked)
+        defer { try? fm.setAttributes([.immutable: false], ofItemAtPath: locked) }
+
+        let outcome = try settle { resolve, reject in
+            core.removeSession(["\(locked)/child.txt"], resolve: resolve, reject: reject)
+        }
+
+        guard case let .rejected(code, _) = outcome else {
+            return XCTFail("a failing removal resolved: \(outcome)")
+        }
+        XCTAssertEqual(code, "EUNSPECIFIED")
+    }
 }

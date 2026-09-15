@@ -369,6 +369,11 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     @objc(removeSession:resolve:reject:)
     public func removeSession(_ paths: [String], resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         for path in paths {
+            // A file that is already gone is not a failure to remove it.
+            // Android skipped it and iOS rejected; 1.0 skips on both, so
+            // disposing a session twice, or after the app cleared the cache
+            // itself, resolves rather than failing on the first missing entry.
+            guard FileManager.default.fileExists(atPath: path) else { continue }
             do {
                 try FileManager.default.removeItem(atPath: path)
             } catch {
