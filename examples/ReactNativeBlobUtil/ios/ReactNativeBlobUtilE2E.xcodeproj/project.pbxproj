@@ -26,6 +26,7 @@
 		CC34F9282B3C9E2C6F4D3E58 /* exists-result.json in Resources */ = {isa = PBXBuildFile; fileRef = AB5EE6882C8C9374FB7F9B44 /* exists-result.json */; };
 		DEA8D2DBA1720606EC4F1C0F /* NativePayloadFixturesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81FA5C41B649699D5372184 /* NativePayloadFixturesTests.swift */; };
 		DFF5B744EEB3161DAEF042CB /* FileSystemPinTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D98C8F69C66BB30D0C9CC0B /* FileSystemPinTests.swift */; };
+		ED31849E094A2F79841482BD /* BehaviourAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7247CD3AD382776B611FA14C /* BehaviourAlignmentTests.swift */; };
 		F207C992DBB2ED75E056AFEC /* ProgressThrottlingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DF5BE40ECF4D66A5C3F5FF /* ProgressThrottlingTests.swift */; };
 		FF44E6F0E314EDCDEF35596F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -59,6 +60,7 @@
 		67A7CC319B78869ACD1AE76F /* ModuleCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleCoreTests.swift; sourceTree = "<group>"; };
 		6AC9FC46F59DB2566A2F2E3C /* RequestBuilderPinTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestBuilderPinTests.swift; sourceTree = "<group>"; };
 		6D98C8F69C66BB30D0C9CC0B /* FileSystemPinTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileSystemPinTests.swift; sourceTree = "<group>"; };
+		7247CD3AD382776B611FA14C /* BehaviourAlignmentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BehaviourAlignmentTests.swift; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ReactNativeBlobUtilE2E/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ReactNativeBlobUtilE2E/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		84E42E45758657B40119A800 /* HashTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HashTests.swift; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 				5D27F713FF4B2FAD89F8B8E2 /* ReadmeObjCSnippetsTests.m */,
 				CA719A425B9B438297AAB020 /* PortRegressionTests.m */,
 				62524347F0EBBF516B644F16 /* NetworkErrorCodeTests.swift */,
+				7247CD3AD382776B611FA14C /* BehaviourAlignmentTests.swift */,
 			);
 			name = ReactNativeBlobUtilE2ETests;
 			path = ReactNativeBlobUtilE2ETests;
@@ -454,6 +457,7 @@
 				CB3F7F7C30A9F1E73D6434F8 /* ReadmeObjCSnippetsTests.m in Sources */,
 				CA719A425B9B438297AAB021 /* PortRegressionTests.m in Sources */,
 				85F59D867426312725757AEE /* NetworkErrorCodeTests.swift in Sources */,
+				ED31849E094A2F79841482BD /* BehaviourAlignmentTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

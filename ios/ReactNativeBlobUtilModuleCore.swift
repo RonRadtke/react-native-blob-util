@@ -488,6 +488,39 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         }
     }
 
+    /// Makes room for a copy or a move. NSFileManager refuses to write over an
+    /// existing item, where Android replaced it; 1.0 overwrites on both.
+    ///
+    /// Two things are deliberately left alone. A destination that *is* the
+    /// source - the same path, a symlink to it, or another hard link - is not
+    /// removed, because removing it first would delete the only copy of the
+    /// data and leave nothing to copy. And a directory is not removed either:
+    /// the row being aligned is "onto an existing file", and taking a whole
+    /// tree with it because a caller passed a directory as the destination is
+    /// not an overwrite, it is data loss. Both fall through to the copy or the
+    /// move, which fails the way it always did.
+    private func clearDestination(_ dest: String, from source: String) throws {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: dest, isDirectory: &isDir), !isDir.boolValue else { return }
+        guard !isSameFile(source, dest) else { return }
+        try fm.removeItem(atPath: dest)
+    }
+
+    /// Whether two paths name one file: the same path once symlinks are
+    /// resolved, or the same inode on the same device (a hard link).
+    private func isSameFile(_ lhs: String, _ rhs: String) -> Bool {
+        if URL(fileURLWithPath: lhs).resolvingSymlinksInPath().standardizedFileURL
+            == URL(fileURLWithPath: rhs).resolvingSymlinksInPath().standardizedFileURL {
+            return true
+        }
+        let fm = FileManager.default
+        guard let left = try? fm.attributesOfItem(atPath: lhs),
+              let right = try? fm.attributesOfItem(atPath: rhs) else { return false }
+        return left[.systemFileNumber] as? NSNumber == right[.systemFileNumber] as? NSNumber
+            && left[.systemNumber] as? NSNumber == right[.systemNumber] as? NSNumber
+    }
+
     @objc(cp:dest:resolve:reject:)
     public func cp(_ src: String, dest: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         ReactNativeBlobUtilFS.getPathFromUri(src) { path, asset in
@@ -499,8 +532,7 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
                 return
             }
             do {
-                // Still rejects when the destination exists; ios.json records
-                // that difference from Android and C2 is where it changes.
+                try self.clearDestination(dest, from: path)
                 try FileManager.default.copyItem(at: URL(fileURLWithPath: path),
                                                  to: URL(fileURLWithPath: dest))
                 resolve(nil)
@@ -513,6 +545,7 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     @objc(mv:dest:resolve:reject:)
     public func mv(_ path: String, dest: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         do {
+            try clearDestination(dest, from: path)
             try FileManager.default.moveItem(at: URL(fileURLWithPath: path),
                                              to: URL(fileURLWithPath: dest))
             resolve(nil)

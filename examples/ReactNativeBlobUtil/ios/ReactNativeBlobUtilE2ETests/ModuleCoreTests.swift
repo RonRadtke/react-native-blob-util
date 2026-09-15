@@ -252,17 +252,10 @@ final class ModuleCoreTests: XCTestCase {
         XCTAssertEqual(error.code, "ENOENT")
     }
 
-    func testCopyingOntoAnExistingDestinationRejectsEUNSPECIFIED() throws {
-        let a = "\(dir)/a.txt", b = "\(dir)/b.txt"
-        try "a".write(toFile: a, atomically: true, encoding: .utf8)
-        try "b".write(toFile: b, atomically: true, encoding: .utf8)
-        let error = try XCTUnwrap(rejection(try settle { r, j in
-            self.core.cp(a, dest: b, resolve: r, reject: j)
-        }))
-        // Not ENOENT: the source is there, the destination is in the way. C2 is
-        // where this stops being a rejection at all.
-        XCTAssertEqual(error.code, "EUNSPECIFIED")
-    }
+    // Copying onto an existing destination used to reject EUNSPECIFIED. 1.0
+    // overwrites instead, so the pin moved to BehaviourAlignmentTests with the
+    // rest of the aligned behaviour; the two rejections above still hold,
+    // because a missing source is a different failure from a busy destination.
 
     func testScanFileRejectsAsAndroidOnly() throws {
         let error = try XCTUnwrap(rejection(try settle { r, j in
