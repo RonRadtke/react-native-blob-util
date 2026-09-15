@@ -163,7 +163,7 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `fs.readFile` utf8 of invalid bytes | U+FFFD (Android), null (iOS) | U+FFFD |
 | utf8 `readStream` with a character split across chunks | ok (Android), error (iOS) | ok |
 | `fs.createFile(path, src, 'uri')` with a missing source | ENOENT (Android), empty file (iOS) | ENOENT |
-| `fs.hash` / `fs.slice` on a missing file | ENOENT (Android), EUNSPECIFIED (iOS) | ENOENT |
+| `fs.hash` / `fs.slice` on a missing file | EUNSPECIFIED (Android), ENOENT (iOS) | ENOENT |
 | `fs.mkdir` on an existing directory | EEXIST (Android, iOS), resolved (Windows) | EEXIST |
 | `fs.ls` on a missing path | ENOENT (Android, iOS), ENOTDIR (Windows) | ENOENT |
 | `lstat` `lastModified` on Windows | seconds | milliseconds, like the other platforms |
@@ -174,6 +174,8 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `fs.ls` on Windows | listed the parent directory | lists the directory itself |
 | `session.dispose` on Windows | failed on every file | removes the files; missing ones are skipped |
 | `fs.dirs` on Windows | 7 directories set | every key set (Android-only ones are `""`) |
+| Events on iOS | a JSON string each listener had to parse | the object itself, as on Android |
+| `ios.excludeFromBackupKey` of a path with `#` or a space | marked a different file, or resolved without marking one | marks the file it was given; EINVAL when no URL can be built |
 
 Network-level differences stay documented rather than aligned: a URL without a host
 (`http://`) is `EINVAL` on Android, which rejects it before connecting, and
