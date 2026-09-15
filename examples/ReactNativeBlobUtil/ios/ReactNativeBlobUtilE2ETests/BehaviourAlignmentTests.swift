@@ -377,4 +377,62 @@ final class BehaviourAlignmentTests: XCTestCase {
         XCTAssertEqual(Data(base64Encoded: joined) ?? Data(), bytes,
                        "base64 chunks still concatenate back to the file")
     }
+
+    // MARK: - `fs.createFile(path, src, 'uri')` with a missing source: ENOENT
+
+    func testCreateFileFromAMissingUriRejectsENOENT() throws {
+        let missing = "\(dir)/missing.txt"
+        let dest = "\(dir)/from-uri.txt"
+
+        let outcome = try settle { resolve, reject in
+            core.createFile(dest, data: missing, encoding: "uri", resolve: resolve, reject: reject)
+        }
+
+        guard case let .rejected(code, message) = outcome else {
+            return XCTFail("creating from a missing source resolved: \(outcome)")
+        }
+        XCTAssertEqual(code, "ENOENT")
+        XCTAssertEqual(message, "No such file '\(missing)'")
+        XCTAssertFalse(fm.fileExists(atPath: dest), "and no empty file is left behind")
+    }
+
+    func testCreateFileFromAUriCopiesTheSource() throws {
+        let src = try write("source body", to: "src.txt")
+
+        // A bare path, as fs.createFile passes it,
+        let plain = "\(dir)/plain.txt"
+        let fromPlain = try settle { resolve, reject in
+            core.createFile(plain, data: src, encoding: "uri", resolve: resolve, reject: reject)
+        }
+        guard case .resolved = fromPlain else {
+            return XCTFail("creating from a real source rejected: \(fromPlain)")
+        }
+        XCTAssertEqual(contents(plain), "source body")
+
+        // and the wrapped form, which is what ReactNativeBlobUtil.wrap builds.
+        let wrapped = "\(dir)/wrapped.txt"
+        let fromWrapped = try settle { resolve, reject in
+            core.createFile(wrapped, data: "ReactNativeBlobUtil-file://\(src)",
+                            encoding: "uri", resolve: resolve, reject: reject)
+        }
+        guard case .resolved = fromWrapped else {
+            return XCTFail("creating from a wrapped source rejected: \(fromWrapped)")
+        }
+        XCTAssertEqual(contents(wrapped), "source body", "the wrap prefix is still stripped")
+    }
+
+    /// The check belongs to the uri encoding only: utf8 and base64 carry their
+    /// own data and must not start looking for a file.
+    func testCreateFileFromTextIsUnaffected() throws {
+        let dest = "\(dir)/text.txt"
+
+        let outcome = try settle { resolve, reject in
+            core.createFile(dest, data: "written ✓", encoding: "utf8", resolve: resolve, reject: reject)
+        }
+
+        guard case .resolved = outcome else {
+            return XCTFail("creating from utf8 rejected: \(outcome)")
+        }
+        XCTAssertEqual(contents(dest), "written ✓")
+    }
 }

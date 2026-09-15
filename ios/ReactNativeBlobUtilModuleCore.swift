@@ -127,7 +127,14 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
             content = Data(base64Encoded: data)
         case "uri":
             let orgPath = data.replacingOccurrences(of: ReactNativeBlobUtilConst.filePrefix, with: "")
-            content = fm.contents(atPath: orgPath)
+            // A source that is not there used to read as nil, and a nil body
+            // creates an empty file - so the call resolved a path to a file
+            // that holds none of what was asked for. Android reported ENOENT
+            // and 1.0 does too.
+            guard let bytes = fm.contents(atPath: orgPath) else {
+                return reject("ENOENT", "No such file '\(orgPath)'", nil)
+            }
+            content = bytes
         default:
             content = data.data(using: .ascii, allowLossyConversion: true)
         }
