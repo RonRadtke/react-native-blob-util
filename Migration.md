@@ -177,6 +177,14 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | Events on iOS | a JSON string each listener had to parse | the object itself, as on Android |
 | `ios.excludeFromBackupKey` of a path with `#` or a space | marked a different file, or resolved without marking one | marks the file it was given; EINVAL when no URL can be built |
 
+One difference cannot be aligned from this side. A string a native module
+resolves reaches JS through `jsi::String::createFromUtf8(runtime, [value UTF8String])`
+(`RCTTurboModule.mm`), which reads a C string, so on iOS it stops at the first NUL
+byte: `fs.readFile(path, 'utf8')` of content holding a NUL returns everything up to
+it, where Android returns the whole thing. The native layer produces the full string -
+what is cut off is cut off above it. `base64` and `ascii` are unaffected, and are how
+to read a file that is not text.
+
 Network-level differences stay documented rather than aligned: a URL without a host
 (`http://`) is `EINVAL` on Android, which rejects it before connecting, and
 `ECONNREFUSED` on iOS, which tries to connect; only iOS puts `rnfbEncode` on the first

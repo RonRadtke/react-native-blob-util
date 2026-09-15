@@ -107,7 +107,11 @@
       }
     },
     "readFileDir": {
-      "resolved": ""
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/errors-read' is a directory",
+        "name": "Error"
+      }
     },
     "readFileMissing": {
       "rejected": {
@@ -152,7 +156,7 @@
         "resolved": "x"
       },
       "other": {
-        "resolved": "y"
+        "resolved": "x"
       }
     },
     "cpMissing": {
@@ -163,11 +167,7 @@
       }
     },
     "cpOntoExisting": {
-      "rejected": {
-        "code": "EUNSPECIFIED",
-        "message": "“file.txt” couldn’t be copied to “errors-write” because an item with the same name already exists.",
-        "name": "Error"
-      }
+      "resolved": true
     },
     "createFileExisting": {
       "rejected": {
@@ -177,7 +177,11 @@
       }
     },
     "createFileUriMissing": {
-      "resolved": "<DocumentDir>/parity/errors-write/from-uri.txt"
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-write/missing.txt'",
+        "name": "Error"
+      }
     },
     "mkdirExistingDir": {
       "rejected": {
@@ -695,8 +699,8 @@
     },
     "excludeMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
-        "message": "Error Domain=NSCocoaErrorDomain Code=4 \"The file “missing.txt” doesn’t exist.\" UserInfo={NSURL=file://<DocumentDir>/parity/ios-misc/missing.txt, NSFilePath=<DocumentDir>/parity/ios-misc/missing.txt, NSUnderlyingError=<ptr> {Error Domain=NSPOSIXErrorDomain Code=2 \"No such file or directory\"}}",
+        "code": "ENOENT",
+        "message": "The file “missing.txt” doesn’t exist.",
         "name": "Error"
       }
     },
@@ -802,11 +806,10 @@
       "resolved": "aMOpAP9B"
     },
     "utf8CodePoints": {
-      "rejected": {
-        "code": "<undefined>",
-        "message": "Cannot convert undefined value to object",
-        "name": "TypeError"
-      }
+      "resolved": [
+        104,
+        233
+      ]
     }
   },
   "readstream-ascii": {
@@ -880,19 +883,18 @@
   "readstream-utf8": {
     "buffer1001": {
       "check": {
-        "joinedIsText": false,
+        "joinedIsText": true,
         "replacementCharacters": 0
       },
-      "chunkCount": 0,
-      "chunkKinds": [],
-      "chunkLengths": [],
-      "outcome": {
-        "error": {
-          "code": "EUNSPECIFIED",
-          "message": "Failed to convert data to 'utf8' encoded string, this might due to the source data is not able to convert using this encoding. source = *** -[__NSPlaceholderDictionary initWithObjects:forKeys:count:]: attempt to insert nil object from objects[2]",
-          "name": "Error"
-        }
-      }
+      "chunkCount": 2,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        500,
+        203
+      ],
+      "outcome": "end"
     },
     "buffer4096": {
       "check": {
@@ -916,11 +918,7 @@
       "resolved": "<undefined>"
     },
     "disposeMissing": {
-      "rejected": {
-        "code": "EUNSPECIFIED",
-        "message": "failed to remove session path at <DocumentDir>/parity/session-dispose/never.txt",
-        "name": "Error"
-      }
+      "resolved": "<undefined>"
     },
     "listed": [
       "<DocumentDir>/parity/session-dispose/a.txt",
