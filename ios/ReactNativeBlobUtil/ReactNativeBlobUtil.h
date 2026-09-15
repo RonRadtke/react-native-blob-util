@@ -31,7 +31,6 @@
 /// the closures the Swift takes.
 @interface ReactNativeBlobUtil : RCTEventEmitter <RCTBridgeModule, NativeBlobUtilsSpec>
 
--(void) emitEvent:(NSString *)name body:(NSString *) body;
 -(void) emitEventDict:(NSString *)name body:(NSDictionary *) body;
 
 @end

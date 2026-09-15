@@ -55,8 +55,13 @@ RCT_EXPORT_MODULE();
 
 #pragma mark - module plumbing
 
+/// Only names something actually emits. The list also carried "log", "warn",
+/// "error", "data" and "end", which are values of the `event` field inside a
+/// filesystem payload rather than event names, and "reportProgress" and
+/// "reportUploadProgress", which nothing has ever sent - subscribing to any of
+/// them got a listener that could never fire.
 - (NSArray<NSString*> *)supportedEvents {
-    return @[@"ReactNativeBlobUtilState", @"ReactNativeBlobUtilServerPush", @"ReactNativeBlobUtilProgress", @"ReactNativeBlobUtilProgress-upload", @"ReactNativeBlobUtilMessage", @"ReactNativeBlobUtilFilesystem", @"log", @"warn", @"error", @"data", @"end", @"reportProgress", @"reportUploadProgress"];
+    return @[@"ReactNativeBlobUtilState", @"ReactNativeBlobUtilServerPush", @"ReactNativeBlobUtilProgress", @"ReactNativeBlobUtilProgress-upload", @"ReactNativeBlobUtilMessage", @"ReactNativeBlobUtilFilesystem"];
 }
 
 - (void)startObserving { hasListeners = YES; }
@@ -75,22 +80,12 @@ RCT_EXPORT_MODULE();
 
 #pragma mark - events
 
-- (void)emitEvent:(NSString *)name body:(NSString *)body {
+/// The payload, as an object. It used to be serialised to a JSON *string* that
+/// every listener had to parse before reading a field, and a body that failed to
+/// serialise was logged and dropped - the event simply never arrived.
+- (void)emitEventDict:(NSString *)name body:(NSDictionary *)body {
     if (hasListeners) {
         [self sendEventWithName:name body:body];
-    }
-}
-
-/// Events reach JS as a JSON *string*, not an object. fs.js parses it.
-- (void)emitEventDict:(NSString *)name body:(NSDictionary *)body {
-    NSError *error;
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:body
-                                                       options:NSJSONWritingPrettyPrinted
-                                                         error:&error];
-    if (error) {
-        NSLog(@"Got an error: %@", error);
-    } else {
-        [self emitEvent:name body:[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding]];
     }
 }
 
