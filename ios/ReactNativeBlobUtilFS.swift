@@ -154,17 +154,41 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             let backoff = UInt32(max(tick * 1000, 0))
             let chunkSize = Int(bufferSize)
 
+            // A chunk boundary falls wherever the buffer size puts it, which
+            // for utf8 can be halfway through a character. The bytes of a cut
+            // character are held back here and join the next chunk, instead of
+            // being decoded on their own - which produced nothing but an error.
+            // Only utf8 needs this: base64 and ascii are per-byte.
+            let bufferSplitCharacters = encoding?.lowercased() == "utf8"
+            var pending = Data()
+
+            func emit(_ data: Data) {
+                guard !data.isEmpty else { return }
+                emitDataChunks(data, encoding: encoding, streamId: streamId, baseModule: baseModule)
+            }
+
             func pump(_ stream: InputStream) {
                 var buffer = [UInt8](repeating: 0, count: max(chunkSize, 1))
                 stream.open()
                 while true {
                     let read = stream.read(&buffer, maxLength: chunkSize)
                     if read <= 0 { break }
-                    emitDataChunks(Data(buffer[0..<read]), encoding: encoding,
-                                   streamId: streamId, baseModule: baseModule)
+                    var block = Data(buffer[0..<read])
+                    if bufferSplitCharacters {
+                        pending.append(block)
+                        let split = splitTrailingIncompleteUTF8(pending)
+                        block = split.complete
+                        pending = split.remainder
+                    }
+                    emit(block)
                     if tick > 0 { usleep(backoff) }
                 }
                 stream.close()
+                // Whatever is still held back was cut by the file ending rather
+                // than by the buffer, so there is nothing left to join it to:
+                // emit it and let the decoding mark it.
+                emit(pending)
+                pending = Data()
             }
 
             if let path = path, !path.isEmpty {
@@ -221,21 +245,14 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
                                       baseModule: ReactNativeBlobUtilEventSink?) {
         let lowered = encoding?.lowercased()
         if lowered == "utf8" {
-            // A chunk that splits a multi-byte character decodes to nil. The
-            // Objective-C built the payload dictionary with that nil in it,
-            // which raises, and reported the exception's own description as the
-            // "source" of the failure. ios.json records that text verbatim, so
-            // the raise is reproduced rather than the wording copied out.
-            let text = String(data: data, encoding: .utf8)
-            let raised = ReactNativeBlobUtilExceptionCatch.buildStreamPayload(
-                withStreamId: streamId, event: ReactNativeBlobUtilConst.fsEventData, detail: text
-            ) { payload in
-                baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: payload)
-            }
-            if let raised = raised {
-                reportChunkFailure(encoding: encoding, streamId: streamId,
-                                   baseModule: baseModule, detail: raised)
-            }
+            // Decoded with replacement, like a whole-file utf8 read: a byte
+            // that is not valid UTF-8 becomes U+FFFD rather than failing the
+            // stream. A character merely cut by the buffer never arrives here
+            // in halves - readStream holds those bytes back for the next chunk.
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
+                "streamId": streamId, "event": ReactNativeBlobUtilConst.fsEventData,
+                "detail": String(decoding: data, as: UTF8.self),
+            ])
         } else if lowered == "base64" {
             baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
                 "streamId": streamId, "event": ReactNativeBlobUtilConst.fsEventData,
@@ -250,19 +267,44 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         }
     }
 
-    private static func reportChunkFailure(encoding: String?,
-                                           streamId: String,
-                                           baseModule: ReactNativeBlobUtilEventSink?,
-                                           detail: String) {
-        let message = "Failed to convert data to '\(encoding ?? "")' encoded string, " +
-            "this might due to the source data is not able to convert using this encoding. source = \(detail)"
-        baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventFilesystem, body: [
-            "streamId": streamId, "event": ReactNativeBlobUtilConst.msgEventError, "detail": message,
-        ])
-        baseModule?.emitEventDict(ReactNativeBlobUtilConst.msgEvent, body: [
-            "streamId": streamId, "event": ReactNativeBlobUtilConst.msgEventWarn, "detail": message,
-        ])
+    /// Splits a buffer into the bytes that can be decoded now and the start of
+    /// a multi-byte character the buffer cut in half.
+    ///
+    /// Only a *trailing* incomplete sequence is held back. Bytes that are
+    /// invalid anywhere else stay in the emitted part and are replaced when it
+    /// is decoded, so a file that is not UTF-8 at all still streams instead of
+    /// accumulating in memory.
+    static func splitTrailingIncompleteUTF8(_ data: Data) -> (complete: Data, remainder: Data) {
+        let bytes = [UInt8](data)
+        guard !bytes.isEmpty else { return (data, Data()) }
+
+        // A UTF-8 character is at most 4 bytes, so the cut can only be in the
+        // last 3; anything longer is invalid rather than incomplete.
+        var index = bytes.count - 1
+        let earliest = max(0, bytes.count - 3)
+        while index >= earliest {
+            let byte = bytes[index]
+            if byte & 0b1100_0000 == 0b1000_0000 {
+                index -= 1          // a continuation byte: keep walking back
+                continue
+            }
+            let expected: Int
+            switch byte {
+            case 0x00...0x7F: expected = 1
+            case 0xC0...0xDF: expected = 2
+            case 0xE0...0xEF: expected = 3
+            case 0xF0...0xF7: expected = 4
+            default: expected = 1   // not a lead byte at all: leave it in place
+            }
+            let available = bytes.count - index
+            if available < expected {
+                return (Data(bytes[0..<index]), Data(bytes[index...]))
+            }
+            return (data, Data())
+        }
+        return (data, Data())
     }
+
 
     // MARK: - write file from another file
 

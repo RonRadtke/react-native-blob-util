@@ -2,19 +2,11 @@
 //  ReactNativeBlobUtilExceptionCatch.h
 //  ReactNativeBlobUtil
 //
-//  Objective-C exception boundaries for the Swift implementation.
+//  Objective-C exception boundary for the Swift implementation.
 //
-//  A read-stream chunk that splits a multi-byte character decodes to nil, and
-//  the original built its event payload with that nil in it. The dictionary
-//  literal raises NSInvalidArgumentException, and the text reported back to JS
-//  is that exception's own description - which
-//  tests/e2e/appium/parity/ios.json records verbatim, down to the objects[2]
-//  index of the nil.
-//
-//  Swift cannot reproduce it: passing a nil String through `Any` bridges to
-//  NSNull rather than to nil, so the dictionary is built successfully and the
-//  chunk is emitted instead of failing. The payload is therefore assembled
-//  here, where a nil really is nil.
+//  An app's file transformer is arbitrary code that may raise, and a raise
+//  cannot unwind through a Swift frame. Calling it from here keeps the
+//  exception on the Objective-C side, where @try can catch it.
 //
 
 #import <Foundation/Foundation.h>
@@ -32,13 +24,6 @@ NS_ASSUME_NONNULL_BEGIN
             forWrite:(BOOL)forWrite
           completion:(void (^)(NSData * _Nullable result, NSString * _Nullable exception))completion
     NS_SWIFT_NAME(transform(_:with:forWrite:completion:));
-
-/// Builds the read-stream data payload and hands it to `consume`. Returns nil
-/// on success, or the raised exception's `description` when `detail` is nil.
-+ (nullable NSString *)buildStreamPayloadWithStreamId:(NSString *)streamId
-                                                event:(NSString *)event
-                                               detail:(nullable NSString *)detail
-                                              consume:(void (^)(NSDictionary *payload))consume;
 
 @end
 

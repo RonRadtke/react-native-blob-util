@@ -268,4 +268,113 @@ final class BehaviourAlignmentTests: XCTestCase {
         XCTAssertEqual((bytes as? [NSNumber])?.map { $0.intValue }, [104, -61, -87, 0, -1, 65],
                        "ascii stays signed per byte, untouched by the utf8 change")
     }
+
+    // MARK: - utf8 `readStream` with a character split across chunks: ok
+
+    /// Collects one stream's events, and waits for its end.
+    private final class StreamRecorder: NSObject, ReactNativeBlobUtilEventSink {
+        private(set) var events: [(name: String, body: [AnyHashable: Any])] = []
+        private let finished: XCTestExpectation
+        private let lock = NSLock()
+
+        init(finished: XCTestExpectation) { self.finished = finished }
+
+        func emitEventDict(_ name: String, body: [AnyHashable: Any]) {
+            lock.lock()
+            events.append((name, body))
+            let isEnd = body["event"] as? String == "end"
+            lock.unlock()
+            if isEnd { finished.fulfill() }
+        }
+
+        var chunks: [String] {
+            events.compactMap { $0.body["event"] as? String == "data" ? $0.body["detail"] as? String : nil }
+        }
+        var errors: [String] {
+            events.compactMap {
+                let event = $0.body["event"] as? String
+                return (event == "error" || event == "warn") ? ($0.body["detail"] as? String ?? "") : nil
+            }
+        }
+    }
+
+    /// 700 two-byte characters then "abc": 1403 bytes, 703 characters. A
+    /// 1001-byte buffer therefore cuts the 501st character in half.
+    private static let splitSample = String(repeating: "é", count: 700) + "abc"
+
+    private func readStream(_ path: String, bufferSize: Double) -> StreamRecorder {
+        let done = expectation(description: "stream end")
+        let recorder = StreamRecorder(finished: done)
+        ReactNativeBlobUtilFS.readStream(path, encoding: "utf8", bufferSize: bufferSize,
+                                         tick: 0, streamId: UUID().uuidString, baseModule: recorder)
+        wait(for: [done], timeout: 10)
+        return recorder
+    }
+
+    func testUtf8StreamBuffersACharacterSplitAcrossChunks() throws {
+        let path = try write(Self.splitSample, to: "split.txt")
+
+        let recorder = readStream(path, bufferSize: 1001)
+
+        XCTAssertEqual(recorder.errors, [], "a split character is not an error")
+        XCTAssertEqual(recorder.chunks.joined(), Self.splitSample, "the text arrives whole")
+        XCTAssertEqual(recorder.chunks.joined().filter { $0 == "\u{FFFD}" }.count, 0,
+                       "nothing is replaced: the bytes are valid, they were only cut")
+        XCTAssertEqual(recorder.chunks.map { $0.count }, [500, 203],
+                       "the half character is held back and joins the next chunk")
+    }
+
+    func testUtf8StreamOnABufferThatSplitsNothingIsUnchanged() throws {
+        let path = try write(Self.splitSample, to: "split.txt")
+
+        let recorder = readStream(path, bufferSize: 4096)
+
+        XCTAssertEqual(recorder.errors, [])
+        XCTAssertEqual(recorder.chunks, [Self.splitSample])
+    }
+
+    /// Buffering the tail of a chunk must not hide bytes that are invalid
+    /// wherever they sit: those still become U+FFFD, as a whole-file read does.
+    func testUtf8StreamReplacesBytesThatAreInvalidAnywhere() throws {
+        let path = "\(dir)/invalid.bin"
+        try Self.invalidUTF8.write(to: URL(fileURLWithPath: path))
+
+        let recorder = readStream(path, bufferSize: 4096)
+
+        XCTAssertEqual(recorder.errors, [])
+        XCTAssertEqual(recorder.chunks.joined().unicodeScalars.map { $0.value },
+                       [104, 233, 0, 65533, 65])
+    }
+
+    /// A file whose last character is cut off by the file ending, not by the
+    /// buffer, has nothing to join: the held-back bytes must still be emitted.
+    func testUtf8StreamEmitsATruncatedTrailingCharacter() throws {
+        let path = "\(dir)/truncated.bin"
+        // "é" with its second byte missing.
+        try Data([0x61, 0xC3]).write(to: URL(fileURLWithPath: path))
+
+        let recorder = readStream(path, bufferSize: 4096)
+
+        XCTAssertEqual(recorder.chunks.joined().unicodeScalars.map { $0.value }, [97, 65533],
+                       "the dangling lead byte is not silently dropped")
+    }
+
+    func testBase64AndAsciiStreamsAreUnaffected() throws {
+        let path = try write(Self.splitSample, to: "split.txt")
+        let bytes = Data(Self.splitSample.utf8)
+
+        let done = expectation(description: "base64 end")
+        let recorder = StreamRecorder(finished: done)
+        // 999, not 1001: a base64 buffer has to be a multiple of 3 or each
+        // chunk is padded on its own and the strings stop concatenating. That
+        // is why the wrapper's default is 4095, and it is untouched here.
+        ReactNativeBlobUtilFS.readStream(path, encoding: "base64", bufferSize: 999,
+                                         tick: 0, streamId: UUID().uuidString, baseModule: recorder)
+        wait(for: [done], timeout: 10)
+
+        XCTAssertGreaterThan(recorder.chunks.count, 1, "the file is read in more than one chunk")
+        let joined = recorder.chunks.joined()
+        XCTAssertEqual(Data(base64Encoded: joined) ?? Data(), bytes,
+                       "base64 chunks still concatenate back to the file")
+    }
 }
