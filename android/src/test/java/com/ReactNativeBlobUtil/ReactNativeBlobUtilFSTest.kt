@@ -374,7 +374,7 @@ class ReactNativeBlobUtilFSTest {
 
         val missing = RecordingPromise()
         ReactNativeBlobUtilFS.hash(File(tmp.root, "missing").plain, "md5", missing.promise)
-        assertEquals("EUNSPECIFIED", missing.rejected().first)
+        assertEquals("ENOENT" to "No such file '${File(tmp.root, "missing").plain}'", missing.rejected())
     }
 
     // slice

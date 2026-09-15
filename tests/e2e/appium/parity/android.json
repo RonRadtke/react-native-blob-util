@@ -121,8 +121,8 @@
     },
     "hashMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
-        "message": "<DocumentDir>/parity/errors-read/missing.txt: open failed: ENOENT (No such file or directory)",
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
         "name": "Error"
       }
     },
@@ -182,8 +182,8 @@
     },
     "sliceMissing": {
       "rejected": {
-        "code": "EUNSPECIFIED",
-        "message": "<DocumentDir>/parity/errors-read/missing.txt: open failed: ENOENT (No such file or directory)",
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
         "name": "Error"
       }
     },

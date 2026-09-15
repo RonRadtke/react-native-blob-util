@@ -681,6 +681,12 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                         promise.reject("EISDIR", "Expecting a file but '$path' is a directory")
                         return
                     }
+                    // FileInputStream would throw FileNotFoundException, which the
+                    // catch below reported as EUNSPECIFIED with the open() text.
+                    if (!file.exists()) {
+                        promise.reject("ENOENT", "No such file '$path'")
+                        return
+                    }
                 }
 
                 val input = inputStreamFromPath(path)
@@ -825,6 +831,12 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     val file = File(ReactNativeBlobUtilUtils.normalizePath(path))
                     if (file.isDirectory) {
                         promise.reject("EISDIR", "Expecting a file but '$path' is a directory")
+                        return
+                    }
+                    // FileInputStream would throw FileNotFoundException, which the
+                    // catch below reported as EUNSPECIFIED with the open() text.
+                    if (!file.exists()) {
+                        promise.reject("ENOENT", "No such file '$path'")
                         return
                     }
                 }
