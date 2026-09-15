@@ -588,25 +588,56 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         }
     }
 
+    /// The file URL to mark, from what the JS side sends: "file://" followed by
+    /// a path that has not been encoded.
+    ///
+    /// NSURL(string:) cannot be used on that directly. It parses leniently
+    /// enough to swallow a space, but a "#" in a filename starts a fragment and
+    /// silently truncates the path - the call then fails on a file that was
+    /// never asked about. Everything after the scheme is therefore treated as a
+    /// literal path, which is what URL(fileURLWithPath:) encodes correctly.
+    ///
+    /// A caller that passes an already-encoded URL still works: if the literal
+    /// path is not on disk and the decoded one is, the decoded one wins. When
+    /// neither exists the literal is kept, so the rejection names the path the
+    /// caller gave.
+    private static func backupURL(_ value: String) -> URL? {
+        guard !value.isEmpty else { return nil }
+        let scheme = "file://"
+        if value.hasPrefix(scheme) {
+            let raw = String(value.dropFirst(scheme.count))
+            guard !raw.isEmpty else { return nil }
+            let fm = FileManager.default
+            if fm.fileExists(atPath: raw) { return URL(fileURLWithPath: raw) }
+            if let decoded = raw.removingPercentEncoding, decoded != raw,
+               fm.fileExists(atPath: decoded) {
+                return URL(fileURLWithPath: decoded)
+            }
+            return URL(fileURLWithPath: raw)
+        }
+        if value.hasPrefix("/") { return URL(fileURLWithPath: value) }
+        if let url = URL(string: value), url.scheme != nil { return url }
+        return nil
+    }
+
     @objc(excludeFromBackupKey:resolve:reject:)
     public func excludeFromBackupKey(_ url: String,
                                      resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
-        var error: NSError?
-        // URLWithString, not fileURLWithPath, as before - the caller passes a
-        // URL string and a plain path produces a nil URL here.
-        if let nsurl = NSURL(string: url) {
-            do {
-                try nsurl.setResourceValue(NSNumber(value: true), forKey: .isExcludedFromBackupKey)
-            } catch let caught as NSError {
-                error = caught
-            }
+        guard var target = Self.backupURL(url) else {
+            // A URL that cannot be built used to be skipped silently and the
+            // call resolved anyway, so the file stayed in the backup while the
+            // caller was told it had been excluded.
+            return reject("EINVAL", "Cannot build a file URL from '\(url)'", nil)
         }
-        if let error = error {
-            // `description`, not localizedDescription: ios.json records the
-            // full NSError prose including the underlying error.
-            reject("EUNSPECIFIED", error.description, nil)
-        } else {
+        do {
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try target.setResourceValues(values)
             resolve([NSNull()])
+        } catch let error as NSError {
+            // A missing file is ENOENT rather than unspecified, and the
+            // localized message says what happened without the NSError prose.
+            reject(fileErrorCode(error), error.localizedDescription, nil)
         }
     }
 

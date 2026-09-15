@@ -435,4 +435,81 @@ final class BehaviourAlignmentTests: XCTestCase {
         }
         XCTAssertEqual(contents(dest), "written ✓")
     }
+
+    // MARK: - `excludeFromBackupKey` percent-encodes, and reports what fails
+
+    private func isExcludedFromBackup(_ path: String) throws -> Bool {
+        let values = try URL(fileURLWithPath: path).resourceValues(forKeys: [.isExcludedFromBackupKey])
+        return values.isExcludedFromBackup ?? false
+    }
+
+    func testExcludeFromBackupSetsTheFlag() throws {
+        let path = try write("backup", to: "backup.txt")
+
+        let outcome = try settle { resolve, reject in
+            core.excludeFromBackupKey("file://\(path)", resolve: resolve, reject: reject)
+        }
+
+        guard case .resolved = outcome else {
+            return XCTFail("excluding a real file rejected: \(outcome)")
+        }
+        XCTAssertTrue(try isExcludedFromBackup(path), "the flag is actually set, not just resolved")
+    }
+
+    /// A path with a space makes NSURL(string:) return nil. The nil URL was
+    /// simply skipped and the call resolved anyway, so the file stayed in the
+    /// backup while the caller was told it had been excluded.
+    func testExcludeFromBackupHandlesAPathNeedingEncoding() throws {
+        let path = try write("backup", to: "with space & hash#.txt")
+
+        let outcome = try settle { resolve, reject in
+            core.excludeFromBackupKey("file://\(path)", resolve: resolve, reject: reject)
+        }
+
+        guard case .resolved = outcome else {
+            return XCTFail("excluding a path with a space rejected: \(outcome)")
+        }
+        XCTAssertTrue(try isExcludedFromBackup(path),
+                      "resolving is not enough: the file must really be excluded")
+    }
+
+    /// An already-encoded URL, which NSURL(string:) does parse, must keep
+    /// working and must not be encoded a second time.
+    func testExcludeFromBackupAcceptsAnEncodedURL() throws {
+        let path = try write("backup", to: "encoded space.txt")
+        let encoded = "file://" + (path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path)
+
+        let outcome = try settle { resolve, reject in
+            core.excludeFromBackupKey(encoded, resolve: resolve, reject: reject)
+        }
+
+        guard case .resolved = outcome else {
+            return XCTFail("excluding an encoded URL rejected: \(outcome)")
+        }
+        XCTAssertTrue(try isExcludedFromBackup(path))
+    }
+
+    func testExcludeFromBackupOfAMissingFileRejectsENOENT() throws {
+        let missing = "\(dir)/missing.txt"
+
+        let outcome = try settle { resolve, reject in
+            core.excludeFromBackupKey("file://\(missing)", resolve: resolve, reject: reject)
+        }
+
+        guard case let .rejected(code, _) = outcome else {
+            return XCTFail("excluding a missing file resolved: \(outcome)")
+        }
+        XCTAssertEqual(code, "ENOENT", "the file is not there, which is not unspecified")
+    }
+
+    func testExcludeFromBackupOfAnUnusableValueRejectsEINVAL() throws {
+        let outcome = try settle { resolve, reject in
+            core.excludeFromBackupKey("", resolve: resolve, reject: reject)
+        }
+
+        guard case let .rejected(code, _) = outcome else {
+            return XCTFail("an empty url resolved: \(outcome)")
+        }
+        XCTAssertEqual(code, "EINVAL")
+    }
 }
