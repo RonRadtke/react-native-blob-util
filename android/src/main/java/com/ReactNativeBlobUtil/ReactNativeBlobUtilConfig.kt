@@ -32,6 +32,8 @@ internal class ReactNativeBlobUtilConfig(options: ReadableMap?) {
     var customCACerts: MutableList<String?>? = null
     var pinnedHosts: MutableList<String?>? = null
     var trustSystemCerts: Boolean? = false
+    /** What a single request body is - text, base64 or file - as JS decided it. */
+    var bodyType: String? = null
 
     init {
         if (options != null) {
@@ -59,6 +61,7 @@ internal class ReactNativeBlobUtilConfig(options: ReadableMap?) {
                 followRedirect = options.getBoolean("followRedirect")
             }
             key = if (options.hasKey("key")) options.getString("key") else null
+            bodyType = if (options.hasKey("bodyType")) options.getString("bodyType") else null
             mime = if (options.hasKey("contentType")) options.getString("contentType") else null
             increment = options.hasKey("increment") && options.getBoolean("increment")
             auto = options.hasKey("auto") && options.getBoolean("auto")

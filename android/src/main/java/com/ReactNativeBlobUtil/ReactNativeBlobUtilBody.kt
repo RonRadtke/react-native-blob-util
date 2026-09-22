@@ -169,9 +169,7 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
                 // An unresolvable path throws here, outside the try, as it did in Java.
                 val f = File(ReactNativeBlobUtilUtils.normalizePath(orgPath))
                 try {
-                    if (!f.exists()) {
-                        f.createNewFile()
-                    }
+                    // A missing file is an error; it used to be created empty and sent.
                     return FileInputStream(f)
                 } catch (e: Exception) {
                     throw Exception("error when getting request stream: " + e.localizedMessage)
@@ -221,68 +219,24 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
 
     @Throws(IOException::class)
     private fun writeForm(os: FileOutputStream, boundary: String) {
-        val fields = countFormDataLength()
-        val ctx = ReactNativeBlobUtilImpl.RCTContext
-
-        for (field in fields) {
+        for (field in formFields()) {
             val data = field.data
             val name = field.name
             // skip invalid fields
             if (name == null || data == null) continue
             // form begin
             var header = "--$boundary\r\n"
-            if (field.filename != null) {
-                header += "Content-Disposition: form-data; name=\"" + name + "\"; filename=\"" + field.filename + "\"\r\n"
-                header += "Content-Type: " + field.mime + "\r\n\r\n"
-                os.write(header.toByteArray())
-                // file field header end
-                // upload from storage
-                if (data.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
-                    val rawPath = data.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
-                    val orgPath: String? = ReactNativeBlobUtilUtils.normalizePath(rawPath)
-                    // a wrapped content:// URI is read through its provider
-                    if (ReactNativeBlobUtilContent.isContent(rawPath)) {
-                        try {
-                            pipeStreamToFileStream(ReactNativeBlobUtilContent.openInput(rawPath), os)
-                        } catch (e: Exception) {
-                            ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from content URI:$rawPath, " + e.localizedMessage)
-                        }
-                    }
-                    else if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
-                        try {
-                            val assetName = orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
-                            val input = ctx.assets.open(assetName)
-                            pipeStreamToFileStream(input, os)
-                        } catch (e: IOException) {
-                            ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data asset :" + orgPath + ", " + e.localizedMessage)
-                        }
-                    }
-                    // data from normal files
-                    else {
-                        val file = File(ReactNativeBlobUtilUtils.normalizePath(orgPath))
-                        if (file.exists()) {
-                            val fs = FileInputStream(file)
-                            pipeStreamToFileStream(fs, os)
-                        } else {
-                            ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from path :$orgPath, file not exists.")
-                        }
-                    }
-                } else if (data.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX)) {
-                    val contentURI = data.substring(ReactNativeBlobUtilConst.CONTENT_PREFIX.length)
-                    var input: InputStream? = null
-                    try {
-                        input = ctx.contentResolver.openInputStream(Uri.parse(contentURI))
-                        pipeStreamToFileStream(input, os)
-                    } catch (e: Exception) {
-                        ReactNativeBlobUtilUtils.emitWarningEvent(
-                            "Failed to create form data from content URI:" + contentURI + ", " + e.localizedMessage
-                        )
-                    } finally {
-                        input?.close()
-                    }
-                }
-                // base64 embedded file content
-                else {
+            header += if (field.filename != null) {
+                "Content-Disposition: form-data; name=\"" + name + "\"; filename=\"" + field.filename + "\"\r\n"
+            } else {
+                "Content-Disposition: form-data; name=\"" + name + "\"\r\n"
+            }
+            header += "Content-Type: " + field.mime + "\r\n\r\n"
+            os.write(header.toByteArray())
+            // The part's kind decides its content, whether or not it has a filename.
+            when (field.kind) {
+                "file" -> writeFileContent(data, os)
+                "base64" -> {
                     // A field whose data is not valid base64 must not sink the
                     // whole request. The header above is already written, so
                     // skipping just the content leaves the part in place with
@@ -291,21 +245,12 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
                     // produces, where initWithBase64EncodedString: yields nil
                     // and the append is a no-op.
                     try {
-                        val b = Base64.decode(data, 0)
-                        os.write(b)
+                        os.write(Base64.decode(data, 0))
                     } catch (e: IllegalArgumentException) {
                         ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from base64 for field `$name`, the content is not valid base64 and will be empty.")
                     }
                 }
-
-            }
-            // data field
-            else {
-                header += "Content-Disposition: form-data; name=\"" + name + "\"\r\n"
-                header += "Content-Type: " + field.mime + "\r\n\r\n"
-                os.write(header.toByteArray())
-                val fieldData = data.toByteArray()
-                os.write(fieldData)
+                else -> os.write(data.toByteArray())
             }
             // form end
             os.write("\r\n".toByteArray())
@@ -314,6 +259,47 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
         val end = "--$boundary--\r\n".toByteArray()
         os.write(end)
         os.flush()
+    }
+
+    /**
+     * The content of a file part: a wrapped path, a bundled asset or a content URI.
+     * One that cannot be read leaves the part empty and warns, as before.
+     */
+    private fun writeFileContent(data: String, os: FileOutputStream) {
+        val ctx = ReactNativeBlobUtilImpl.RCTContext
+        if (data.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX)) {
+            val contentURI = data.substring(ReactNativeBlobUtilConst.CONTENT_PREFIX.length)
+            try {
+                pipeStreamToFileStream(ReactNativeBlobUtilContent.openInput(contentURI), os)
+            } catch (e: Exception) {
+                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from content URI:" + contentURI + ", " + e.localizedMessage)
+            }
+            return
+        }
+        val rawPath = data.removePrefix(ReactNativeBlobUtilConst.FILE_PREFIX)
+        val orgPath: String? = ReactNativeBlobUtilUtils.normalizePath(rawPath)
+        if (ReactNativeBlobUtilContent.isContent(rawPath)) {
+            // a content:// URI behind the file prefix is read through its provider too
+            try {
+                pipeStreamToFileStream(ReactNativeBlobUtilContent.openInput(rawPath), os)
+            } catch (e: Exception) {
+                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from content URI:$rawPath, " + e.localizedMessage)
+            }
+        } else if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
+            try {
+                val assetName = orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
+                pipeStreamToFileStream(ctx.assets.open(assetName), os)
+            } catch (e: IOException) {
+                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data asset :" + orgPath + ", " + e.localizedMessage)
+            }
+        } else {
+            val file = if (orgPath == null) null else File(orgPath)
+            if (file != null && file.exists()) {
+                pipeStreamToFileStream(FileInputStream(file), os)
+            } else {
+                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from path :$orgPath, file not exists.")
+            }
+        }
     }
 
     /**
@@ -387,87 +373,19 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
     }
 
     /**
-     * Compute approximate content length for form data
-     *
-     * @return ArrayList<FormField>
+     * The form's fields. The body's length is the finished cache file's, so
+     * nothing is estimated here any more; Java measured every source twice.
      */
-    @Throws(IOException::class)
-    private fun countFormDataLength(): ArrayList<FormField> {
-        var total: Long = 0
+    private fun formFields(): ArrayList<FormField> {
         val list = ArrayList<FormField>()
-        val ctx = ReactNativeBlobUtilImpl.RCTContext
         val fields = form!!
         for (i in 0 until fields.size()) {
             val field = FormField(fields.getMap(i))
             list.add(field)
-            val data = field.data
-            if (data == null) {
+            if (field.data == null) {
                 ReactNativeBlobUtilUtils.emitWarningEvent("ReactNativeBlobUtil multipart request builder has found a field without `data` property, the field `" + field.name + "` will be removed implicitly.")
-            } else if (field.filename != null) {
-                // upload from storage
-                if (data.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
-                    val rawPath = data.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
-                    val orgPath: String? = ReactNativeBlobUtilUtils.normalizePath(rawPath)
-                    // a wrapped content:// URI is measured through its provider
-                    if (ReactNativeBlobUtilContent.isContent(rawPath)) {
-                        try {
-                            total += sourceLength(ReactNativeBlobUtilContent.openInput(rawPath))
-                        } catch (e: Exception) {
-                            ReactNativeBlobUtilUtils.emitWarningEvent("Failed to estimate form data length from content URI:$rawPath, " + e.localizedMessage)
-                        }
-                    }
-                    // path starts with asset://
-                    else if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
-                        try {
-                            val assetName = orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
-                            val length = sourceLength(ctx.assets.open(assetName))
-                            total += length
-                        } catch (e: IOException) {
-                            ReactNativeBlobUtilUtils.emitWarningEvent(e.localizedMessage)
-                        }
-                    }
-                    // general files
-                    else {
-                        val file = File(ReactNativeBlobUtilUtils.normalizePath(orgPath))
-                        total += file.length()
-                    }
-                } else if (data.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX)) {
-                    val contentURI = data.substring(ReactNativeBlobUtilConst.CONTENT_PREFIX.length)
-                    var input: InputStream? = null
-                    try {
-                        input = ctx.contentResolver.openInputStream(Uri.parse(contentURI))
-                        val length = input!!.available().toLong()
-                        total += length
-                    } catch (e: Exception) {
-                        ReactNativeBlobUtilUtils.emitWarningEvent(
-                            "Failed to estimate form data length from content URI:" + contentURI + ", " + e.localizedMessage
-                        )
-                    } finally {
-                        input?.close()
-                    }
-                }
-                // base64 embedded file content
-                else {
-                    // Mirrors the skip in createMultipartBodyCache. This runs
-                    // first, and throwing here aborted the body before a single
-                    // byte was written. The total it accumulates is discarded
-                    // anyway - setBody replaces contentLength with the finished
-                    // cache file's length - so all this guard has to do is not
-                    // throw.
-                    try {
-                        val bytes = Base64.decode(data, 0)
-                        total += bytes.size.toLong()
-                    } catch (e: IllegalArgumentException) {
-                        ReactNativeBlobUtilUtils.emitWarningEvent("Failed to estimate form data length from base64 for field `" + field.name + "`, the content is not valid base64 and will be empty.")
-                    }
-                }
-            }
-            // data field
-            else {
-                total += data.toByteArray().size.toLong()
             }
         }
-        contentLength = total
         return list
     }
 
@@ -480,6 +398,7 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
         var filename: String? = null
         var mime: String? = null
         var data: String? = null
+        var kind: String? = null
 
         init {
             // A null entry in the form throws here, as it did in Java; setBody reports it.
@@ -493,6 +412,16 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
             }
             if (map.hasKey("data")) {
                 data = map.getString("data")
+            }
+            // JS sends the kind; without it, the rule Android always applied.
+            kind = if (map.hasKey("kind")) {
+                map.getString("kind")
+            } else if (filename == null) {
+                "text"
+            } else if (data?.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX) == true || data?.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX) == true) {
+                "file"
+            } else {
+                "base64"
             }
         }
     }

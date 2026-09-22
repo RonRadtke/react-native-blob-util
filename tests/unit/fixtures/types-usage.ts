@@ -82,7 +82,13 @@ async function network(): Promise<void> {
     const form = ReactNativeBlobUtil.fetch('POST', 'https://example.test/form', {}, [
         {name: 'field', data: 'value'},
         {name: 'file', filename: 'a.png', type: 'image/png', data: wrap('/tmp/a.png')},
+        {name: 'explicit', data: {file: '/tmp/b.pdf'}},
+        {name: 'bytes', filename: 'c.bin', data: new Uint8Array([1, 2])},
     ]);
+    await ReactNativeBlobUtil.fetch('PUT', 'https://example.test/put', {}, {text: 'ReactNativeBlobUtil-file://not-a-file'});
+    await ReactNativeBlobUtil.fetch('PUT', 'https://example.test/put', {}, {base64: 'AAEC'});
+    await ReactNativeBlobUtil.fetch('PUT', 'https://example.test/put', {}, {file: '/tmp/upload.bin'});
+    await ReactNativeBlobUtil.fetch('PUT', 'https://example.test/put', {}, new Uint8Array([1, 2]).buffer);
     await form.cancel();
     form.cancel((reason?: any) => { void reason; });
 

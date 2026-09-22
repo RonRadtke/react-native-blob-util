@@ -194,9 +194,33 @@ to read a file that is not text.
 
 Network-level differences stay documented rather than aligned: a URL without a host
 (`http://`) is `EINVAL` on Android, which rejects it before connecting, and
-`ECONNREFUSED` on iOS, which tries to connect; only iOS puts `rnfbEncode` on the first
-`stateChange`, and a request body without a Content-Type is sent chunked on Android and
-with a Content-Length as `application/octet-stream` on iOS.
+`ECONNREFUSED` on iOS, which tries to connect; and only iOS puts `rnfbEncode` on the first
+`stateChange`.
+
+### Request bodies
+
+0.25 let each platform guess what a string body was, from its Content-Type and a
+prefix, and they guessed differently: without a Content-Type, iOS sent the string as
+`application/octet-stream` and base64-decoded it while Android sent it as text, and
+Windows never decoded base64 and did not recognise `wrap(path)` at all. 1.0 decides
+in JavaScript and every platform sends what it is told.
+
+- A plain string keeps the rule 0.x documented: a `wrap(path)` string is a file; a
+  Content-Type ending in `;base64` (removed before sending) or starting with
+  `application/octet` makes it base64; anything else is text. **Without a
+  Content-Type a string is text on every platform** (iOS decoded it as base64).
+- New explicit forms, never guessed from anything: `{text: string}`,
+  `{base64: string}`, `{file: path}` (a path, or a `content://` URI on Android), and
+  bytes (`ArrayBuffer` or a typed array). Use `{text}` for a string that comes from a
+  user or a server: a plain string that happens to start with the file prefix is
+  uploaded as that file's contents.
+- A multipart field's `data` may use the same forms. A plain string is text without a
+  `filename` and base64 (or a wrapped file) with one, as before; a file part without
+  a `filename` is named after the file, as browsers do.
+- A body on `GET` or `HEAD` rejects `EINVAL` (it was dropped silently). `DELETE`
+  and `OPTIONS` send the body they are given (Android dropped it).
+- A file body whose file does not exist rejects `ENOENT`. Android used to create an
+  empty file at that path and upload it.
 
 ### Always a Promise
 

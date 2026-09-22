@@ -145,6 +145,8 @@ class ReactNativeBlobUtilReq(
     /** The code for an exception OkHttp hands to onFailure. */
     private fun codeFor(e: IOException): String = when (e) {
         is SocketTimeoutException -> "ETIMEDOUT"
+        // A request body whose source vanished while it was being sent.
+        is java.io.FileNotFoundException -> "ENOENT"
         is UnknownHostException -> "ENOTFOUND"
         is java.net.ConnectException -> "ECONNREFUSED"
         is javax.net.ssl.SSLException -> "ESSL"
@@ -449,7 +451,16 @@ class ReactNativeBlobUtilReq(
                 }
             }
 
-            if (method.equals("post", ignoreCase = true) || method.equals("put", ignoreCase = true) || method.equals("patch", ignoreCase = true)) {
+            // Any method but GET and HEAD sends a body it is given (DELETE and OPTIONS
+            // used to drop theirs); POST, PUT and PATCH send an empty one without.
+            val sendsBody = !method.equals("get", ignoreCase = true) && !method.equals("head", ignoreCase = true) &&
+                (rawRequestBody != null || rawRequestBodyArray != null ||
+                    method.equals("post", ignoreCase = true) || method.equals("put", ignoreCase = true) || method.equals("patch", ignoreCase = true))
+            val bodyType = options.bodyType
+            if (sendsBody && rawRequestBodyArray == null && rawRequestBody != null && bodyType != null) {
+                // JS decided what the body is; nothing is inferred from Content-Type or a prefix.
+                requestType = if (bodyType == "text") RequestType.AsIs else RequestType.SingleFile
+            } else if (sendsBody) {
                 var cType = getHeaderIgnoreCases(mheaders, "Content-Type").lowercase(Locale.ROOT)
 
                 if (rawRequestBodyArray != null) {
@@ -477,6 +488,20 @@ class ReactNativeBlobUtilReq(
                 }
             } else {
                 requestType = RequestType.WithoutBody
+            }
+
+            // A file body that is not there fails the request. It used to be created
+            // empty and uploaded, so the server got a zero-byte file.
+            if (requestType == RequestType.SingleFile && rawRequestBody != null && rawRequestBody.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
+                val filePath = rawRequestBody.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
+                val normalized = ReactNativeBlobUtilUtils.normalizePath(filePath)
+                if (!ReactNativeBlobUtilContent.isContent(filePath) && !ReactNativeBlobUtilUtils.isAsset(normalized) &&
+                    (normalized == null || !File(normalized).isFile)
+                ) {
+                    fail("ENOENT", "No such file '$filePath'")
+                    releaseTaskResource()
+                    return
+                }
             }
 
             val isChunkedRequest = getHeaderIgnoreCases(mheaders, "Transfer-Encoding").equals("chunked", ignoreCase = true)

@@ -1192,6 +1192,125 @@
       }
     }
   },
+  "upload-explicit": {
+    "base64WithoutType": {
+      "resolved": {
+        "bytes": 4,
+        "contentLength": "4",
+        "contentType": "",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�",
+        "transferEncoding": null
+      }
+    },
+    "bytes": {
+      "resolved": {
+        "bytes": 4,
+        "contentLength": "4",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�",
+        "transferEncoding": null
+      }
+    },
+    "deleteWithBody": {
+      "resolved": {
+        "bytes": 11,
+        "contentLength": "11",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "DELETE",
+        "parts": null,
+        "sha256": "9f8a6692f94a13093a02fd4ac99d8718645e83c98ec99e3be950a7003d9faac8",
+        "text": "delete body",
+        "transferEncoding": null
+      }
+    },
+    "file": {
+      "resolved": {
+        "bytes": 17,
+        "contentLength": "17",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "PUT",
+        "parts": null,
+        "sha256": "a212d1134de121daa2da3f66e0df0eb093f2c994cfd0cdf07dfa58072ac9bfc1",
+        "text": "explicit file ✓",
+        "transferEncoding": null
+      }
+    },
+    "getWithBody": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "A GET request cannot have a body",
+        "name": "Error"
+      }
+    },
+    "missingFile": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/upload-explicit/missing.txt'",
+        "name": "Error"
+      }
+    },
+    "multipart": {
+      "resolved": {
+        "bytes": "<multipart>",
+        "contentLength": "string",
+        "contentType": "multipart/form-data; boundary=<boundary>",
+        "custom": null,
+        "method": "POST",
+        "parts": [
+          {
+            "bytes": 4,
+            "contentType": "text/plain",
+            "filename": null,
+            "name": "base64NoName",
+            "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+            "text": "\u0000\u0001\u0002�"
+          },
+          {
+            "bytes": 8,
+            "contentType": "text/plain",
+            "filename": "t.txt",
+            "name": "textWithName",
+            "sha256": "c4b988394e642e17fb80759e38bea055c3efbbc5f449e9502bb5ac450ad0fc78",
+            "text": "AAEC/w=="
+          },
+          {
+            "bytes": 17,
+            "contentType": "text/plain",
+            "filename": "explicit.txt",
+            "name": "fileNoName",
+            "sha256": "a212d1134de121daa2da3f66e0df0eb093f2c994cfd0cdf07dfa58072ac9bfc1",
+            "text": "explicit file ✓"
+          }
+        ],
+        "sha256": "<multipart>",
+        "text": "<multipart>",
+        "transferEncoding": null
+      }
+    },
+    "textThatLooksLikeAFile": {
+      "resolved": {
+        "bytes": 108,
+        "contentLength": "108",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "f0b770050038b2b978298d3abd285b338cdf707aa3ab3784a42611f14e103d00",
+        "text": "ReactNativeBlobUtil-file://<DocumentDir>/parity/upload-explicit/explicit.txt",
+        "transferEncoding": null
+      }
+    }
+  },
   "upload-multipart": {
     "bytes": "<multipart>",
     "contentLength": "string",

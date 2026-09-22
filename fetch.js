@@ -4,7 +4,7 @@ import fs from './fs';
 import toByteCount from './utils/byteCount';
 import {addCode} from './utils/errors';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
-import {escapeForm, invalidFormField, invalidHeader, nativeOptions} from './utils/request';
+import {escapeForm, invalidFormField, invalidHeader, nativeOptions, prepareBody} from './utils/request';
 import getUUID from './utils/uuid';
 import type {ReactNativeBlobUtilConfig} from './types';
 
@@ -86,11 +86,12 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
     }, {});
 
     // Refused here, before any listener exists, so all platforms agree.
-    const invalid = invalidHeader(headers) || (Array.isArray(body) ? invalidFormField(body) : null);
-    if (Array.isArray(body)) {
-        body = escapeForm(body);
-    }
-    options = nativeOptions(options);
+    const prepared = prepareBody(method, headers, body);
+    const invalid = prepared.error || invalidHeader(headers) || (Array.isArray(body) ? invalidFormField(body) : null);
+    headers = prepared.headers;
+    body = Array.isArray(prepared.body) ? escapeForm(prepared.body) : prepared.body;
+    // The kind of a single body travels in the options; native no longer infers it.
+    options = nativeOptions(prepared.bodyType ? {...options, bodyType: prepared.bodyType} : options);
 
     // Every listener this task registers, so that settling or cancelling removes
     // all of them: a task must leave nothing behind for the life of the app.

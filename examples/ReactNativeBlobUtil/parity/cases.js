@@ -872,6 +872,31 @@ define('upload-multipart', async (ctx) => {
     return echoSummary(await res.json());
 });
 
+// 1.0: JS decides what a body is and native obeys. The explicit forms are never
+// guessed from the Content-Type or a prefix, bytes go as base64, DELETE sends its
+// body, a missing file fails instead of uploading an empty one, GET with a body
+// is refused, and a multipart part's kind decides its content.
+define('upload-explicit', async (ctx) => {
+    const dir = await freshDir('upload-explicit');
+    const file = `${dir}/explicit.txt`;
+    await fs.createFile(file, 'explicit file ✓', 'utf8');
+    const echo = async (method, headers, body) => echoSummary(await (await ReactNativeBlobUtil.fetch(method, ctx.url('/echo'), headers, body)).json());
+    return {
+        textThatLooksLikeAFile: await settle(() => echo('POST', {'Content-Type': 'application/octet-stream'}, {text: `ReactNativeBlobUtil-file://${file}`})),
+        base64WithoutType: await settle(() => echo('POST', {}, {base64: 'AAEC/w=='})),
+        bytes: await settle(() => echo('POST', {'Content-Type': 'application/octet-stream'}, new Uint8Array([0, 1, 2, 255]))),
+        file: await settle(() => echo('PUT', {'Content-Type': 'text/plain'}, {file})),
+        deleteWithBody: await settle(() => echo('DELETE', {'Content-Type': 'text/plain'}, 'delete body')),
+        missingFile: await settle(() => echo('POST', {'Content-Type': 'text/plain'}, {file: `${dir}/missing.txt`})),
+        getWithBody: await settle(() => echo('GET', {}, 'x')),
+        multipart: await settle(() => echo('POST', {'Content-Type': 'multipart/form-data'}, [
+            {name: 'base64NoName', data: {base64: 'AAEC/w=='}},
+            {name: 'textWithName', filename: 't.txt', type: 'text/plain', data: {text: 'AAEC/w=='}},
+            {name: 'fileNoName', type: 'text/plain', data: {file}},
+        ])),
+    };
+});
+
 define('android-media-store', async (ctx) => {
     const source = await ReactNativeBlobUtil.config({fileCache: true}).fetch('GET', ctx.url('/image.png'));
     const dir = await freshDir('android-media-store');

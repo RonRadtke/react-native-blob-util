@@ -16,8 +16,12 @@ export interface ReactNativeBlobUtilStatic {
      * @param method HTTP method.
      * @param url Request URL.
      * @param headers Request headers. `null` and `undefined` values are sent as "".
-     * @param body A string, a base64 string, a `wrap(path)` reference to a file,
-     *             or an array of form fields for a multipart request.
+     * @param body The request body. `{text}`, `{base64}`, `{file}` and bytes say
+     *             what the body is. A plain string is read by the rule 0.x used: a
+     *             `wrap(path)` string is a file, a Content-Type ending in `;base64`
+     *             or starting with `application/octet` makes it base64, anything
+     *             else is text. An array is a multipart form. GET and HEAD reject
+     *             a body with `EINVAL`.
      */
     fetch(method: Methods, url: string, headers?: RequestHeaders, body?: RequestBody): StatefulPromise<FetchBlobResponse>;
 
@@ -56,18 +60,29 @@ export type Methods = 'POST' | 'GET' | 'DELETE' | 'PUT' | 'PATCH' | 'HEAD' | 'po
 
 export type RequestHeaders = { [name: string]: string | null | undefined };
 
+/** A body sent as it is, never read as base64 or as a file reference. */
+export interface TextBody { text: string }
+/** A body given as base64, sent as the bytes it encodes. */
+export interface Base64Body { base64: string }
+/** The contents of a file: a path, or a `content://` URI on Android. */
+export interface FileBody { file: string }
+
+/** A body stated explicitly: text, base64, a file, or bytes. */
+export type ExplicitBody = TextBody | Base64Body | FileBody | ArrayBuffer | ArrayBufferView;
+
 /**
- * One field of a multipart request. `data` is the field value, a base64
- * string when `filename` is set, or `wrap(path)` to send a file.
+ * One field of a multipart request. `data` is either explicit or, as a plain
+ * string, text without a `filename` and base64 (or `wrap(path)` for a file)
+ * with one. A file part without a `filename` is named after the file.
  */
 export interface FormField {
     name: string;
-    data: string;
+    data: string | ExplicitBody;
     filename?: string;
     type?: string;
 }
 
-export type RequestBody = string | FormField[] | null;
+export type RequestBody = string | ExplicitBody | FormField[] | null;
 
 /**
  * The promise `fetch` returns: a Promise with methods to observe and cancel
