@@ -1,7 +1,7 @@
 import fs from "../fs";
 import ReactNativeBlobUtilSession from "./ReactNativeBlobUtilSession";
 import base64 from "base-64";
-import {bytesOfBinaryString, bytesOfUtf8} from "../utils/bytes";
+import {binaryStringOfBytes, bytesOfBinaryString, bytesOfUtf8, utf8OfBytes} from "../utils/bytes";
 import type {ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from "../types";
 /**
  * ReactNativeBlobUtil response object class.
@@ -50,18 +50,22 @@ export class FetchBlobResponse {
         };
 
         /**
-         * The body as text. Always a Promise, whether the body is held in memory
-         * or in a file.
+         * The body as text, decoded as UTF-8. Always a Promise, whether the body
+         * is held in memory or in a file. A file is read as base64 and decoded
+         * here, so an embedded NUL survives on iOS too, whose native utf8 strings
+         * end at the first NUL. A leading byte order mark is dropped, as fetch's
+         * Response.text() does; JSON.parse would fail on it.
          * @return {Promise<string>}
          */
         this.text = (): Promise<string> => {
+            const decode = (b64) => utf8OfBytes(bytesOfBinaryString(base64.decode(b64)));
             switch (this.type) {
                 case 'base64':
-                    return Promise.resolve(base64.decode(this.data));
+                    return Promise.resolve(decode(this.data));
                 case 'path':
-                    return fs.readFile(this.data, 'base64').then((b64) => base64.decode(b64));
+                    return fs.readFile(this.data, 'base64').then(decode);
                 default:
-                    return Promise.resolve(this.data);
+                    return Promise.resolve(typeof this.data === 'string' && this.data.charCodeAt(0) === 0xfeff ? this.data.slice(1) : this.data);
             }
         };
         /**
@@ -82,7 +86,7 @@ export class FetchBlobResponse {
                 case 'path':
                     return fs.readFile(this.data, 'base64');
                 default:
-                    return Promise.resolve(base64.encode(this.data));
+                    return Promise.resolve(base64.encode(binaryStringOfBytes(bytesOfUtf8(this.data))));
             }
         };
         /**
@@ -132,7 +136,7 @@ export class FetchBlobResponse {
         /**
          * Read file content with given encoding, if the response does not contains
          * a file path, show warning message
-         * @param  {String} encoding Encode type, should be one of `base64`, `ascrii`, `utf8`.
+         * @param  {String} encoding Encode type, should be one of `base64`, `ascii`, `utf8`.
          * @return {String}
          */
         this.readFile = (encoding: 'base64' | 'utf8' | 'ascii') => {
