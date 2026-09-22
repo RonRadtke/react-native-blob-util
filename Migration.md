@@ -15,7 +15,7 @@ Most apps only need to meet the new requirements below and check the removed API
 | | 0.25 | 1.0 |
 |---|---|---|
 | React Native architecture | Old or New | **New Architecture only** |
-| React Native | 0.76 and up | 0.84 and up (tested on 0.84 and the newest release) |
+| React Native | 0.76 and up | 0.84 and up (tested on 0.84 and the newest release); `peerDependencies` now says so, so `npm install` on an older app fails instead of the build |
 | Android `minSdk` | the app's (library fallback 16) | 24 |
 | Android build | Java 8 bytecode | Java 17 bytecode, Kotlin compiled with the app's Kotlin setup |
 | iOS deployment target | 11.0 | 15.1 |
