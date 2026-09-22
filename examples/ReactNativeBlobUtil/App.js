@@ -609,7 +609,9 @@ const App: () => React$Node = () => {
             .then((res) => {
                 ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
                     {
-                        name: 'test.png',
+                        // A fixed name fills Download with test (1).png ... and
+                        // MediaStore refuses a 33rd copy, failing every later run.
+                        name: `test-${Date.now()}.png`,
                         parentFolder: '',
                         mimeType: 'image/png',
                     },
