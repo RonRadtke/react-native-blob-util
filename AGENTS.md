@@ -69,12 +69,12 @@ npm run lint      # eslint over the package's own JS; must stay free of errors
 ```
 
 Run it before committing, alongside `npm test`. It currently reports **0
-errors and 150 warnings** and exits 0, so a non-zero exit or any error line is
+errors and 46 warnings** and exits 0, so a non-zero exit or any error line is
 something you introduced.
 
 The warnings are a real backlog, not noise to ignore wholesale — mostly
-`import/order` (36), `import/no-default-export` (29), `quotes` (26) and
-`no-useless-escape` (23). Do not clear them with a blanket `eslint --fix`:
+`import/no-default-export` (16), `import/order` (7), `quotes` (6),
+`no-console` (6) and `no-useless-escape` (5). Do not clear them with a blanket `eslint --fix`:
 that rewrites nearly every file at once and buries whatever you were actually
 changing. Fix them in the files you are already touching, or in a deliberate
 pass of their own. If you do need `--fix`, scope it to one rule:
