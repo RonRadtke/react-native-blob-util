@@ -226,13 +226,16 @@ change the declaration and the sample in the same commit.
 
 ## Releases
 
-`npm publish` runs from the `npm publish` GitHub Action, triggered manually
-(`workflow_dispatch`) against `master`. To prepare one:
+The maintainer publishes from his own machine. The `npm publish` GitHub Action
+still exists but is not used: its npm token is not kept current, so a run of it
+fails. Do not route a release through it. To prepare one:
 
 1. `npm version <x.y.z> --no-git-tag-version` — updates `package.json` and
-   `package-lock.json` together, which `npm ci` in the workflow requires.
-2. Commit, push, then trigger the workflow.
-3. Tag as `0.24.11` — no `v` prefix — and create a GitHub release with an
+   `package-lock.json` together.
+2. Commit and push `master`.
+3. `npm publish`. A prerelease needs a dist-tag or npm refuses it:
+   `npm publish --tag next` for `1.0.0-rc.1`.
+4. Tag as `1.0.0` — no `v` prefix — and create a GitHub release with an
    empty title and a plain list of what changed.
 
 Fixes sitting unreleased on `master` are worse than no fix: users install from
