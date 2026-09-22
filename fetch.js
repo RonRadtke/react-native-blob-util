@@ -1,10 +1,11 @@
-import fs from './fs';
-import getUUID from './utils/uuid';
-import toByteCount from './utils/byteCount';
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
+import fs from './fs';
+import toByteCount from './utils/byteCount';
 import {addCode} from './utils/errors';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
+import {escapeForm, invalidFormField, invalidHeader, nativeOptions} from './utils/request';
+import getUUID from './utils/uuid';
 import type {ReactNativeBlobUtilConfig} from './types';
 
 /**
@@ -84,6 +85,13 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         return result;
     }, {});
 
+    // Refused here, before any listener exists, so all platforms agree.
+    const invalid = invalidHeader(headers) || (Array.isArray(body) ? invalidFormField(body) : null);
+    if (Array.isArray(body)) {
+        body = escapeForm(body);
+    }
+    options = nativeOptions(options);
+
     // Every listener this task registers, so that settling or cancelling removes
     // all of them: a task must leave nothing behind for the life of the app.
     const subscriptions = [];
@@ -101,6 +109,12 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
     // from remote HTTP(S)
     const promise = new Promise((resolve, reject) => {
         promiseReject = reject;
+
+        if (invalid) {
+            settled = true;
+            reject(addCode('EINVAL', new Error(invalid)));
+            return;
+        }
 
         const nativeMethodName = Array.isArray(body) ? 'fetchBlobForm' : 'fetchBlob';
         const emitter = getEventEmitter();
@@ -150,7 +164,8 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
             if (err) {
                 // {code, message} from native; a plain string is tolerated.
                 const message = typeof err === 'string' ? err : String(err.message);
-                const error = addCode((typeof err === 'object' && err.code) || 'EUNSPECIFIED', new Error(message));
+                const code = typeof err === 'object' && err.code || 'EUNSPECIFIED';
+                const error = addCode(code, new Error(message));
                 error.respInfo = 'uninit' in respInfo ? responseInfo : respInfo;
                 reject(error);
             }

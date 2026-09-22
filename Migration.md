@@ -171,6 +171,9 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `android.actionViewIntent` | resolved `true`, then `null` again on resume | resolves `true` once |
 | `respInfo.respType` on Android | `""` for every text response (a broken header check) | `text`, `json` or `blob` by Content-Type, as on iOS |
 | An upload on Android whose source cannot be read (a revoked `content://` URI, a missing asset, a read error mid-way) | sent an empty or cut-off body, and either resolved or failed with "unexpected end of stream" | rejects with the source's own error (`EUNSPECIFIED`) |
+| A header name or value containing CR, LF or NUL | sent as it was: rejected by OkHttp on Android, and on Windows it started a new header on the wire | rejects `EINVAL` before the request starts, on every platform |
+| A multipart `name` or `filename` containing `"`, CR or LF | pasted into the part header unescaped (Android, iOS), so it could rewrite the part's headers | escaped as browsers do: `%22`, `%0D`, `%0A`; a `type` with CR or LF rejects `EINVAL` |
+| `pinnedHosts` written with capitals | never matched (hosts are compared as the HTTP stack reports them, in lower case), so the request used system trust | matched case-insensitively |
 | `res.text()` / `res.json()` of a `fileCache`/`path` or base64 response | decoded one character per byte, so `é` came back as `Ã©`; `res.base64()` of a text body threw on characters beyond Latin-1 | UTF-8 on every platform, a leading byte order mark dropped (as fetch does), an embedded NUL kept on iOS too |
 | `Content-Length` of a single-file upload over 2 GB on Android | capped at 2 GB, so the request declared the wrong length | the file's size |
 | `fs.slice` on Windows | wrote the slice into the source file, from an empty buffer | writes the range to the destination |
