@@ -13,6 +13,7 @@
 #include <winrt/windows.web.http.filters.h>
 #include <winrt/Windows.System.Threading.h>
 #include <algorithm>
+#include <cctype>
 #include <cwchar>
 #include <cwctype>
 #include <filesystem>
@@ -53,6 +54,36 @@ namespace
         std::filesystem::path p{ path };
         p.make_preferred();
         return winrt::hstring{ p.wstring() };
+    }
+
+    // Any HTTP method, as Android and iOS accept. The module used to allow only
+    // GET, POST, PUT and DELETE and reject PATCH, HEAD and OPTIONS.
+    winrt::Windows::Web::Http::HttpMethod httpMethodFor(std::string method)
+    {
+        std::transform(method.begin(), method.end(), method.begin(),
+            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        return winrt::Windows::Web::Http::HttpMethod{ winrt::to_hstring(method) };
+    }
+
+    // The path behind a file reference: wrap()'s ReactNativeBlobUtil-file://, or
+    // the bare file:// that was the only prefix Windows read before 1.0.
+    std::string pathOfFileReference(std::string const& reference)
+    {
+        for (std::string const prefix : { std::string{ "ReactNativeBlobUtil-file://" }, std::string{ "file://" } })
+        {
+            if (reference.rfind(prefix, 0) == 0)
+            {
+                return reference.substr(prefix.length());
+            }
+        }
+        return reference;
+    }
+
+    // The contents of a request body's file. Throws when it cannot be read.
+    IAsyncOperation<IBuffer> readRequestFile(std::string path)
+    {
+        auto file = co_await StorageFile::GetFileFromPathAsync(nativePath(path));
+        co_return co_await FileIO::ReadBufferAsync(file);
     }
 
     // The code for a failed request, from the WinINet/WinHTTP HRESULT the
@@ -196,6 +227,7 @@ ReactNativeBlobUtilConfig::ReactNativeBlobUtilConfig(::React::JSValue& options)
     trusty = getBoolOrDefault(options["trusty"]);
 
     trustSystemCerts = getBoolOrDefault(options["trustSystemCerts"]);
+    bodyType = getStringOrDefault(options["bodyType"]);
 
     auto getStringList = [](const winrt::Microsoft::ReactNative::JSValue& value) -> std::vector<std::string> {
         std::vector<std::string> result;
@@ -807,20 +839,7 @@ namespace winrt::ReactNativeBlobUtil
                 ConfigureServerTrust(filter, config, requestUri);
             }
 
-            winrt::Windows::Web::Http::HttpMethod httpMethod = winrt::Windows::Web::Http::HttpMethod::Post();
-            if (method == "DELETE" || method == "delete")
-                httpMethod = winrt::Windows::Web::Http::HttpMethod::Delete();
-            else if (method == "PUT" || method == "put")
-                httpMethod = winrt::Windows::Web::Http::HttpMethod::Put();
-            else if (method == "GET" || method == "get")
-                httpMethod = winrt::Windows::Web::Http::HttpMethod::Get();
-            else if (method != "POST" && method != "post")
-            {
-                callback(fetchError("EINVAL", "Method not supported"), std::nullopt, std::nullopt, std::nullopt);
-                co_return;
-            }
-
-            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethod, requestUri };
+            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethodFor(method), requestUri };
             winrt::Windows::Web::Http::HttpMultipartFormDataContent requestContent{ boundary };
 
             // Add headers
@@ -837,68 +856,69 @@ namespace winrt::ReactNativeBlobUtil
                 }
             }
 
-            // Add form data
+            // Add form data. Each part's kind (text, base64 or file, decided in JS)
+            // picks its content; the filename only changes the disposition. A part
+            // without a name or data is skipped, as on Android and iOS.
             for (auto& entry : body)
             {
                 auto& items = entry.AsObject();
-                auto data = items["data"].AsString();
-
-                // File upload support: expects "file://" prefix
-                bool isFile = data.rfind("file://", 0) == 0;
-                if (isFile)
+                if (items["data"].IsNull() || items["name"].IsNull())
                 {
-                    std::string contentPath = data.substr(strlen("file://"));
-                    winrt::hstring directoryPath, fileName;
-                    splitPath(contentPath, directoryPath, fileName);
-                    auto folder = co_await winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(directoryPath);
-                    auto storageFile = co_await folder.GetFileAsync(fileName);
-                    auto requestBuffer = co_await winrt::Windows::Storage::FileIO::ReadBufferAsync(storageFile);
+                    continue;
+                }
+                auto data = items["data"].AsString();
+                bool hasFilename = !items["filename"].IsNull();
+                std::string kind = items["kind"].IsNull() ? "" : items["kind"].AsString();
+                if (kind.empty())
+                {
+                    // Before JS sent the kind: a bare file:// prefix was a file, anything else text.
+                    kind = data.rfind("file://", 0) == 0 ? "file" : "text";
+                }
 
-                    winrt::Windows::Web::Http::HttpBufferContent requestBufferContent{ requestBuffer };
-                    if (!items["type"].IsNull())
+                IBuffer partBuffer{ nullptr };
+                if (kind == "file")
+                {
+                    // A file that cannot be read leaves the part empty, as on Android and iOS.
+                    try
                     {
-                        requestBufferContent.Headers().TryAppendWithoutValidation(
-                            L"content-type", winrt::to_hstring(items["type"].AsString()));
+                        partBuffer = co_await readRequestFile(pathOfFileReference(data));
                     }
-
-                    auto name = items["name"].IsNull() ? L"" : winrt::to_hstring(items["name"].AsString());
-                    auto filename = items["filename"].IsNull() ? L"" : winrt::to_hstring(items["filename"].AsString());
-                    if (name.empty())
+                    catch (winrt::hresult_error const&)
                     {
-                        requestContent.Add(requestBufferContent);
                     }
-                    else if (filename.empty())
+                }
+                else if (kind == "base64")
+                {
+                    try
                     {
-                        requestContent.Add(requestBufferContent, name);
+                        partBuffer = CryptographicBuffer::DecodeFromBase64String(winrt::to_hstring(data));
                     }
-                    else
+                    catch (winrt::hresult_error const&)
                     {
-                        requestContent.Add(requestBufferContent, name, filename);
                     }
                 }
                 else
                 {
-                    winrt::Windows::Web::Http::HttpStringContent dataContents{ winrt::to_hstring(data) };
-                    if (!items["type"].IsNull())
-                    {
-                        dataContents.Headers().TryAppendWithoutValidation(
-                            L"content-type", winrt::to_hstring(items["type"].AsString()));
-                    }
+                    partBuffer = CryptographicBuffer::ConvertStringToBinary(winrt::to_hstring(data), BinaryStringEncoding::Utf8);
+                }
+                if (!partBuffer)
+                {
+                    partBuffer = Buffer{ 0u };
+                }
 
-                    auto name = items["name"].IsNull() ? L"" : winrt::to_hstring(items["name"].AsString());
-                    auto filename = items["filename"].IsNull() ? L"" : winrt::to_hstring(items["filename"].AsString());
-                    if (name.empty())
-                    {
-                        requestContent.Add(dataContents);
-                    }
-                    else if (filename.empty())
-                    {
-                        requestContent.Add(dataContents, name);
-                    }
-                    else
-                    {
-                        requestContent.Add(dataContents, name, filename);
-                    }
+                winrt::Windows::Web::Http::HttpBufferContent part{ partBuffer };
+                // The defaults Android and iOS use.
+                std::string type = items["type"].IsNull() ? (hasFilename ? "application/octet-stream" : "text/plain") : items["type"].AsString();
+                part.Headers().TryAppendWithoutValidation(L"content-type", winrt::to_hstring(type));
+
+                auto name = winrt::to_hstring(items["name"].AsString());
+                if (hasFilename)
+                {
+                    requestContent.Add(part, name, winrt::to_hstring(items["filename"].AsString()));
+                }
+                else
+                {
+                    requestContent.Add(part, name);
                 }
             }
 
@@ -1017,70 +1037,60 @@ namespace winrt::ReactNativeBlobUtil
 
             winrt::Windows::Web::Http::HttpClient httpClient{ filter };
 
-            winrt::Windows::Web::Http::HttpMethod httpMethod{ winrt::Windows::Web::Http::HttpMethod::Post() };
-            if (method == "DELETE" || method == "delete")
+            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethodFor(method), requestUri };
+
+            // JS says what the body is (bodyType). Without it, the rule Windows used
+            // before: a bare file:// prefix is a file, anything else text - base64
+            // was never decoded, and wrap()'s prefix was sent as text.
+            std::string kind = config.bodyType;
+            if (kind.empty())
             {
-                httpMethod = winrt::Windows::Web::Http::HttpMethod::Delete();
-            }
-            else if (method == "PUT" || method == "put")
-            {
-                httpMethod = winrt::Windows::Web::Http::HttpMethod::Put();
-            }
-            else if (method == "GET" || method == "get")
-            {
-                httpMethod = winrt::Windows::Web::Http::HttpMethod::Get();
-            }
-            else if (method != "POST" && method != "post")
-            {
-                // POST is the default set above, and it reached this branch as
-                // unsupported - so every upload through fetchBlob failed here.
-                callback(fetchError("EINVAL", "Method not supported"), std::nullopt, std::nullopt, std::nullopt);
-                co_return;
+                kind = body.rfind("file://", 0) == 0 ? "file" : "text";
             }
 
-            winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethod, requestUri };
-
-            std::string prefix = "file://";
-            bool pathToFile = body.rfind(prefix, 0) == 0;
-            if (pathToFile)
+            IBuffer requestBuffer{ nullptr };
+            if (!body.empty() && kind == "file")
             {
-                std::string contentPath = body.substr(prefix.length());
-                size_t fileLength = contentPath.length();
-                bool hasTrailingSlash = contentPath[fileLength - 1] == '\\' || contentPath[fileLength - 1] == '/';
-                winrt::hstring directoryPath, fileName;
-                splitPath(hasTrailingSlash ? contentPath.substr(0, fileLength - 1) : contentPath, directoryPath, fileName);
-                auto folder = co_await winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(directoryPath);
-                auto storageFile = co_await folder.GetFileAsync(fileName);
-                auto requestBuffer = co_await winrt::Windows::Storage::FileIO::ReadBufferAsync(storageFile);
-
-                winrt::Windows::Web::Http::HttpBufferContent requestContent{ requestBuffer };
-
-                for (const auto& entry : headersRef.AsObject())
+                std::string path = pathOfFileReference(body);
+                try
                 {
-                    if (!requestMessage.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString())))
-                    {
-                        requestContent.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString()));
-                    }
+                    requestBuffer = co_await readRequestFile(path);
                 }
+                catch (winrt::hresult_error const&)
+                {
+                }
+                if (!requestBuffer)
+                {
+                    callback(fetchError("ENOENT", "No such file '" + path + "'"), std::nullopt, std::nullopt, std::nullopt);
+                    co_return;
+                }
+            }
+            else if (!body.empty() && kind == "base64")
+            {
+                requestBuffer = CryptographicBuffer::DecodeFromBase64String(winrt::to_hstring(body));
+            }
+            else if (!body.empty())
+            {
+                // The UTF-8 bytes, without the text/plain Content-Type that
+                // HttpStringContent adds when the caller gave none.
+                requestBuffer = CryptographicBuffer::ConvertStringToBinary(winrt::to_hstring(body), BinaryStringEncoding::Utf8);
+            }
+
+            winrt::Windows::Web::Http::HttpBufferContent requestContent{ nullptr };
+            if (requestBuffer)
+            {
+                requestContent = winrt::Windows::Web::Http::HttpBufferContent{ requestBuffer };
+            }
+            for (const auto& entry : headersRef.AsObject())
+            {
+                if (!requestMessage.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString())) && requestContent)
+                {
+                    requestContent.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString()));
+                }
+            }
+            if (requestContent)
+            {
                 requestMessage.Content(requestContent);
-            }
-            else if (!body.empty()) {
-                winrt::Windows::Web::Http::HttpStringContent requestString{ winrt::to_hstring(body) };
-
-                for (const auto& entry : headersRef.AsObject())
-                {
-                    if (!requestMessage.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString())))
-                    {
-                        requestString.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString()));
-                    }
-                }
-                requestMessage.Content(requestString);
-            }
-            else {
-                for (const auto& entry : headersRef.AsObject())
-                {
-                    requestMessage.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString()));
-                }
             }
 
             // Send the request

@@ -112,6 +112,8 @@ public:
 	std::vector<std::string> customCACerts;
 	std::vector<std::string> pinnedHosts;
 	bool trustSystemCerts;
+	// What a single request body is - "text", "base64" or "file" - as JS decided it.
+	std::string bodyType;
 };
 
 

@@ -305,4 +305,11 @@ Apps that follow the README don't need to change anything.
 
 ## Windows
 
-No changes.
+- `fetch` accepts every HTTP method. It rejected `PATCH`, `HEAD` and `OPTIONS` with
+  `EINVAL` ("Method not supported").
+- Request bodies follow the rules under [Request bodies](#request-bodies). Before 1.0
+  Windows only read a file for a bare `file://` prefix (so `wrap(path)` was sent as
+  text), never decoded base64, and read a file for a multipart field even without a
+  `filename`. A text body without a Content-Type is sent without one, like Android; it
+  used to get `text/plain; charset=UTF-8`, and so did every multipart text part, which
+  now defaults to `text/plain` (`application/octet-stream` with a `filename`).
