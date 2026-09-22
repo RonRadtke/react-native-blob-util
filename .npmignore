@@ -32,6 +32,8 @@ app.json
 
 # Android
 android/*/build/
+# JVM unit tests: they read tests/fixtures, which is not shipped either
+android/src/test/
 android/gradlew
 android/build
 android/gradlew.bat
