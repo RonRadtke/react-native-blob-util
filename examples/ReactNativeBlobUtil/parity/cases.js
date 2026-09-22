@@ -899,6 +899,61 @@ define('android-media-store', async (ctx) => {
     return out;
 }, ['android']);
 
+// content:// URIs are opened through ContentResolver, never turned into a file
+// path first. The forged URIs are what another app could share: a Downloads
+// "raw:" id and an external-storage id that climbs out of its directory, both
+// naming a private file of this app. Resolving them to paths read that file.
+define('android-content-uri', async (ctx) => {
+    const dir = await freshDir('android-content-uri');
+    const src = `${dir}/source.txt`;
+    await fs.writeFile(src, 'content via resolver ✓', 'utf8');
+    const name = `parity-cu-${Date.now()}.txt`;
+    const uri = await ReactNativeBlobUtil.media.copyToMediaStore({name, parentFolder: 'parity', mimeType: 'text/plain'}, 'Download', src);
+    const secret = `${dir}/secret.txt`;
+    await fs.writeFile(secret, 'private', 'utf8');
+    const forgedRaw = 'content://com.android.providers.downloads.documents/document/' + encodeURIComponent(`raw:${secret}`);
+    const forgedPrimary = 'content://com.android.externalstorage.documents/document/' + encodeURIComponent(`primary:../../../../../..${secret}`);
+    return {
+        readUtf8: await settle(() => fs.readFile(uri, 'utf8')),
+        readBase64: await settle(() => fs.readFile(uri, 'base64')),
+        stat: await settle(async () => {
+            const s = await fs.stat(uri);
+            return {filename: s.filename === name, pathIsUri: s.path === uri, size: s.size, type: s.type};
+        }),
+        exists: await settle(() => fs.exists(uri)),
+        isDir: await settle(() => fs.isDir(uri)),
+        hash: await settle(() => fs.hash(uri, 'md5')),
+        cp: await settle(async () => {
+            await fs.cp(uri, `${dir}/cp.txt`);
+            return fs.readFile(`${dir}/cp.txt`, 'utf8');
+        }),
+        ls: await settle(() => fs.ls(uri)),
+        mv: await settle(() => fs.mv(uri, `${dir}/mv.txt`)),
+        uploadWrapped: await settle(async () => {
+            const res = await ReactNativeBlobUtil.fetch('POST', ctx.url('/echo'), {'Content-Type': 'text/plain'}, ReactNativeBlobUtil.wrap(uri));
+            return (await res.json()).text;
+        }),
+        uploadMultipart: await settle(async () => {
+            const res = await ReactNativeBlobUtil.fetch('POST', ctx.url('/echo'), {'Content-Type': 'multipart/form-data'}, [
+                {name: 'file', filename: 'cu.txt', type: 'text/plain', data: ReactNativeBlobUtil.wrap(uri)},
+                // The file prefix in front of a content URI, as apps wrote it by hand
+                // before wrap() learned the content prefix.
+                {name: 'prefixed', filename: 'cu2.txt', type: 'text/plain', data: `ReactNativeBlobUtil-file://${uri}`},
+            ]);
+            return (await res.json()).parts.map((part) => part.text);
+        }),
+        forgedRawRead: await settle(() => fs.readFile(forgedRaw, 'utf8')),
+        forgedRawStat: await settle(async () => (await fs.stat(forgedRaw)).size),
+        forgedPrimaryRead: await settle(() => fs.readFile(forgedPrimary, 'utf8')),
+        forgedRawUnlink: await settle(async () => {
+            await fs.unlink(forgedRaw);
+            return fs.exists(secret);
+        }),
+        unlink: await settle(() => fs.unlink(uri)),
+        existsAfterUnlink: await settle(() => fs.exists(uri)),
+    };
+}, ['android']);
+
 define('android-misc', async () => {
     const dir = await freshDir('android-misc');
     const file = `${dir}/scan.txt`;

@@ -1,9 +1,7 @@
 package com.ReactNativeBlobUtil
 
 import android.content.Context
-import android.net.Uri
 import android.util.Base64
-import com.ReactNativeBlobUtil.Utils.PathResolver
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -247,10 +245,14 @@ class ReactNativeBlobUtilUtils {
         }
 
         /**
-         * Normalize the path, remove URI scheme (xxx://) so that we can handle it.
+         * The file path a string names: a plain path as it is, a file:// URI without
+         * its scheme, a bundle-assets:// URI unchanged. Any other URI, content://
+         * above all, is not a file path and yields null; callers open it through
+         * ContentResolver (ReactNativeBlobUtilContent). Resolving a content URI to
+         * a path let a URI shared by another app name this app's private files.
          *
          * @param path URI string.
-         * @return Normalized string
+         * @return The path, or null for a URI that is not one.
          */
         @JvmStatic
         fun normalizePath(path: String?): String? {
@@ -260,11 +262,7 @@ class ReactNativeBlobUtilUtils {
                 return path.replace("file://", "")
             }
 
-            return if (path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {
-                path
-            } else {
-                PathResolver.getRealPathFromURI(ReactNativeBlobUtilImpl.RCTContext, Uri.parse(path))
-            }
+            return if (path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) path else null
         }
 
         @JvmStatic

@@ -283,6 +283,8 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     "utf8" -> promise.resolve(String(bytes, Charset.defaultCharset()))
                     else -> promise.resolve(String(bytes, Charset.defaultCharset()))
                 }
+            } catch (err: SecurityException) {
+                promise.reject("EACCES", "Not allowed to read '$path'")
             } catch (err: FileNotFoundException) {
                 // A null message throws here, as msg.contains(...) did in Java.
                 val msg: String = err.localizedMessage!!
@@ -507,6 +509,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param callback JS context callback
          */
         fun cp(path: String?, rawDest: String?, promise: Promise) {
+            val destIsContent = ReactNativeBlobUtilContent.isContent(rawDest)
             val dest = ReactNativeBlobUtilUtils.normalizePath(rawDest)
             var input: InputStream? = null
             var out: OutputStream? = null
@@ -519,7 +522,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     promise.reject("ENOENT", "Source file at path`$path` does not exist or can not be opened")
                     return
                 }
-                if (!File(dest).exists()) {
+                if (!destIsContent && !File(dest).exists()) {
                     val parent = File(dest).parentFile
                     if (parent != null && !parent.isDirectory) {
                         promise.reject("ENOENT", "Destination directory of '$dest' does not exist")
@@ -532,7 +535,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     }
                 }
 
-                out = FileOutputStream(dest)
+                out = if (destIsContent) ReactNativeBlobUtilContent.openOutput(rawDest!!, false) else FileOutputStream(dest)
 
                 val buf = ByteArray(10240)
                 var len: Int
@@ -543,6 +546,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 // A destination whose directory does not exist, or a source that
                 // cannot be opened after all, surfaces as FileNotFoundException.
                 if (err is FileNotFoundException) code = "ENOENT"
+                if (err is SecurityException) code = "EACCES"
                 message += err.localizedMessage
             } finally {
                 try {
@@ -862,6 +866,8 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 }
 
                 promise.resolve(hexString.toString())
+            } catch (e: SecurityException) {
+                promise.reject("EACCES", "Not allowed to read '$path'")
             } catch (e: Exception) {
                 e.printStackTrace()
                 promise.reject("EUNSPECIFIED", e.localizedMessage)
@@ -1014,7 +1020,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @throws IOException If the given file does not exist or is a directory FileInputStream will throw a FileNotFoundException
          */
         @Throws(IOException::class)
-        private fun inputStreamFromPath(path: String?): InputStream? {
+        internal fun inputStreamFromPath(path: String?): InputStream? {
             // A null path throws here, as path.startsWith(...) did in Java; every caller is inside a try.
             val p = path!!
             if (p.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {

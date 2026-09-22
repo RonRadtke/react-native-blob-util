@@ -86,4 +86,24 @@ class ReactNativeBlobUtilUtilsTest {
         assertFalse(ReactNativeBlobUtilUtils.isContentUri("file:///x"))
         assertFalse(ReactNativeBlobUtilUtils.isContentUri(null))
     }
+
+    // A content URI used to be turned into a file path (the provider's _data,
+    // a Downloads raw: id, an external-storage id joined onto a directory), and
+    // that path was opened with this app's rights: a URI another app shared could
+    // name this app's private files. Content URIs now go to ContentResolver.
+    @Test
+    fun `normalizePath never turns a content URI into a file path`() {
+        assertNull(ReactNativeBlobUtilUtils.normalizePath(
+            "content://com.android.providers.downloads.documents/document/raw%3A%2Fdata%2Fdata%2Fapp%2Fsecret"))
+        assertNull(ReactNativeBlobUtilUtils.normalizePath(
+            "content://com.android.externalstorage.documents/document/primary%3A..%2F..%2Fdata"))
+        assertNull(ReactNativeBlobUtilUtils.normalizePath("content://media/external/downloads/42"))
+    }
+
+    @Test
+    fun `normalizePath keeps plain paths, strips file URIs and keeps assets`() {
+        assertEquals("/data/x.txt", ReactNativeBlobUtilUtils.normalizePath("/data/x.txt"))
+        assertEquals("/data/x.txt", ReactNativeBlobUtilUtils.normalizePath("file:///data/x.txt"))
+        assertEquals("bundle-assets://a.png", ReactNativeBlobUtilUtils.normalizePath("bundle-assets://a.png"))
+    }
 }

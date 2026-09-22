@@ -27,6 +27,7 @@ import com.facebook.react.modules.network.OkHttpClientProvider
 import okhttp3.JavaNetCookieJar
 import okhttp3.OkHttpClient
 import java.io.File
+import java.io.FileNotFoundException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -58,11 +59,23 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         })
     }
 
+    /**
+     * Rejects ENOTSUP when one of the paths is a content:// URI, for calls that only
+     * work on file paths (a directory, a move, a new file). True when it rejected.
+     */
+    private fun refuseContent(promise: Promise, vararg paths: String?): Boolean {
+        val uri = paths.firstOrNull { ReactNativeBlobUtilContent.isContent(it) } ?: return false
+        promise.reject("ENOTSUP", "'$uri' is a content:// URI; this call only takes file paths")
+        return true
+    }
+
     fun createFile(path: String?, content: String?, encode: String?, promise: Promise) {
+        if (refuseContent(promise, path)) return
         threadPool.execute { ReactNativeBlobUtilFS.createFile(path, content, encode, promise) }
     }
 
     fun createFileASCII(path: String?, dataArray: ReadableArray?, promise: Promise) {
+        if (refuseContent(promise, path)) return
         threadPool.execute { ReactNativeBlobUtilFS.createFileASCII(path, dataArray, promise) }
     }
 
@@ -132,15 +145,36 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
     }
 
     fun unlink(path: String?, promise: Promise) {
+        if (ReactNativeBlobUtilContent.isContent(path)) {
+            threadPool.execute {
+                try {
+                    // Nothing to delete resolves, as for a missing file.
+                    ReactNativeBlobUtilContent.delete(path!!)
+                    promise.resolve(null)
+                } catch (e: SecurityException) {
+                    promise.reject("EACCES", "Not allowed to delete '$path'")
+                } catch (e: FileNotFoundException) {
+                    promise.resolve(null)
+                } catch (e: Exception) {
+                    promise.reject("EUNSPECIFIED", e.localizedMessage)
+                }
+            }
+            return
+        }
         ReactNativeBlobUtilFS.unlink(path, promise)
     }
 
     fun mkdir(path: String?, promise: Promise) {
+        if (refuseContent(promise, path)) return
         ReactNativeBlobUtilFS.mkdir(path, promise)
     }
 
     fun exists(path: String?, promise: Promise) {
-        val (exists, isDirectory) = ReactNativeBlobUtilFS.exists(path)
+        val (exists, isDirectory) = if (ReactNativeBlobUtilContent.isContent(path)) {
+            ReactNativeBlobUtilContent.exists(path!!) to false
+        } else {
+            ReactNativeBlobUtilFS.exists(path)
+        }
         val result = Arguments.createMap()
         result.putBoolean("exists", exists)
         result.putBoolean("isDirectory", isDirectory)
@@ -152,10 +186,12 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
     }
 
     fun mv(path: String?, dest: String?, promise: Promise) {
+        if (refuseContent(promise, path, dest)) return
         ReactNativeBlobUtilFS.mv(path, dest, promise)
     }
 
     fun ls(path: String?, promise: Promise) {
+        if (refuseContent(promise, path)) return
         ReactNativeBlobUtilFS.ls(path, promise)
     }
 
@@ -180,18 +216,34 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
     }
 
     fun writeFileArray(path: String?, data: ReadableArray?, append: Boolean, promise: Promise) {
+        if (refuseContent(promise, path)) return
         threadPool.execute { ReactNativeBlobUtilFS.writeFile(path, data, append, promise) }
     }
 
     fun writeFile(path: String?, encoding: String?, data: String?, transformFile: Boolean, append: Boolean, promise: Promise) {
+        if (refuseContent(promise, path)) return
         threadPool.execute { ReactNativeBlobUtilFS.writeFile(path, encoding, data, transformFile, append, promise) }
     }
 
     fun lstat(path: String?, promise: Promise) {
+        if (refuseContent(promise, path)) return
         ReactNativeBlobUtilFS.lstat(path, promise)
     }
 
     fun stat(path: String?, promise: Promise) {
+        if (ReactNativeBlobUtilContent.isContent(path)) {
+            threadPool.execute {
+                try {
+                    val stat = ReactNativeBlobUtilContent.stat(path!!)
+                    if (stat == null) promise.reject("ENOENT", "No such content '$path'") else promise.resolve(stat)
+                } catch (e: SecurityException) {
+                    promise.reject("EACCES", "Not allowed to read '$path'")
+                } catch (e: Exception) {
+                    promise.reject("EUNSPECIFIED", e.localizedMessage)
+                }
+            }
+            return
+        }
         ReactNativeBlobUtilFS.stat(path, promise)
     }
 
@@ -239,6 +291,7 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
     }
 
     fun slice(src: String?, dest: String?, start: Long, end: Long, promise: Promise) {
+        if (refuseContent(promise, dest)) return
         ReactNativeBlobUtilFS.slice(src, dest, start, end, "", promise)
     }
 

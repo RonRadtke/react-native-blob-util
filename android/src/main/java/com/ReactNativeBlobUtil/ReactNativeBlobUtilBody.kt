@@ -155,6 +155,7 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
         // upload from storage
         if (body.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
             var orgPath: String? = body.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
+            if (ReactNativeBlobUtilContent.isContent(orgPath)) return ReactNativeBlobUtilContent.openInput(orgPath!!)
             orgPath = ReactNativeBlobUtilUtils.normalizePath(orgPath)
             // upload file from assets
             if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
@@ -237,10 +238,17 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
                 // file field header end
                 // upload from storage
                 if (data.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
-                    var orgPath: String? = data.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
-                    orgPath = ReactNativeBlobUtilUtils.normalizePath(orgPath)
-                    // path starts with content://
-                    if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
+                    val rawPath = data.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
+                    val orgPath: String? = ReactNativeBlobUtilUtils.normalizePath(rawPath)
+                    // a wrapped content:// URI is read through its provider
+                    if (ReactNativeBlobUtilContent.isContent(rawPath)) {
+                        try {
+                            pipeStreamToFileStream(ReactNativeBlobUtilContent.openInput(rawPath), os)
+                        } catch (e: Exception) {
+                            ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from content URI:$rawPath, " + e.localizedMessage)
+                        }
+                    }
+                    else if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
                         try {
                             val assetName = orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
                             val input = ctx.assets.open(assetName)
@@ -398,10 +406,18 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
             } else if (field.filename != null) {
                 // upload from storage
                 if (data.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
-                    var orgPath: String? = data.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
-                    orgPath = ReactNativeBlobUtilUtils.normalizePath(orgPath)
+                    val rawPath = data.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
+                    val orgPath: String? = ReactNativeBlobUtilUtils.normalizePath(rawPath)
+                    // a wrapped content:// URI is measured through its provider
+                    if (ReactNativeBlobUtilContent.isContent(rawPath)) {
+                        try {
+                            total += sourceLength(ReactNativeBlobUtilContent.openInput(rawPath))
+                        } catch (e: Exception) {
+                            ReactNativeBlobUtilUtils.emitWarningEvent("Failed to estimate form data length from content URI:$rawPath, " + e.localizedMessage)
+                        }
+                    }
                     // path starts with asset://
-                    if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
+                    else if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
                         try {
                             val assetName = orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
                             val length = sourceLength(ctx.assets.open(assetName))

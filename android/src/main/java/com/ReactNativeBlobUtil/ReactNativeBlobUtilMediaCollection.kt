@@ -127,7 +127,9 @@ class ReactNativeBlobUtilMediaCollection {
 
         @JvmStatic
         fun writeToMediaFile(fileUri: Uri, data: String?, transformFile: Boolean, promise: Promise, ctx: ReactApplicationContext): Boolean {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // A content URI target goes through the provider on every version; before
+            // Android 10 it used to be turned into a file path.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q || ReactNativeBlobUtilContent.isContent(fileUri.toString())) {
                 try {
                     val appCtx = ctx.applicationContext
                     val resolver = appCtx.contentResolver
@@ -146,22 +148,23 @@ class ReactNativeBlobUtilMediaCollection {
                         val descr: ParcelFileDescriptor?
                         try {
                             descr = appCtx.contentResolver.openFileDescriptor(fileUri, "w")
-                            val normalizedData = ReactNativeBlobUtilUtils.normalizePath(data)
-                            val src = File(normalizedData)
-                            if (!src.exists()) {
-                                promise.reject("ENOENT", "No such file ('$normalizedData')")
-                                return false
+                            val fin: InputStream = if (ReactNativeBlobUtilContent.isContent(data)) {
+                                ReactNativeBlobUtilContent.openInput(data!!)
+                            } else {
+                                val normalizedData = ReactNativeBlobUtilUtils.normalizePath(data)
+                                val src = File(normalizedData)
+                                if (!src.exists()) {
+                                    promise.reject("ENOENT", "No such file ('$normalizedData')")
+                                    return false
+                                }
+                                FileInputStream(src)
                             }
-
-
-                            val fin = FileInputStream(src)
                             val out = FileOutputStream(descr!!.fileDescriptor)
 
                             if (transformFile) {
                                 // in order to transform file, we must load the entire file onto memory
-                                val length = src.length().toInt()
-                                val bytes = ByteArray(length)
-                                fin.read(bytes)
+                                // (one read() could return less than the whole file)
+                                val bytes = fin.readBytes()
                                 val transformer = ReactNativeBlobUtilFileTransformer.sharedFileTransformer
                                     ?: throw IllegalStateException("Write to media file with transform was specified but the shared file transformer is not set")
                                 val transformedBytes = transformer.onWriteFile(bytes)

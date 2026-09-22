@@ -1,4 +1,89 @@
 {
+  "android-content-uri": {
+    "cp": {
+      "resolved": "content via resolver ✓"
+    },
+    "exists": {
+      "resolved": true
+    },
+    "existsAfterUnlink": {
+      "resolved": false
+    },
+    "forgedPrimaryRead": {
+      "rejected": {
+        "code": "EACCES",
+        "message": "Not allowed to read 'content://com.android.externalstorage.documents/document/primary%3A..%2F..%2F..%2F..%2F..%2F..%2Fdata%2Fuser%2F0%2Fcom.reactnativeblobutile2e%2Ffiles%2Fparity%2Fandroid-content-uri%2Fsecret.txt'",
+        "name": "Error"
+      }
+    },
+    "forgedRawRead": {
+      "rejected": {
+        "code": "EACCES",
+        "message": "Not allowed to read 'content://com.android.providers.downloads.documents/document/raw%3A%2Fdata%2Fuser%2F0%2Fcom.reactnativeblobutile2e%2Ffiles%2Fparity%2Fandroid-content-uri%2Fsecret.txt'",
+        "name": "Error"
+      }
+    },
+    "forgedRawStat": {
+      "rejected": {
+        "code": "EACCES",
+        "message": "Not allowed to read 'content://com.android.providers.downloads.documents/document/raw%3A%2Fdata%2Fuser%2F0%2Fcom.reactnativeblobutile2e%2Ffiles%2Fparity%2Fandroid-content-uri%2Fsecret.txt'",
+        "name": "Error"
+      }
+    },
+    "forgedRawUnlink": {
+      "rejected": {
+        "code": "EACCES",
+        "message": "Not allowed to delete 'content://com.android.providers.downloads.documents/document/raw%3A%2Fdata%2Fuser%2F0%2Fcom.reactnativeblobutile2e%2Ffiles%2Fparity%2Fandroid-content-uri%2Fsecret.txt'",
+        "name": "Error"
+      }
+    },
+    "hash": {
+      "resolved": "<md5>"
+    },
+    "isDir": {
+      "resolved": false
+    },
+    "ls": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "'content://media/external_primary/downloads/<n>' is a content:// URI; this call only takes file paths",
+        "name": "Error"
+      }
+    },
+    "mv": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "'content://media/external_primary/downloads/<n>' is a content:// URI; this call only takes file paths",
+        "name": "Error"
+      }
+    },
+    "readBase64": {
+      "resolved": "Y29udGVudCB2aWEgcmVzb2x2ZXIg4pyT"
+    },
+    "readUtf8": {
+      "resolved": "content via resolver ✓"
+    },
+    "stat": {
+      "resolved": {
+        "filename": true,
+        "pathIsUri": true,
+        "size": 24,
+        "type": "file"
+      }
+    },
+    "unlink": {
+      "resolved": "<undefined>"
+    },
+    "uploadMultipart": {
+      "resolved": [
+        "content via resolver ✓",
+        "content via resolver ✓"
+      ]
+    },
+    "uploadWrapped": {
+      "resolved": "content via resolver ✓"
+    }
+  },
   "android-media-store": {
     "copied": {
       "resolved": "content://media/external_primary/downloads/<n>"

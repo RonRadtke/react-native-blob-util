@@ -142,6 +142,7 @@ error had neither a code nor the response info. Now:
   | `EINVAL` | the URL or method is invalid |
   | `ENOTDIR` | the download directory could not be created |
   | `EUNSPECIFIED` | anything else; the message says what |
+- `EACCES` (new): a `content://` provider refused access to the URI (Android).
 - `task.cancel(callback)`: the callback is called once native has cancelled, with an
   error argument if that failed. It used to receive `(null, taskId)`.
 - Messages are unchanged where they existed, so string matching on messages keeps
@@ -219,6 +220,30 @@ Promise that resolves once native has cancelled; the optional callback still wor
 ## Android
 
 Apps that follow the README don't need to change anything.
+
+### content:// URIs are opened through their provider (security fix)
+
+0.25 turned a `content://` URI into a file path before using it: the provider's
+`_data` column, the path inside a Downloads `raw:` id, or an external-storage document
+id joined onto a directory. That path was then opened with your app's own rights, so a
+URI another app shared with yours could name any file your app can read or delete,
+including its private files. `fs.readFile`, `readStream`, `stat` and `unlink` on a
+forged Downloads URI read and deleted a file in your app's data directory.
+
+1.0 hands every `content://` URI to `ContentResolver`, and the provider decides:
+
+- `readFile`, `readStream`, `hash`, `cp` (source and destination), `writeStream`,
+  `media.write`, `media.copyToMediaStore` and uploads of `wrap(uri)` read or write
+  through the provider. A URI the provider refuses rejects with `EACCES`.
+- `stat` asks the provider: `filename`, `size` and `lastModified` as it reports them,
+  `type: 'file'`, and `path` is the URI itself. **It no longer returns a file path for a
+  content URI**; pass the URI to the other calls instead.
+- `exists` asks the provider (`isDirectory` is false); `unlink` deletes through it, and
+  resolves when there was nothing to delete.
+- `ls`, `lstat`, `mv`, `mkdir`, `createFile`, `writeFile` and the destination of
+  `slice` only take file paths and reject a content URI with `ENOTSUP`. Copy it to a
+  file with `fs.cp(uri, path)` first.
+- `com.ReactNativeBlobUtil.Utils.PathResolver` is gone.
 
 - `ReactNativeBlobUtilUtils.sharedTrustManager` is still a static field. Java and
   Kotlin code that sets it compiles unchanged.

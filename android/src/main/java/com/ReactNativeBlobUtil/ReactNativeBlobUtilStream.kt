@@ -117,6 +117,8 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
                 "ENOENT",
                 "No such file '$path'"
             )
+        } catch (err: SecurityException) {
+            emitStreamEvent(streamId, "error", "EACCES", "Not allowed to read '$path'")
         } catch (err: Exception) {
             emitStreamEvent(
                 streamId,
@@ -148,7 +150,7 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
             // fix issue 287
             else if (resolved == null) {
                 // A null path throws here, inside the try, as Uri.parse(null) did in Java.
-                fs = ReactNativeBlobUtilImpl.RCTContext.contentResolver.openOutputStream(Uri.parse(path!!))
+                fs = ReactNativeBlobUtilImpl.RCTContext.contentResolver.openOutputStream(Uri.parse(path!!), if (append) "wa" else "wt")
             } else {
                 val dest = prepareOutputFile(resolved)
                 fs = FileOutputStream(dest, append)
