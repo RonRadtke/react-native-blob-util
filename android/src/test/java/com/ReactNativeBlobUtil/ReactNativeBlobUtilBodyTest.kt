@@ -75,6 +75,35 @@ class ReactNativeBlobUtilBodyTest {
     }
 
     @Test
+    fun `measuring an upload source closes it`() {
+        val source = WatchedSource(ByteArray(64))
+        assertEquals(64L, body().sourceLength(source))
+        assertTrue(source.closed)
+    }
+
+    @Test
+    fun `a file source is measured by its size, not by available()`() {
+        val file = tmp.newFile().apply { writeBytes(ByteArray(10)) }
+        // available() is an Int and caps a file over 2 GB; a stream that
+        // under-reports stands in for that here.
+        val underReporting = object : java.io.FileInputStream(file) {
+            override fun available() = 1
+        }
+        assertEquals(10L, body().sourceLength(underReporting))
+    }
+
+    @Test
+    fun `a single-file body declares the file's length`() {
+        val file = tmp.newFile().apply { writeBytes(ByteArray(1234)) }
+        // normalizePath reads a drive letter as a URI scheme, so hand it a plain path.
+        val plain = file.absolutePath.replace('\\', '/').replaceFirst(Regex("^[A-Za-z]:"), "")
+        val single = ReactNativeBlobUtilBody("body-test")
+            .setRequestType(ReactNativeBlobUtilReq.RequestType.SingleFile)
+            .setBody(ReactNativeBlobUtilConst.FILE_PREFIX + plain)
+        assertEquals(1234L, single.contentLength())
+    }
+
+    @Test
     fun `a write failure fails the request instead of sending a short body`() {
         val error = assertThrows(IOException::class.java) { body().writeTo(BrokenSink()) }
         assertEquals("Connection reset", error.message)

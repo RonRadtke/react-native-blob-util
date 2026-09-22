@@ -56,7 +56,7 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
             // A missing request type throws here, as the switch did in Java, and is
             // reported below.
             when (requestType!!) {
-                ReactNativeBlobUtilReq.RequestType.SingleFile -> contentLength = getRequestStream()!!.available().toLong()
+                ReactNativeBlobUtilReq.RequestType.SingleFile -> contentLength = sourceLength(getRequestStream()!!)
                 ReactNativeBlobUtilReq.RequestType.AsIs -> contentLength = this.rawBody!!.toByteArray().size.toLong()
                 ReactNativeBlobUtilReq.RequestType.Others -> {}
                 // No case for these in the Java switch either.
@@ -207,8 +207,19 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
 
         val outputDir = ReactNativeBlobUtilImpl.RCTContext.cacheDir // context being the Activity pointer
         val outputFile = File.createTempFile("rnfb-form-tmp", "", outputDir)
-        val os = FileOutputStream(outputFile)
+        // The cache file is closed on failure too, and removed: a half-written form
+        // is never sent, so it would only be left behind in the cache.
+        try {
+            FileOutputStream(outputFile).use { os -> writeForm(os, boundary) }
+        } catch (e: Exception) {
+            outputFile.delete()
+            throw e
+        }
+        return outputFile
+    }
 
+    @Throws(IOException::class)
+    private fun writeForm(os: FileOutputStream, boundary: String) {
         val fields = countFormDataLength()
         val ctx = ReactNativeBlobUtilImpl.RCTContext
 
@@ -295,8 +306,6 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
         val end = "--$boundary--\r\n".toByteArray()
         os.write(end)
         os.flush()
-        os.close()
-        return outputFile
     }
 
     /**
@@ -325,6 +334,25 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
                 emitUploadProgress(totalWritten)
             }
         }
+    }
+
+    /**
+     * The number of bytes [input] has left, for Content-Length. The stream is only
+     * opened to be measured, so it is closed here; Java left it open on every
+     * single-file and asset upload.
+     *
+     * A file-backed stream reports its size as a Long. available() is an Int, so on
+     * its own it capped a file over 2 GB at Int.MAX_VALUE, and the request then
+     * declared the wrong length. Streams that are not files, or whose channel has
+     * no size (a pipe from a content provider), keep available().
+     *
+     * Internal rather than private so the unit test can hand it a source it watches.
+     */
+    internal fun sourceLength(input: InputStream): Long = input.use {
+        val fromChannel = (input as? FileInputStream)?.let {
+            runCatching { it.channel.size() - it.channel.position() }.getOrNull()
+        }
+        if (fromChannel != null && fromChannel > 0) fromChannel else input.available().toLong()
     }
 
     /**
@@ -376,7 +404,7 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
                     if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
                         try {
                             val assetName = orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
-                            val length = ctx.assets.open(assetName).available().toLong()
+                            val length = sourceLength(ctx.assets.open(assetName))
                             total += length
                         } catch (e: IOException) {
                             ReactNativeBlobUtilUtils.emitWarningEvent(e.localizedMessage)
