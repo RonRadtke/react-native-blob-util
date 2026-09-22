@@ -122,8 +122,16 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
         try {
             pipeStreamToSink(getInputStreamForRequestBody(), sink)
         } catch (ex: Exception) {
-            ReactNativeBlobUtilUtils.emitWarningEvent(ex.localizedMessage)
             ex.printStackTrace()
+            // OkHttp fails the call on an IOException from here, so the request
+            // rejects with the source's own error. Swallowing it, as Java did,
+            // left the body short: with a known length the connection died with
+            // "unexpected end of stream", and a chunked upload went through
+            // truncated and succeeded (#490). Anything other than an IOException
+            // would be rethrown on OkHttp's executor thread and kill the app, so
+            // it travels wrapped.
+            throw ex as? IOException
+                ?: IOException(ex.localizedMessage ?: "ReactNativeBlobUtil could not read the request body", ex)
         }
     }
 
@@ -297,20 +305,26 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
      * @param stream The input stream
      * @param sink   The request body buffer sink
      * @throws IOException .
+     *
+     * Internal rather than private so the unit test can hand it a source it watches.
      */
     @Throws(IOException::class)
-    private fun pipeStreamToSink(stream: InputStream?, sink: BufferedSink) {
+    internal fun pipeStreamToSink(stream: InputStream?, sink: BufferedSink) {
         // A null stream throws here, as it did in Java, and writeTo reports it.
         val input = stream!!
-        val chunk = ByteArray(10240)
-        var totalWritten: Long = 0
-        var read: Int
-        while (input.read(chunk, 0, 10240).also { read = it } > 0) {
-            sink.write(chunk, 0, read)
-            totalWritten += read
-            emitUploadProgress(totalWritten)
+        // The source is closed whether or not the copy completes. Java closed it
+        // after the loop only, so a failed read or write leaked the upload's file
+        // descriptor (#490).
+        input.use {
+            val chunk = ByteArray(10240)
+            var totalWritten: Long = 0
+            var read: Int
+            while (input.read(chunk, 0, 10240).also { read = it } > 0) {
+                sink.write(chunk, 0, read)
+                totalWritten += read
+                emitUploadProgress(totalWritten)
+            }
         }
-        input.close()
     }
 
     /**
@@ -319,17 +333,21 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
      * @param input The input stream
      * @param os The output stream to a file
      * @throws IOException
+     *
+     * Internal rather than private so the unit test can hand it a source it watches.
      */
     @Throws(IOException::class)
-    private fun pipeStreamToFileStream(input: InputStream?, os: FileOutputStream) {
+    internal fun pipeStreamToFileStream(input: InputStream?, os: FileOutputStream) {
         // A null stream throws here, as it did in Java; the callers catch it.
         val source = input!!
-        val buf = ByteArray(10240)
-        var len: Int
-        while (source.read(buf).also { len = it } > 0) {
-            os.write(buf, 0, len)
+        // Closed on failure too, as in pipeStreamToSink (#490).
+        source.use {
+            val buf = ByteArray(10240)
+            var len: Int
+            while (source.read(buf).also { len = it } > 0) {
+                os.write(buf, 0, len)
+            }
         }
-        source.close()
     }
 
     /**
