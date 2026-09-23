@@ -9,6 +9,16 @@ declare const ReactNativeBlobUtil: ReactNativeBlobUtilStatic;
 export default ReactNativeBlobUtil;
 export type ReactNativeBlobUtil = ReactNativeBlobUtilStatic;
 
+// The same objects as the default export's members.
+export declare const fetch: ReactNativeBlobUtilStatic['fetch'];
+export declare const config: ReactNativeBlobUtilStatic['config'];
+export declare const fs: FS;
+export declare const open: OpenApi;
+export declare const media: MediaApi;
+export declare const session: ReactNativeBlobUtilStatic['session'];
+export declare const wrap: ReactNativeBlobUtilStatic['wrap'];
+export declare const base64: ReactNativeBlobUtilStatic['base64'];
+
 export interface ReactNativeBlobUtilStatic {
     /**
      * Send an HTTP request with the default configuration. Use
@@ -345,11 +355,31 @@ export interface AddAndroidDownloads {
 }
 
 /**
- * An error rejected by this library: a POSIX-style code such as EINVAL,
- * ENOENT, EEXIST, EISDIR, ENOTSUP, ECANCELED or EUNSPECIFIED.
+ * The codes a rejection of this library carries. File system: ENOENT, EISDIR,
+ * ENOTDIR, EEXIST, EACCES (a content:// provider refused), EBADF (a closed
+ * stream). Requests: ETIMEDOUT, ENOTFOUND, ECONNREFUSED, ECONNRESET,
+ * ENETUNREACH, ESSL, ECANCELED. Everywhere: EINVAL (bad argument), ENOTSUP (not
+ * on this platform), EBUSY (a picker is already open), ENOAPP (no app can open
+ * the file), EUNSPECIFIED (anything else; the message says what).
+ */
+export type ErrorCode =
+    | 'ENOENT' | 'EISDIR' | 'ENOTDIR' | 'EEXIST' | 'EACCES' | 'EBADF'
+    | 'ETIMEDOUT' | 'ENOTFOUND' | 'ECONNREFUSED' | 'ECONNRESET' | 'ENETUNREACH' | 'ESSL' | 'ECANCELED'
+    | 'EINVAL' | 'ENOTSUP' | 'EBUSY' | 'ENOAPP' | 'EUNSPECIFIED';
+
+/**
+ * An error rejected by this library.
  */
 export interface CodedError extends Error {
-    code: string;
+    code: ErrorCode;
+}
+
+/**
+ * The rejection of a failed `fetch`: the code, and the response info received
+ * before it failed.
+ */
+export interface FetchError extends CodedError {
+    respInfo: ReactNativeBlobUtilResponseInfo;
 }
 
 /**
@@ -427,6 +457,8 @@ export interface FS {
     writeFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
 
     writeFile(path: string, data: string, encoding: 'utf8' | 'base64' | 'uri' | undefined, options: {transform?: boolean}): Promise<number>;
+    // An encoding only known at runtime.
+    writeFile(path: string, data: string | number[], encoding?: WriteEncoding, options?: {transform?: boolean}): Promise<number>;
 
     /** @deprecated use `writeFile(path, data, encoding, {transform: true})` */
     writeFileWithTransform(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
@@ -437,6 +469,7 @@ export interface FS {
      */
     appendFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
     appendFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
+    appendFile(path: string, data: string | number[], encoding?: WriteEncoding): Promise<number>;
 
     /**
      * Read a file: text for utf8, a base64 string, or byte values 0..255 for ascii.
@@ -446,6 +479,8 @@ export interface FS {
 
     readFile(path: string, encoding: 'ascii', options: {transform?: boolean}): Promise<number[]>;
     readFile(path: string, encoding: 'utf8' | 'base64' | undefined, options: {transform?: boolean}): Promise<string>;
+    // An encoding only known at runtime.
+    readFile(path: string, encoding?: Encoding, options?: {transform?: boolean}): Promise<string | number[]>;
 
     /** @deprecated use `readFile(path, encoding, {transform: true})` */
     readFileWithTransform(path: string, encoding: 'ascii'): Promise<number[]>;
@@ -569,6 +604,7 @@ export interface MediaApi {
     /** Read an entry: text, a base64 string, or bytes 0..255. */
     read(uri: string, encoding: 'ascii'): Promise<number[]>;
     read(uri: string, encoding?: 'utf8' | 'base64'): Promise<string>;
+    read(uri: string, encoding?: Encoding): Promise<string | number[]>;
     /** Register a finished download with the Downloads app. */
     addDownload(options: AndroidDownloadOption): Promise<void>;
     /** Ask the media scanner to index files. */
@@ -731,10 +767,10 @@ export interface IOSApi {
      */
     syncPathAppGroup(groupName: string): string;
 
-    /** @deprecated use `presentOptionsMenu` */
+    /** @deprecated use `open.optionsMenu` */
     openDocument(path: string, scheme?: string): Promise<void>;
 
-    /** @deprecated use `presentPreview` */
+    /** @deprecated use `open.file` */
     previewDocument(path: string, scheme?: string): Promise<void>;
 }
 
@@ -745,8 +781,9 @@ export interface AndroidApi {
     /**
      * Open the file in another app with an ACTION_VIEW intent.
      * @param chooserTitle Show an app chooser with this title.
+     * @deprecated use `open.file` or `open.chooser`
      */
-    actionViewIntent(path: string, mime: string, chooserTitle?: string): Promise<boolean | null>;
+    actionViewIntent(path: string, mime: string, chooserTitle?: string): Promise<void>;
 
     /**
      * Show the system file picker and resolve the URI of the chosen file, or
@@ -836,11 +873,11 @@ export interface MediaCollection {
     getBlob(contenturi: string, encoding: 'ascii'): Promise<number[]>;
     getBlob(contenturi: string, encoding: 'utf8' | 'base64'): Promise<string>;
 
-    /** @deprecated use `createMediaFile` */
+    /** @deprecated use `media.createFile` */
     createMediafile(filedata: filedescriptor, mediatype: Mediatype): Promise<string>;
-    /** @deprecated use `writeToMediaFile` */
+    /** @deprecated use `media.write` */
     writeToMediafile(uri: string, path: string): Promise<string>;
-    /** @deprecated use `writeToMediaFileWithTransform` */
+    /** @deprecated use `media.write(uri, path, {transform: true})` */
     writeToMediafileWithTransform(uri: string, path: string): Promise<string>;
 }
 

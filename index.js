@@ -16,6 +16,10 @@ import URIUtil from './utils/uri';
 const {session} = fs;
 const wrap = URIUtil.wrap;
 
+// Named exports, the same objects as the default export's members:
+// import {fetch, fs} from 'react-native-blob-util'.
+export {base64, config, fetch, fs, media, open, session, wrap};
+
 export type {ReactNativeBlobUtilConfig, ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from './types';
 export {default as URIUtil} from './utils/uri';
 export {default as CanceledFetchError} from './class/ReactNativeBlobUtilCanceledFetchError';

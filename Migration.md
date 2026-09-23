@@ -106,6 +106,12 @@ string, adjust those comparisons.
 
 ### Types
 
+- Named exports: `import {fetch, config, fs, open, media, wrap, session, base64} from
+  'react-native-blob-util'`. They are the same objects as the default export's members.
+- `CodedError.code` is the exported `ErrorCode` union, and `FetchError` adds `respInfo`
+  for a failed `fetch`. `readFile`, `writeFile`, `appendFile` and `media.read` accept
+  an encoding typed as `Encoding` (known only at runtime) and resolve `string | number[]`.
+- `android.actionViewIntent` is typed to resolve `void`, as it does at runtime.
 - `index.js.flow` is gone; `index.d.ts` is the only declaration file and now matches
   the JavaScript. Names that changed: `RNFetchBlobDf` is `ReactNativeBlobUtilDf`
   (the old name stays as a deprecated alias), `ReactNativeBlobUtilStream` is

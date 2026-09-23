@@ -5,9 +5,20 @@ import ReactNativeBlobUtil, {
     FetchBlobResponse,
     URIUtil,
     getUUID,
+    fetch as namedFetch,
+    fs as namedFs,
+    open as namedOpen,
+    media as namedMedia,
+    config as namedConfig,
+    session as namedSession,
+    wrap as namedWrap,
+    base64 as namedBase64,
 } from '../../../index';
 import type {
     CodedError,
+    ErrorCode,
+    Encoding,
+    FetchError,
     ReactNativeBlobUtilConfig,
     ReactNativeBlobUtilDf,
     ReactNativeBlobUtilResponseInfo,
@@ -202,13 +213,13 @@ async function filesystem(): Promise<void> {
 }
 
 async function platforms(): Promise<void> {
-    const opened: boolean | null = await android.actionViewIntent('/p/a.pdf', 'application/pdf', 'Open with');
+    await android.actionViewIntent('/p/a.pdf', 'application/pdf', 'Open with');
     const chosen: string | null = await android.getContentIntent('*/*');
     await android.addCompleteDownload({title: 't', description: 'd', mime: 'text/plain', path: '/p', showNotification: true});
     const sd: string = await android.getSDCardDir();
     const sdApp: string = await android.getSDCardApplicationDir();
     await android.scanFile([{path: '/p/a.jpg'}]);
-    void opened; void chosen; void sd; void sdApp;
+    void chosen; void sd; void sdApp;
 
     await ios.presentOptionsMenu('/p/a.pdf');
     await ios.presentOpenInMenu('/p/a.pdf', 'com.adobe.pdf');
@@ -247,4 +258,25 @@ function helpers(): void {
     void decoded; void same; void isFile; void unwrapped; void stripped; void id; void error;
 }
 
-void network; void filesystem; void platforms; void helpers;
+async function namedExports(enc: Encoding): Promise<void> {
+    const res = await namedFetch('GET', 'https://example.test/');
+    const again = await namedConfig({fileCache: true}).fetch('GET', 'https://example.test/');
+    const text: string = await namedFs.readFile('/p/a.txt', 'utf8');
+    // An encoding only known at runtime.
+    const either: string | number[] = await namedFs.readFile('/p/a.txt', enc);
+    await namedFs.writeFile('/p/a.txt', either, enc);
+    await namedOpen.file('/p/a.txt');
+    const read: string | number[] = await namedMedia.read('content://x', enc);
+    namedSession('s').add(namedWrap('/p/a.txt'));
+    const b64: string = namedBase64.encode('x');
+    void res; void again; void text; void read; void b64;
+    try {
+        await namedFetch('GET', 'https://example.test/');
+    } catch (err) {
+        const failed = err as FetchError;
+        const code: ErrorCode = failed.code;
+        if (code === 'ECONNREFUSED') { void failed.respInfo.status; }
+    }
+}
+
+void network; void filesystem; void platforms; void helpers; void namedExports;

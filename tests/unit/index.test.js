@@ -33,11 +33,32 @@ test('the default export carries the public API and nothing that was removed', (
 
 test('every named export is defined at runtime (audit #15)', () => {
     const named = Object.fromEntries(Object.entries(entry).filter(([name]) => name !== 'default'));
-    assert.deepEqual(Object.keys(named).sort(), ['CanceledFetchError', 'FetchBlobResponse', 'URIUtil', 'getUUID']);
+    assert.deepEqual(Object.keys(named).sort(), [
+        'CanceledFetchError',
+        'FetchBlobResponse',
+        'URIUtil',
+        'base64',
+        'config',
+        'fetch',
+        'fs',
+        'getUUID',
+        'media',
+        'open',
+        'session',
+        'wrap',
+    ]);
     for (const [name, value] of Object.entries(named)) {
         assert.notEqual(value, undefined, `${name} is defined`);
     }
     assert.equal(typeof entry.URIUtil.wrap, 'function');
+});
+
+// 1.0: import {fetch, fs} from 'react-native-blob-util' works, and gives the
+// same functions as the default export, so the two styles can be mixed.
+test('the named exports are the default export\'s members', () => {
+    for (const name of ['fetch', 'config', 'fs', 'open', 'media', 'wrap', 'session', 'base64', 'CanceledFetchError']) {
+        assert.equal(entry[name], entry.default[name], name);
+    }
 });
 
 test('wrap() prefixes a path the way native expects', () => {

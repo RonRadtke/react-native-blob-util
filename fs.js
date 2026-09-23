@@ -41,7 +41,7 @@ for (const name of [
     'MovieDir',
     'DownloadDir',
     'DCIMDir',
-    'SDCardDir', // Depracated
+    'SDCardDir', // Deprecated
     'SDCardApplicationDir', // Deprecated
     'MainBundleDir',
     'LibraryDir',
@@ -54,7 +54,7 @@ for (const name of [
     'LegacyDownloadDir',
     'LegacyDCIMDir',
     'LegacyRingtoneDir',
-    'LegacySDCardDir', // Depracated
+    'LegacySDCardDir', // Deprecated
 ]) {
     Object.defineProperty(dirs, name, {
         enumerable: true,
