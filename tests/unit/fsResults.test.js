@@ -22,20 +22,39 @@ const {cases: EXISTS_RESULTS} = JSON.parse(
     readFileSync(new URL('../fixtures/native-payloads/exists-result.json', import.meta.url), 'utf8'),
 );
 
-test('createFile resolves the path on every platform', async () => {
-    for (const [platform, resolved] of [['android', '/docs/a'], ['ios', [null]], ['windows', undefined]]) {
-        native = {createFile: () => Promise.resolve(resolved), createFileASCII: () => Promise.resolve(resolved)};
-        assert.equal(await fs.createFile('/docs/a', 'x', 'utf8'), '/docs/a', platform);
-        assert.equal(await fs.createFile('/docs/a', [1], 'ascii'), '/docs/a', platform);
+// 1.0 rule: a call resolves undefined unless it returns something the caller
+// does not already have. These resolved the path they were given, or a
+// constant true, differently per platform.
+test('createFile, cp, mv, mkdir and slice resolve undefined on every platform', async () => {
+    for (const [platform, resolved] of [['android', '/docs/a'], ['ios', [null]], ['windows', true]]) {
+        native = {
+            createFile: resolves(resolved),
+            createFileASCII: resolves(resolved),
+            cp: resolves(resolved),
+            mv: resolves(resolved),
+            mkdir: resolves(resolved),
+            slice: resolves(resolved),
+        };
+        assert.equal(await fs.createFile('/docs/a', 'x', 'utf8'), undefined, platform);
+        assert.equal(await fs.createFile('/docs/a', [1], 'ascii'), undefined, platform);
+        assert.equal(await fs.cp('/a', '/b'), undefined, platform);
+        assert.equal(await fs.mv('/a', '/b'), undefined, platform);
+        assert.equal(await fs.mkdir('/a'), undefined, platform);
+        assert.equal(await fs.slice('/a', '/b', 1, 2), undefined, platform);
     }
 });
 
-test('cp and mv resolve true on every platform', async () => {
-    for (const [platform, res] of [['android', undefined], ['ios', true], ['windows', true]]) {
-        native = {cp: resolves(res), mv: resolves(res)};
-        assert.equal(await fs.cp('/a', '/b'), true, platform);
-        assert.equal(await fs.mv('/a', '/b'), true, platform);
-    }
+// lstat listed a directory with stats; in Node lstat means "stat without
+// following a link". ls(path, {stats: true}) says what it does.
+test('ls with {stats: true} lists entries with numeric stats; lstat is its alias', async () => {
+    native = {
+        ls: resolves(['a.txt']),
+        lstat: resolves([{filename: 'a.txt', size: '3', lastModified: '1000', type: 'file'}]),
+    };
+    assert.deepEqual(await fs.ls('/d'), ['a.txt']);
+    const expected = [{filename: 'a.txt', size: 3, lastModified: 1000, type: 'file'}];
+    assert.deepEqual(await fs.ls('/d', {stats: true}), expected);
+    assert.deepEqual(await fs.lstat('/d'), expected);
 });
 
 test('df resolves numeric free and total, plus the Android internal/external split', async () => {

@@ -40,13 +40,14 @@ async function capabilities(): Promise<void> {
     await media.write(uri, '/p/a.png');
     await media.write(uri, '/p/a.png', {transform: true});
     const stored: string = await media.copyToMediaStore(fd, 'Download', '/p/a.png');
-    const internal: string = await media.copyToInternal(uri, '/p/copy.png');
+    await media.copyToInternal(uri, '/p/copy.png');
+    const internal: string = await MediaCollection.copyToInternal(uri, '/p/copy.png');
     const bytes: number[] = await media.read(uri, 'ascii');
     const text: string = await media.read(uri);
     await media.addDownload({title: 't', description: 'd', mime: 'text/plain', path: '/p', showNotification: true});
     await media.scan([{path: '/p/a.jpg'}]);
-    const sd: string = await media.sdCardDir();
-    const sdApp: string = await media.sdCardApplicationDir();
+    const sd: string = await fs.sdCardDir();
+    const sdApp: string = await fs.sdCardApplicationDir();
     void stored; void internal; void bytes; void text; void sd; void sdApp;
 
     await fs.excludeFromBackup('/p');
@@ -142,7 +143,8 @@ async function network(): Promise<void> {
 
 async function filesystem(): Promise<void> {
     const dir: string = fs.dirs.DocumentDir + '/' + fs.dirs.CacheDir + fs.dirs.LegacyDownloadDir;
-    const created: string = await fs.createFile(dir + '/a.txt', 'hello', 'utf8');
+    await fs.createFile(dir + '/a.txt', 'hello', 'utf8');
+    const created = true;
     void created;
     await fs.createFile(dir + '/b.bin', [0, 255], 'ascii');
     await fs.createFile(dir + '/c.txt', dir + '/a.txt', 'uri');
@@ -163,21 +165,23 @@ async function filesystem(): Promise<void> {
 
     const exists: boolean = await fs.exists(dir + '/a.txt');
     const isDir: boolean = await fs.isDir(dir);
-    const made: boolean = await fs.mkdir(dir + '/sub');
+    const made: void = await fs.mkdir(dir + '/sub');
     const names: string[] = await fs.ls(dir);
-    const moved: boolean = await fs.mv(dir + '/a.txt', dir + '/sub/a.txt');
-    const copied: boolean = await fs.cp(dir + '/sub/a.txt', dir + '/a.txt');
+    const moved: void = await fs.mv(dir + '/a.txt', dir + '/sub/a.txt');
+    const copied: void = await fs.cp(dir + '/sub/a.txt', dir + '/a.txt');
     await fs.unlink(dir + '/sub');
     void exists; void isDir; void made; void names; void moved; void copied;
 
     const stat: ReactNativeBlobUtilStat = await fs.stat(dir + '/a.txt');
     const size: number = stat.size + stat.lastModified;
     const kind: 'file' | 'directory' | 'asset' = stat.type;
-    const entries: ReactNativeBlobUtilStat[] = await fs.lstat(dir);
+    const entries: ReactNativeBlobUtilStat[] = await fs.ls(dir, {stats: true});
+    const legacyEntries: ReactNativeBlobUtilStat[] = await fs.lstat(dir);
+    void legacyEntries;
     void size; void kind; void entries;
 
     const hash: string = await fs.hash(dir + '/a.txt', 'sha256');
-    const sliced: string = await fs.slice(dir + '/a.txt', dir + '/part.txt', 0, 2);
+    const sliced: void = await fs.slice(dir + '/a.txt', dir + '/part.txt', 0, 2);
     const asset: string = fs.asset('bundled.txt');
     const space: ReactNativeBlobUtilDf = await fs.df();
     const free: number = space.free + space.total + (space.internal_free ?? 0);

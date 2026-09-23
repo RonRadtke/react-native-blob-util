@@ -41,6 +41,11 @@ test('createFile and copyToMediaStore default parentFolder and resolve the conte
     ]);
 });
 
+test('copyToInternal resolves undefined: the destination is the caller\'s own', async () => {
+    assert.equal(await media.copyToInternal('content://media/1', '/docs/copy'), undefined);
+    assert.deepEqual(calls, [['copyToInternal', 'content://media/1', '/docs/copy']]);
+});
+
 test('write passes the transform flag and resolves undefined', async () => {
     assert.equal(await media.write('content://media/1', '/a.png'), undefined);
     await media.write('content://media/1', '/a.png', {transform: true});
@@ -60,9 +65,10 @@ test('addDownload, scan and the SD card directories', async () => {
     assert.equal(await media.addDownload({title: 't', path: '/p', mime: 'text/plain'}), undefined);
     assert.equal(await media.scan([{path: '/p'}]), undefined);
     await assert.rejects(media.scan(), {code: 'EINVAL'});
-    assert.equal(await media.sdCardDir(), '/sdcard');
-    assert.equal(await media.sdCardApplicationDir(), '/sdcard/app');
-    assert.deepEqual(calls.map((c) => c[0]), ['addCompleteDownload', 'scanFile', 'getSDCardDir', 'getSDCardApplicationDir']);
+    assert.deepEqual(calls.map((c) => c[0]), ['addCompleteDownload', 'scanFile']);
+    // Storage directories, not media: they live on fs.
+    assert.equal(media.sdCardDir, undefined);
+    assert.equal(media.sdCardApplicationDir, undefined);
 });
 
 test('every media call rejects with ENOTSUP on iOS and Windows', async () => {
@@ -76,8 +82,6 @@ test('every media call rejects with ENOTSUP on iOS and Windows', async () => {
             () => media.read('u'),
             () => media.addDownload({}),
             () => media.scan([]),
-            () => media.sdCardDir(),
-            () => media.sdCardApplicationDir(),
         ]) {
             await assert.rejects(call, (err) => err.code === 'ENOTSUP' && /Android/.test(err.message));
         }

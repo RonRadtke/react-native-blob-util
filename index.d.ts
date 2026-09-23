@@ -422,9 +422,9 @@ export interface FS {
     unlink(path: string): Promise<void>;
 
     /**
-     * Create a directory, including missing parents.
+     * Create a directory, including missing parents. Rejects EEXIST when it exists.
      */
-    mkdir(path: string): Promise<boolean>;
+    mkdir(path: string): Promise<void>;
 
     /**
      * Get a file cache session; created when it does not exist yet.
@@ -432,9 +432,11 @@ export interface FS {
     session(name: string): ReactNativeBlobUtilSession;
 
     /**
-     * The names of the entries in a directory.
+     * The names of the entries in a directory, or with `{stats: true}` a stat of
+     * each entry.
      */
-    ls(path: string): Promise<string[]>;
+    ls(path: string, options?: {stats?: false}): Promise<string[]>;
+    ls(path: string, options: {stats: true}): Promise<ReactNativeBlobUtilStat[]>;
 
     /**
      * A cryptographic hash over the file's contents, hex encoded.
@@ -453,12 +455,12 @@ export interface FS {
     /**
      * Move a file. An existing destination is overwritten.
      */
-    mv(path: string, dest: string): Promise<boolean>;
+    mv(path: string, dest: string): Promise<void>;
 
     /**
      * Copy a file. An existing destination is overwritten.
      */
-    cp(path: string, dest: string): Promise<boolean>;
+    cp(path: string, dest: string): Promise<void>;
 
     /**
      * A write stream to the file.
@@ -523,28 +525,24 @@ export interface FS {
 
     /**
      * Create a file with the given content. Rejects with EEXIST when it exists.
-     * @return The path of the created file.
      */
-    createFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<string>;
-    createFile(path: string, data: number[], encoding: 'ascii'): Promise<string>;
-    createFile(path: string, data: string | number[], options: {encoding?: WriteEncoding}): Promise<string>;
+    createFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<void>;
+    createFile(path: string, data: number[], encoding: 'ascii'): Promise<void>;
+    createFile(path: string, data: string | number[], options: {encoding?: WriteEncoding}): Promise<void>;
 
     /**
      * Information about a file or directory.
      */
     stat(path: string): Promise<ReactNativeBlobUtilStat>;
 
-    /**
-     * Information about every entry of a directory.
-     */
+    /** @deprecated use `ls(path, {stats: true})` */
     lstat(path: string): Promise<ReactNativeBlobUtilStat[]>;
 
     /**
      * Copy the bytes `start` (inclusive) to `end` (exclusive) of a file into a
      * new file. Negative offsets count from the end.
-     * @return The destination path.
      */
-    slice(src: string, dest: string, start?: number, end?: number): Promise<string>;
+    slice(src: string, dest: string, start?: number, end?: number): Promise<void>;
 
     /**
      * The path of a bundled asset, for use with the other fs calls.
@@ -558,6 +556,12 @@ export interface FS {
     df(): Promise<ReactNativeBlobUtilDf>;
 
     dirs: Dirs;
+
+    /** Android: the external storage root. ENOTSUP elsewhere. */
+    sdCardDir(): Promise<string>;
+
+    /** Android: the app's directory on external storage. ENOTSUP elsewhere. */
+    sdCardApplicationDir(): Promise<string>;
 
     ReactNativeBlobUtilSession: typeof ReactNativeBlobUtilSession;
 
@@ -624,8 +628,8 @@ export interface MediaApi {
     write(uri: string, path: string, options?: {transform?: boolean}): Promise<void>;
     /** Create an entry and copy a file into it; resolves its content URI. */
     copyToMediaStore(fd: filedescriptor, collection: Mediatype, path: string): Promise<string>;
-    /** Copy an entry into the app's own storage. */
-    copyToInternal(uri: string, dest: string): Promise<string>;
+    /** Copy an entry into the app's own storage, overwriting the destination. */
+    copyToInternal(uri: string, dest: string): Promise<void>;
     /** Read an entry: text, a base64 string, or bytes 0..255. */
     read(uri: string, encoding: 'ascii'): Promise<number[]>;
     read(uri: string, encoding?: 'utf8' | 'base64'): Promise<string>;
@@ -634,10 +638,6 @@ export interface MediaApi {
     addDownload(options: AndroidDownloadOption): Promise<void>;
     /** Ask the media scanner to index files. */
     scan(files: Array<{ path: string; mime?: string }>): Promise<void>;
-    /** The external storage root. */
-    sdCardDir(): Promise<string>;
-    /** The app's directory on external storage. */
-    sdCardApplicationDir(): Promise<string>;
 }
 
 export interface ReactNativeBlobUtilStat {

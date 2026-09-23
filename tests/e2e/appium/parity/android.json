@@ -89,10 +89,10 @@
       "resolved": "content://media/external_primary/downloads/<n>"
     },
     "copyToInternal": {
-      "resolved": ""
+      "resolved": "<undefined>"
     },
     "copyToInternalExists": {
-      "resolved": ""
+      "resolved": "<undefined>"
     },
     "createWithoutType": {
       "rejected": {
@@ -160,7 +160,7 @@
   },
   "cp-mv": {
     "cp": {
-      "resolved": true
+      "resolved": "<undefined>"
     },
     "cpIntoMissingDir": {
       "rejected": {
@@ -174,7 +174,7 @@
       "moved.txt"
     ],
     "mv": {
-      "resolved": true
+      "resolved": "<undefined>"
     },
     "mvIntoMissingDir": {
       "rejected": {
@@ -310,7 +310,7 @@
       }
     },
     "cpOntoExisting": {
-      "resolved": true
+      "resolved": "<undefined>"
     },
     "createFileExisting": {
       "rejected": {
@@ -1053,7 +1053,7 @@
         "resolved": ""
       },
       "result": {
-        "resolved": "<DocumentDir>/parity/slice/empty.txt"
+        "resolved": "<undefined>"
       }
     },
     "middle": {
@@ -1061,7 +1061,7 @@
         "resolved": "cde"
       },
       "result": {
-        "resolved": "<DocumentDir>/parity/slice/middle.txt"
+        "resolved": "<undefined>"
       }
     },
     "negativeStart": {
@@ -1069,7 +1069,7 @@
         "resolved": "hij"
       },
       "result": {
-        "resolved": "<DocumentDir>/parity/slice/negative.txt"
+        "resolved": "<undefined>"
       }
     },
     "pastEnd": {
@@ -1077,7 +1077,7 @@
         "resolved": "fghij"
       },
       "result": {
-        "resolved": "<DocumentDir>/parity/slice/past-end.txt"
+        "resolved": "<undefined>"
       }
     }
   },
@@ -1425,16 +1425,16 @@
       }
     },
     "createAscii": {
-      "resolved": "<DocumentDir>/parity/write-returns/c2.txt"
+      "resolved": "<undefined>"
     },
     "createBase64": {
-      "resolved": "<DocumentDir>/parity/write-returns/c3.bin"
+      "resolved": "<undefined>"
     },
     "createUri": {
-      "resolved": "<DocumentDir>/parity/write-returns/c4.txt"
+      "resolved": "<undefined>"
     },
     "createUtf8": {
-      "resolved": "<DocumentDir>/parity/write-returns/c1.txt"
+      "resolved": "<undefined>"
     },
     "writeAscii": {
       "resolved": 2

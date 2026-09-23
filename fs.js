@@ -143,7 +143,7 @@ function asset(path: string): string {
     return 'bundle-assets://' + path;
 }
 
-function createFile(path: string, data: string, encodingOrOptions: any = 'utf8'): Promise<string> {
+function createFile(path: string, data: string, encodingOrOptions: any = 'utf8'): Promise<void> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
@@ -152,15 +152,15 @@ function createFile(path: string, data: string, encodingOrOptions: any = 'utf8')
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
-    // Resolves the path on every platform (Android did, iOS resolved [null],
-    // Windows undefined).
+    // Resolves undefined on every platform: the path is the caller's own. Android
+    // resolved it, iOS [null], Windows undefined.
     if (encoding === 'ascii') {
         return Array.isArray(data) ?
-            requireNativeModule().createFileASCII(path, data).then(() => path) :
+            requireNativeModule().createFileASCII(path, data).then(() => undefined) :
             Promise.reject(addCode('EINVAL', new TypeError('`data` of ASCII file must be an array with 0..255 numbers')));
     }
     else {
-        return requireNativeModule().createFile(path, data, encoding).then(() => path);
+        return requireNativeModule().createFile(path, data, encoding).then(() => undefined);
     }
 }
 
@@ -222,11 +222,11 @@ function readStream(
  * @param  {string} path Path of directory to be created
  * @return {Promise}
  */
-function mkdir(path: string): Promise {
+function mkdir(path: string): Promise<void> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    return requireNativeModule().mkdir(path);
+    return requireNativeModule().mkdir(path).then(() => undefined);
 }
 
 /**
@@ -371,34 +371,43 @@ function hash(path: string, algorithm: string): Promise<string> {
     return requireNativeModule().hash(path, algorithm);
 }
 
-function cp(path: string, dest: string): Promise<boolean> {
+// cp and mv resolve undefined: the destination is the caller's own. They
+// resolved a constant true (iOS, Windows) or undefined (Android).
+function cp(path: string, dest: string): Promise<void> {
     if (typeof path !== 'string' || typeof dest !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
     }
-    return requireNativeModule().cp(path, dest).then(() => true);
+    return requireNativeModule().cp(path, dest).then(() => undefined);
 }
 
-function mv(path: string, dest: string): Promise<boolean> {
+function mv(path: string, dest: string): Promise<void> {
     if (typeof path !== 'string' || typeof dest !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" and/or "destination"')));
     }
-    return requireNativeModule().mv(path, dest).then(() => true);
+    return requireNativeModule().mv(path, dest).then(() => undefined);
 }
 
-function lstat(path: string): Promise<Array<ReactNativeBlobUtilStat>> {
+/**
+ * The entries of a directory: their names, or with {stats: true} a stat of
+ * each (what lstat returned; lstat means something else in Node).
+ */
+function ls(path: string, options: ?{stats?: boolean} = null): Promise<any> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
-    return requireNativeModule().lstat(path)
-        .then((entries) => Array.isArray(entries) ? entries.map(normalizeStat) : entries);
-}
-
-function ls(path: string): Promise<Array<String>> {
-    if (typeof path !== 'string') {
-        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
+    if (options && options.stats) {
+        return requireNativeModule().lstat(path)
+            .then((entries) => Array.isArray(entries) ? entries.map(normalizeStat) : entries);
     }
     return requireNativeModule().ls(path);
 }
+
+/** The external storage root (Android). */
+const sdCardDir = platformOnly('android', 'ReactNativeBlobUtil.fs.sdCardDir', () => requireNativeModule().getSDCardDir());
+
+/** The app's directory on external storage (Android). */
+const sdCardApplicationDir = platformOnly('android', 'ReactNativeBlobUtil.fs.sdCardApplicationDir',
+    () => requireNativeModule().getSDCardApplicationDir());
 
 /**
  * Remove file at path.
@@ -424,7 +433,7 @@ function exists(path: string): Promise<boolean> {
     return requireNativeModule().exists(path).then((result) => Boolean(result && result.exists));
 }
 
-function slice(src: string, dest: string, start: number, end: number): Promise {
+function slice(src: string, dest: string, start: number, end: number): Promise<void> {
     if (typeof src !== 'string' || typeof dest !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "src" and/or "destination"')));
     }
@@ -448,7 +457,8 @@ function slice(src: string, dest: string, start: number, end: number): Promise {
                 end = normalize(end, size);
             });
     }
-    return p.then(() => requireNativeModule().slice(src, dest, start, end));
+    // undefined: the destination is the caller's own.
+    return p.then(() => requireNativeModule().slice(src, dest, start, end)).then(() => undefined);
 }
 
 function isDir(path: string): Promise<boolean> {
@@ -483,8 +493,9 @@ export default {
     createFile,
     isDir,
     stat,
-    lstat,
     dirs,
+    sdCardDir,
+    sdCardApplicationDir,
     slice,
     asset,
     df,
@@ -494,6 +505,7 @@ export default {
     writeFileWithTransform: deprecatedAlias('fs.writeFileWithTransform', 'fs.writeFile(path, data, encoding, {transform: true})',
         (path: string, data: any, encoding: ?string = 'utf8') => writeFile(path, data, encoding, {transform: true})),
     scanFile: deprecatedAlias('fs.scanFile', 'media.scan', media.scan),
+    lstat: deprecatedAlias('fs.lstat', 'fs.ls(path, {stats: true})', (path: string) => ls(path, {stats: true})),
     pathForAppGroup: deprecatedAlias('fs.pathForAppGroup', 'fs.appGroupDir', appGroupDir),
     syncPathAppGroup: deprecatedAlias('fs.syncPathAppGroup', 'fs.appGroupDirSync', appGroupDirSync),
 };

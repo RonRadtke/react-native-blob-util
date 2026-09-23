@@ -376,7 +376,7 @@ define('lstat-dir', async () => {
     await fs.createFile(`${dir}/a.txt`, 'aa', 'utf8');
     await fs.createFile(`${dir}/b.txt`, 'bbb', 'utf8');
     await fs.mkdir(`${dir}/sub`);
-    const entries = await fs.lstat(dir);
+    const entries = await fs.ls(dir, {stats: true});
     return {
         kind: Array.isArray(entries) ? 'array' : typeof entries,
         entries: [...entries]
@@ -480,7 +480,7 @@ define('errors-read', async () => {
         readFileMissing: await settle(() => fs.readFile(missing, 'utf8')),
         readFileDir: await settle(() => fs.readFile(dir, 'utf8')),
         statMissing: await settle(() => fs.stat(missing)),
-        lstatMissing: await settle(() => fs.lstat(missing)),
+        lstatMissing: await settle(() => fs.ls(missing, {stats: true})),
         lsMissing: await settle(() => fs.ls(missing)),
         lsFile: await settle(() => fs.ls(file)),
         hashMissing: await settle(() => fs.hash(missing, 'md5')),
@@ -987,8 +987,8 @@ define('android-misc', async () => {
     const file = `${dir}/scan.txt`;
     await fs.createFile(file, 'scan me', 'utf8');
     return {
-        sdCardDir: await settle(() => ReactNativeBlobUtil.media.sdCardDir()),
-        sdCardApplicationDir: await settle(() => ReactNativeBlobUtil.media.sdCardApplicationDir()),
+        sdCardDir: await settle(() => ReactNativeBlobUtil.fs.sdCardDir()),
+        sdCardApplicationDir: await settle(() => ReactNativeBlobUtil.fs.sdCardApplicationDir()),
         scanFile: await settle(() => ReactNativeBlobUtil.media.scan([{path: file, mime: 'text/plain'}])),
         addCompleteDownload: await settle(() => ReactNativeBlobUtil.media.addDownload({
             title: 'parity',

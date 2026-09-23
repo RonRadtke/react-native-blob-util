@@ -58,11 +58,11 @@ const copyToMediaStore = androidOnly('copyToMediaStore', (fd: filedescriptor, co
 });
 
 /**
- * Copy an entry into the app's own storage.
- * @return {Promise<string>} The destination path.
+ * Copy an entry into the app's own storage, overwriting the destination.
+ * @return {Promise<void>}
  */
 const copyToInternal = androidOnly('copyToInternal', (uri: string, dest: string) => {
-    return requireNativeModule().copyToInternal(uri, dest);
+    return requireNativeModule().copyToInternal(uri, dest).then(() => undefined);
 });
 
 /**
@@ -102,12 +102,6 @@ const scan = androidOnly('scan', (files: Array<Object>) => {
     return requireNativeModule().scanFile(files).then(() => undefined);
 });
 
-/** The external storage root. */
-const sdCardDir = androidOnly('sdCardDir', () => requireNativeModule().getSDCardDir());
-
-/** The app's directory on external storage. */
-const sdCardApplicationDir = androidOnly('sdCardApplicationDir', () => requireNativeModule().getSDCardApplicationDir());
-
 export default {
     createFile,
     write,
@@ -116,6 +110,4 @@ export default {
     read,
     addDownload,
     scan,
-    sdCardDir,
-    sdCardApplicationDir,
 };

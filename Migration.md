@@ -45,7 +45,8 @@ and print one deprecation warning each.
 | `MediaCollection.getBlob(uri, encoding)` | `media.read(uri, encoding)` |
 | `android.addCompleteDownload(options)` | `media.addDownload(options)` |
 | `android.scanFile(files)`, `fs.scanFile` | `media.scan(files)` |
-| `android.getSDCardDir()`, `getSDCardApplicationDir()` | `media.sdCardDir()`, `media.sdCardApplicationDir()` |
+| `android.getSDCardDir()`, `getSDCardApplicationDir()` | `fs.sdCardDir()`, `fs.sdCardApplicationDir()` |
+| `fs.lstat(path)` | `fs.ls(path, {stats: true})` (`lstat` means "stat without following a link" in Node) |
 | `ios.excludeFromBackupKey(path)` | `fs.excludeFromBackup(path)` |
 | `ios.pathForAppGroup`, `syncPathAppGroup`, `fs.pathForAppGroup`, `fs.syncPathAppGroup` | `fs.appGroupDir(name)`, `fs.appGroupDirSync(name)` |
 | `fs.readFileWithTransform(path, encoding)` | `fs.readFile(path, encoding, {transform: true})` |
@@ -71,12 +72,17 @@ and print one deprecation warning each.
 
 ### Resolved values
 
-The same call resolved different values per platform. 1.0 resolves one value everywhere:
+The same call resolved different values per platform. 1.0 resolves one value everywhere, by
+one rule: a call resolves `undefined` unless it returns something the caller does not
+already have (a byte count, a stat, a new content URI).
 
 | Call | 0.25 | 1.0 |
 |---|---|---|
-| `fs.createFile` | the path (Android), `[null]` (iOS), `undefined` (Windows) | the path |
-| `fs.cp`, `fs.mv` | `undefined` (Android), `true` (iOS, Windows) | `true` |
+| `fs.createFile` | the path (Android), `[null]` (iOS), `undefined` (Windows) | `undefined` |
+| `fs.cp`, `fs.mv` | `undefined` (Android), `true` (iOS, Windows) | `undefined` |
+| `fs.mkdir` | `true` or `undefined` by platform | `undefined` |
+| `fs.slice` | the destination path | `undefined` |
+| `media.copyToInternal` | `""` (Android) | `undefined`; the deprecated `MediaCollection.copyToInternal` keeps `""` |
 | `fs.df` | four strings `internal_free`, `internal_total`, `external_free`, `external_total` (Android); `{free, total}` numbers (iOS, Windows) | `{free, total}` as numbers on every platform; Android keeps its four fields, as numbers |
 | `fs.lstat` entries | `size` a string; `lastModified` a string (Android) or number (iOS) | `size` and `lastModified` numbers, like `fs.stat` |
 | `fs.readFile(path, 'ascii')`, ascii `readStream` chunks, `response.array()` | bytes -128..127 (Android, iOS) or 0..255 (Windows) | bytes 0..255 |
