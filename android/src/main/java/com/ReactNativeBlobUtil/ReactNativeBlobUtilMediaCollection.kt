@@ -13,6 +13,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -194,7 +195,7 @@ class ReactNativeBlobUtilMediaCollection {
                             descr.close()
                         } catch (e: Exception) {
                             e.printStackTrace()
-                            promise.reject(IOException("Failed to get output stream."))
+                            promise.reject("EUNSPECIFIED", "Failed to get output stream.")
                             return false
                         }
 
@@ -203,14 +204,14 @@ class ReactNativeBlobUtilMediaCollection {
                         //appCtx.getContentResolver().update(fileUri, contentValues, null, null);
                         stream = resolver.openOutputStream(fileUri)
                         if (stream == null) {
-                            promise.reject(IOException("Failed to get output stream."))
+                            promise.reject("EUNSPECIFIED", "Failed to get output stream.")
                             return false
                         }
                     } catch (e: IOException) {
                         // Don't leave an orphan entry in the MediaStore
                         // (uri is always null here, so this throws, exactly as it did in Java)
                         resolver.delete(uri!!, null, null)
-                        promise.reject(e)
+                        promise.reject("EUNSPECIFIED", e.localizedMessage)
                         return false
                     } finally {
                         stream?.close()
@@ -222,7 +223,7 @@ class ReactNativeBlobUtilMediaCollection {
                     //resolver.update(fileUri, contentValues, null, null);
 
                 } catch (e: IOException) {
-                    promise.reject("ReactNativeBlobUtil.createMediaFile", "Cannot write to file, file might not exist")
+                    promise.reject("EUNSPECIFIED", "Cannot write to file, file might not exist")
                     return false
                 }
                 return true
@@ -233,61 +234,36 @@ class ReactNativeBlobUtilMediaCollection {
 
         @JvmStatic
         fun copyToInternal(contenturi: Uri, destpath: String?, promise: Promise) {
-            val appCtx = ReactNativeBlobUtilImpl.RCTContext.applicationContext
-            val resolver = appCtx.contentResolver
-
-            var input: InputStream? = null
-            var out: OutputStream? = null
+            if (destpath == null) {
+                promise.reject("EINVAL", "Missing argument \"destpath\"")
+                return
+            }
+            val resolver = ReactNativeBlobUtilImpl.RCTContext.applicationContext.contentResolver
             val f = File(destpath)
-
-            if (!f.exists()) {
-                try {
-                    val parent = f.parentFile
-                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                        promise.reject("ReactNativeBlobUtil.copyToInternal: Cannot create parent folders<'$destpath")
-                        return
-                    }
-                    val result = f.createNewFile()
-                    if (!result) {
-                        promise.reject("ReactNativeBlobUtil.copyToInternal: Destination file at '$destpath' already exists")
-                        return
-                    }
-                } catch (ioException: IOException) {
-                    promise.reject("ReactNativeBlobUtil.copyToInternal: Could not create file: " + ioException.localizedMessage)
-                }
-            }
-
+            // Settles exactly once; Java rejected and then resolved "" anyway. An existing
+            // destination is overwritten, as fs.cp does.
             try {
-                input = resolver.openInputStream(contenturi)
-                out = FileOutputStream(destpath)
-
-                val buf = ByteArray(10240)
-                var len: Int
-                // A null input stream throws here and is not caught below, as in Java.
-                while (input!!.read(buf).also { len = it } > 0) {
-                    out.write(buf, 0, len)
+                val parent = f.parentFile
+                if (parent != null && !parent.isDirectory && !parent.mkdirs()) {
+                    promise.reject("ENOENT", "Cannot create the directory of '$destpath'")
+                    return
                 }
-
+                val input = resolver.openInputStream(contenturi)
+                if (input == null) {
+                    promise.reject("ENOENT", "No content at '$contenturi'")
+                    return
+                }
+                input.use { source -> FileOutputStream(f).use { out -> source.copyTo(out, 10240) } }
+            } catch (e: SecurityException) {
+                promise.reject("EACCES", "Not allowed to read '$contenturi'")
+                return
+            } catch (e: FileNotFoundException) {
+                promise.reject("ENOENT", e.localizedMessage)
+                return
             } catch (e: IOException) {
-                promise.reject("ReactNativeBlobUtil.copyToInternal:  Could not write data: " + e.localizedMessage)
-            } finally {
-                if (input != null) {
-                    try {
-                        input.close()
-                    } catch (ioException: IOException) {
-                        ioException.printStackTrace()
-                    }
-                }
-                if (out != null) {
-                    try {
-                        out.close()
-                    } catch (ioException: IOException) {
-                        ioException.printStackTrace()
-                    }
-                }
+                promise.reject("EUNSPECIFIED", "Could not write data: " + e.localizedMessage)
+                return
             }
-
-            // Settled even after a reject above, as it was in Java.
             promise.resolve("")
         }
 

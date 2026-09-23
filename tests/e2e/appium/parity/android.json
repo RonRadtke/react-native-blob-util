@@ -91,6 +91,16 @@
     "copyToInternal": {
       "resolved": ""
     },
+    "copyToInternalExists": {
+      "resolved": ""
+    },
+    "createWithoutType": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "invalid filedata: {\"parentFolder\":\"parity\",\"name\":\"parity-d-<n>.png\"}",
+        "name": "Error"
+      }
+    },
     "created": {
       "resolved": {
         "created": "content://media/external_primary/downloads/<n>",

@@ -378,16 +378,19 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
 
     fun createMediaFile(filedata: ReadableMap?, mt: String?, promise: Promise) {
         if (!(filedata!!.hasKey("name") && filedata.hasKey("parentFolder") && filedata.hasKey("mimeType"))) {
-            promise.reject("ReactNativeBlobUtil.createMediaFile", "invalid filedata: $filedata")
+            promise.reject("EINVAL", "invalid filedata: $filedata")
             return
         }
-        if (mt == null) promise.reject("ReactNativeBlobUtil.createMediaFile", "invalid mediatype")
+        if (mt == null) {
+            // It went on after the reject and threw in valueOf(null).
+            promise.reject("EINVAL", "invalid mediatype")
+            return
+        }
 
         val file = FileDescription(filedata.getString("name"), filedata.getString("mimeType"), filedata.getString("parentFolder"))
-        // A null media type throws here after the reject above, as MediaType.valueOf(null) did in Java.
-        val res = ReactNativeBlobUtilMediaCollection.createNewMediaFile(file, ReactNativeBlobUtilMediaCollection.MediaType.valueOf(mt!!), RCTContext)
+        val res = ReactNativeBlobUtilMediaCollection.createNewMediaFile(file, ReactNativeBlobUtilMediaCollection.MediaType.valueOf(mt), RCTContext)
         if (res != null) promise.resolve(res.toString())
-        else promise.reject("ReactNativeBlobUtil.createMediaFile", "File could not be created")
+        else promise.reject("EUNSPECIFIED", "File could not be created")
     }
 
     fun writeToMediaFile(fileUri: String?, path: String?, transformFile: Boolean, promise: Promise) {
@@ -407,15 +410,15 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
 
     fun copyToMediaStore(filedata: ReadableMap?, mt: String?, path: String?, promise: Promise) {
         if (!(filedata!!.hasKey("name") && filedata.hasKey("parentFolder") && filedata.hasKey("mimeType"))) {
-            promise.reject("ReactNativeBlobUtil.createMediaFile", "invalid filedata: $filedata")
+            promise.reject("EINVAL", "invalid filedata: $filedata")
             return
         }
         if (mt == null) {
-            promise.reject("ReactNativeBlobUtil.createMediaFile", "invalid mediatype")
+            promise.reject("EINVAL", "invalid mediatype")
             return
         }
         if (path == null) {
-            promise.reject("ReactNativeBlobUtil.createMediaFile", "invalid path")
+            promise.reject("EINVAL", "invalid path")
             return
         }
 
@@ -423,7 +426,7 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         val fileuri = ReactNativeBlobUtilMediaCollection.createNewMediaFile(file, ReactNativeBlobUtilMediaCollection.MediaType.valueOf(mt), RCTContext)
 
         if (fileuri == null) {
-            promise.reject("ReactNativeBlobUtil.createMediaFile", "File could not be created")
+            promise.reject("EUNSPECIFIED", "File could not be created")
             return
         }
 

@@ -404,10 +404,10 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     val path = ctx.getExternalFilesDir(null)!!.absolutePath
                     promise.resolve(path)
                 } catch (e: Exception) {
-                    promise.reject("ReactNativeBlobUtil.getSDCardDir", e.localizedMessage)
+                    promise.reject("EUNSPECIFIED", e.localizedMessage)
                 }
             } else {
-                promise.reject("ReactNativeBlobUtil.getSDCardDir", "External storage not mounted")
+                promise.reject("ENOENT", "External storage not mounted")
             }
 
         }
@@ -418,10 +418,10 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     val path = ctx.getExternalFilesDir(null)!!.parentFile!!.absolutePath
                     promise.resolve(path)
                 } catch (e: Exception) {
-                    promise.reject("ReactNativeBlobUtil.getSDCardApplicationDir", e.localizedMessage)
+                    promise.reject("EUNSPECIFIED", e.localizedMessage)
                 }
             } else {
-                promise.reject("ReactNativeBlobUtil.getSDCardApplicationDir", "External storage not mounted")
+                promise.reject("ENOENT", "External storage not mounted")
             }
         }
 

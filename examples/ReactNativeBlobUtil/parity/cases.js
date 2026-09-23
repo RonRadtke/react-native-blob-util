@@ -914,6 +914,8 @@ define('android-media-store', async (ctx) => {
         });
         out.copyToInternal = await settle(() => MC.copyToInternal(raw, `${dir}/copy.png`));
         out.internalCopyMatches = await settle(async () => (await fs.readFile(`${dir}/copy.png`, 'base64')) === PNG_BASE64);
+        // Error codes: these rejected with the call's name, or the whole message, as the code.
+        out.copyToInternalExists = await settle(() => MC.copyToInternal(raw, `${dir}/copy.png`));
     }
     out.created = await settle(async () => {
         const created = await MC.createFile({name: `parity-c-${stamp}.png`, parentFolder: 'parity', mimeType: 'image/png'}, 'Download');
@@ -921,6 +923,7 @@ define('android-media-store', async (ctx) => {
         const blob = await MC.read(created, 'base64');
         return {created, written, matchesPng: blob === PNG_BASE64};
     });
+    out.createWithoutType = await settle(() => MC.createFile({name: `parity-d-${stamp}.png`, parentFolder: 'parity'}, 'Download'));
     return out;
 }, ['android']);
 

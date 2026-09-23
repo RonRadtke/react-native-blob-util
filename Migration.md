@@ -305,6 +305,11 @@ forged Downloads URI read and deleted a file in your app's data directory.
   `parentFolder` containing a `..` segment; the file used to be created wherever the
   joined path pointed.
 - Request URLs are no longer written to logcat when a request fails to build.
+- `media.*` and the SD-card calls reject with ordinary codes. They used the call's name
+  (`ReactNativeBlobUtil.createMediaFile`) or, for `copyToInternal`, the whole message as the
+  code: an invalid descriptor or media type is `EINVAL`, a missing source `ENOENT`, a
+  provider refusal `EACCES`, anything else `EUNSPECIFIED`. `copyToInternal` also settles
+  once; after a failure it used to reject and then resolve `""`.
 
 - `ReactNativeBlobUtilUtils.sharedTrustManager` is still a static field. Java and
   Kotlin code that sets it compiles unchanged.
