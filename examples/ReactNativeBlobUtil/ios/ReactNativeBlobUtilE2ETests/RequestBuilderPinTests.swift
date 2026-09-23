@@ -228,6 +228,69 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertTrue(body.contains("on disk"), body)
     }
 
+    // MARK: - bodyType and kind (1.0): JS says what a body is, the builder obeys
+
+    private func bodyText(_ request: URLRequest?) throws -> String {
+        try XCTUnwrap(String(data: try XCTUnwrap(try XCTUnwrap(request).httpBody), encoding: .utf8))
+    }
+
+    /// Without a Content-Type the old rule added application/octet-stream and
+    /// then decoded the string as base64. With bodyType text it is sent as it
+    /// is, and no Content-Type is invented (JS always sends one now).
+    func testBodyTypeTextIsSentAsItIsWithoutAnInventedContentType() throws {
+        let (request, _) = try buildOctet(method: "POST", body: "plain body", options: ["bodyType": "text"])
+        XCTAssertEqual(try bodyText(request), "plain body")
+        XCTAssertNil(try XCTUnwrap(request).value(forHTTPHeaderField: "Content-Type"))
+    }
+
+    func testBodyTypeTextIsNeverReadAsAFileOrAsBase64() throws {
+        let looksLikeAFile = ReactNativeBlobUtilConst.filePrefix + "/etc/hosts"
+        let (fileLike, _) = try buildOctet(method: "POST", headers: ["content-type": "application/octet-stream"],
+                                           body: looksLikeAFile, options: ["bodyType": "text"])
+        XCTAssertEqual(try bodyText(fileLike), looksLikeAFile)
+    }
+
+    func testBodyTypeBase64IsDecodedWhateverTheContentType() throws {
+        let (request, length) = try buildOctet(method: "POST", headers: ["content-type": "text/plain"],
+                                               body: "YWJj", options: ["bodyType": "base64"])
+        XCTAssertEqual(try bodyText(request), "abc")
+        XCTAssertEqual(length, 3)
+    }
+
+    func testBodyTypeFileReadsTheFile() throws {
+        let path = "\(dir)/explicit.txt"
+        try "explicit".write(toFile: path, atomically: true, encoding: .utf8)
+        let (request, _) = try buildOctet(method: "PUT", headers: ["content-type": "text/plain"],
+                                          body: ReactNativeBlobUtilConst.filePrefix + path, options: ["bodyType": "file"])
+        XCTAssertEqual(try bodyText(request), "explicit")
+    }
+
+    /// DELETE and OPTIONS dropped their body; with bodyType any method but GET/HEAD sends it.
+    func testDeleteSendsItsBodyWhenJSSaysWhatItIs() throws {
+        let (request, _) = try buildOctet(method: "DELETE", headers: ["content-type": "text/plain"],
+                                          body: "delete body", options: ["bodyType": "text"])
+        XCTAssertEqual(try bodyText(request), "delete body")
+    }
+
+    /// A missing file used to go out as an empty body.
+    func testAMissingFileBodyIsReported() {
+        let missing = "\(dir)/missing.txt"
+        XCTAssertEqual(ReactNativeBlobUtilReqBuilder.missingFileBody(["bodyType": "file"],
+                                                                   body: ReactNativeBlobUtilConst.filePrefix + missing), missing)
+        XCTAssertNil(ReactNativeBlobUtilReqBuilder.missingFileBody(["bodyType": "text"],
+                                                                 body: ReactNativeBlobUtilConst.filePrefix + missing))
+    }
+
+    func testMultipartKindDecidesTheContentNotTheFilename() throws {
+        let (request, _) = try buildMultipart(form: [
+            ["name": "base64NoName", "data": "YWJj", "kind": "base64"],
+            ["name": "textWithName", "filename": "t.txt", "type": "text/plain", "data": "YWJj", "kind": "text"],
+        ])
+        let body = try bodyText(request)
+        XCTAssertTrue(body.contains("name=\"base64NoName\"\r\nContent-Type: text/plain\r\n\r\nabc\r\n"), body)
+        XCTAssertTrue(body.contains("filename=\"t.txt\"\r\nContent-Type: text/plain\r\n\r\nYWJj\r\n"), body)
+    }
+
     func testMultipartHonoursAnExplicitPartContentType() throws {
         let (request, _) = try buildMultipart(form: [
             ["name": "json", "data": "{}", "type": "application/json"],

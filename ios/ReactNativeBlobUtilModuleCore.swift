@@ -98,6 +98,9 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     public func fetchBlob(_ options: [String: Any]?, taskId: String, method: String,
                           url: String, headers: [String: Any]?, body: String?,
                           callback: @escaping RNBUCallbackNonNull) {
+        if let missing = ReactNativeBlobUtilReqBuilder.missingFileBody(options, body: body) {
+            return callback([["code": "ENOENT", "message": "No such file '\(missing)'"]])
+        }
         ReactNativeBlobUtilReqBuilder.buildOctetRequest(
             options, taskId: taskId, method: method, url: url, headers: headers, body: body
         ) { [weak self] req, bodyLength in

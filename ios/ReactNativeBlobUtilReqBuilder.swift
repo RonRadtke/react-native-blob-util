@@ -108,28 +108,34 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
             }
 
             let filename = field["filename"] as? String
+            let filePrefix = ReactNativeBlobUtilConst.filePrefix
+            // The kind JS sends (since 1.0) decides the content; the filename only
+            // decides the disposition. Without it, the rule from before: text
+            // without a filename, a file or base64 with one.
+            let kind = (field["kind"] as? String)
+                ?? (filename == nil ? "text" : (content!.hasPrefix(filePrefix) ? "file" : "base64"))
+            contentType = contentType ?? (filename == nil ? "text/plain" : "application/octet-stream")
+            let disposition = filename == nil
+                ? "Content-Disposition: form-data; name=\"\(name!)\"\r\n"
+                : "Content-Disposition: form-data; name=\"\(name!)\"; filename=\"\(filename!)\"\r\n"
 
-            if filename == nil {
-                contentType = contentType ?? "text/plain"
+            if kind == "text" {
                 append("--\(boundary)\r\n")
-                append("Content-Disposition: form-data; name=\"\(name!)\"\r\n")
+                append(disposition)
                 append("Content-Type: \(contentType!)\r\n\r\n")
                 append("\(content!)\r\n")
                 advance()
                 return
             }
 
-            contentType = contentType ?? "application/octet-stream"
-
-            if content!.hasPrefix(ReactNativeBlobUtilConst.filePrefix) {
-                let orgPath = ReactNativeBlobUtilFS.getPathOfAsset(
-                    String(content!.dropFirst(ReactNativeBlobUtilConst.filePrefix.count)))
+            if kind == "file" && content!.hasPrefix(filePrefix) {
+                let orgPath = ReactNativeBlobUtilFS.getPathOfAsset(String(content!.dropFirst(filePrefix.count)))
                 ReactNativeBlobUtilFS.readFile(orgPath, encoding: nil, transformFile: false) { fileContent, _, err in
                     if err != nil {
                         return onComplete(formData, true)
                     }
                     append("--\(boundary)\r\n")
-                    append("Content-Disposition: form-data; name=\"\(name!)\"; filename=\"\(filename!)\"\r\n")
+                    append(disposition)
                     append("Content-Type: \(contentType!)\r\n\r\n")
                     if let data = fileContent as? Data { formData.append(data) }
                     append("\r\n")
@@ -150,7 +156,7 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
                 ReactNativeBlobUtilLog.warn("ReactNativeBlobUtil multipart request builder could not decode the `data` of field `\(name!)` as base64, the field will be sent with an empty body.")
             }
             append("--\(boundary)\r\n")
-            append("Content-Disposition: form-data; name=\"\(name!)\"; filename=\"\(filename!)\"\r\n")
+            append(disposition)
             append("Content-Type: \(contentType!)\r\n\r\n")
             if let blobData = blobData { formData.append(blobData) }
             append("\r\n")
@@ -161,6 +167,22 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
     }
 
     // MARK: - octet
+
+    /// The path of a file body that does not exist, or nil. The module rejects
+    /// such a request with ENOENT before building it; it used to go out with an
+    /// empty body. Android's message, so the platforms agree.
+    @objc(missingFileBody:body:)
+    public static func missingFileBody(_ options: [String: Any]?, body: String?) -> String? {
+        guard options?["bodyType"] as? String == "file", let body = body,
+              body.hasPrefix(ReactNativeBlobUtilConst.filePrefix) else { return nil }
+        let raw = String(body.dropFirst(ReactNativeBlobUtilConst.filePrefix.count))
+        var orgPath = ReactNativeBlobUtilFS.getPathOfAsset(raw)
+        if orgPath.hasPrefix(ReactNativeBlobUtilConst.alPrefix) { return nil }
+        orgPath = URL(string: orgPath)?.path ?? orgPath
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: orgPath, isDirectory: &isDirectory)
+        return exists && !isDirectory.boolValue ? nil : raw
+    }
 
     @objc(buildOctetRequest:taskId:method:url:headers:body:onComplete:)
     public static func buildOctetRequest(_ options: [String: Any]?,
@@ -179,15 +201,23 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
             var size = -1
 
             let lowered = method.lowercased()
-            if lowered == "post" || lowered == "put" || lowered == "patch", let body = body {
+            // JS says what the body is (bodyType, since 1.0) and sends a Content-Type
+            // with it; any method but GET and HEAD then sends its body. Without
+            // bodyType, the rule from before: POST, PUT and PATCH, inferred.
+            let bodyType = options?["bodyType"] as? String
+            let sendsBody = bodyType != nil
+                ? lowered != "get" && lowered != "head"
+                : lowered == "post" || lowered == "put" || lowered == "patch"
+            if sendsBody, let body = body {
                 let cType = getHeaderIgnoreCases("content-type", fromHeaders: mheaders)
                 let transferEncoding = getHeaderIgnoreCases("transfer-encoding", fromHeaders: mheaders)
 
-                if cType == nil {
+                if cType == nil && bodyType == nil {
                     mheaders["Content-Type"] = "application/octet-stream"
                 }
 
-                if body.hasPrefix(ReactNativeBlobUtilConst.filePrefix) {
+                let isFile = bodyType.map { $0 == "file" } ?? body.hasPrefix(ReactNativeBlobUtilConst.filePrefix)
+                if isFile && body.hasPrefix(ReactNativeBlobUtilConst.filePrefix) {
                     var orgPath = ReactNativeBlobUtilFS.getPathOfAsset(String(body.dropFirst(ReactNativeBlobUtilConst.filePrefix.count)))
                     orgPath = URL(string: orgPath)?.path ?? orgPath
 
@@ -212,7 +242,9 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
                 } else {
                     let cType = getHeaderIgnoreCases("content-type", fromHeaders: mheaders)
                     let loweredCType = cType?.lowercased() ?? ""
-                    if loweredCType.hasPrefix("application/octet") || loweredCType.contains(";base64") {
+                    let isBase64 = bodyType.map { $0 == "base64" }
+                        ?? (loweredCType.hasPrefix("application/octet") || loweredCType.contains(";base64"))
+                    if isBase64 {
                         let ncType = (cType ?? "")
                             .replacingOccurrences(of: ";base64", with: "")
                             .replacingOccurrences(of: ";BASE64", with: "")
