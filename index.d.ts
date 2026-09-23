@@ -146,6 +146,18 @@ export declare class FetchBlobResponse {
 
     info(): ReactNativeBlobUtilResponseInfo;
 
+    /** The HTTP status. An error status resolves like any other response. */
+    readonly status: number;
+
+    /** Whether the status is 200..299. */
+    readonly ok: boolean;
+
+    /** The response headers, names in lower case. */
+    readonly headers: { [name: string]: string };
+
+    /** The URL the body came from, after redirects; undefined when unknown. */
+    readonly url: string | undefined;
+
     /**
      * The path of the response file, or null when the body is held in memory.
      */
@@ -172,27 +184,34 @@ export declare class FetchBlobResponse {
     array(): Promise<number[]>;
 
     /**
+     * The body as an ArrayBuffer.
+     */
+    arrayBuffer(): Promise<ArrayBuffer>;
+
+    /**
      * Remove the response file. Resolves without doing anything when the body
      * is not a file.
      */
     flush(): Promise<void>;
 
     /**
-     * Add the response file to a session, or null when the body is not a file.
+     * Add the response file to a session. Throws an error with code EINVAL when
+     * the body is not a file.
      */
-    session(name: string): ReactNativeBlobUtilSession | null;
+    session(name: string): ReactNativeBlobUtilSession;
 
     /**
-     * Read the response file with the given encoding, or null when the body is
+     * Read the response file with the given encoding. Rejects with EINVAL when
+     * the body is not a file.
+     */
+    readFile(encoding: 'ascii'): Promise<number[]>;
+    readFile(encoding: 'utf8' | 'base64'): Promise<string>;
+
+    /**
+     * A read stream over the response file. Rejects with EINVAL when the body is
      * not a file.
      */
-    readFile(encoding: 'ascii'): Promise<number[]> | null;
-    readFile(encoding: 'utf8' | 'base64'): Promise<string> | null;
-
-    /**
-     * A read stream over the response file, or null when the body is not a file.
-     */
-    readStream(encoding: Encoding): Promise<ReactNativeBlobUtilReadStream> | null;
+    readStream(encoding: Encoding): Promise<ReactNativeBlobUtilReadStream>;
 }
 
 export interface ReactNativeBlobUtilResponseInfo {

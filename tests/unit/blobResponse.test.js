@@ -85,3 +85,38 @@ test('base64() of a utf8 body encodes its UTF-8 bytes', async () => {
 test('flush() is a Promise whether or not there is a file', async () => {
     assert.equal(await new FetchBlobResponse('t', info('utf8'), 'x').flush(), undefined);
 });
+
+// 1.0: the parts of a fetch Response an app reaches for first, so that a 404 is
+// not read as the body it expected. With config({path}) the error page is what
+// was written to the file.
+test('status, ok, headers and url read like fetch', () => {
+    const res = new FetchBlobResponse('t', {
+        status: 404,
+        headers: {'Content-Type': 'text/html', 'X-Request-Id': 'abc'},
+        redirects: ['http://a.example/start', 'https://b.example/final'],
+        rnfbEncode: 'utf8',
+    }, 'not found');
+    assert.equal(res.status, 404);
+    assert.equal(res.ok, false);
+    assert.deepEqual(res.headers, {'content-type': 'text/html', 'x-request-id': 'abc'});
+    assert.equal(res.url, 'https://b.example/final');
+
+    const ok = new FetchBlobResponse('t', {status: 204, headers: {}, rnfbEncode: 'utf8'}, '');
+    assert.equal(ok.ok, true);
+    assert.equal(ok.url, undefined);
+});
+
+test('arrayBuffer() resolves the body bytes', async () => {
+    const buffer = await new FetchBlobResponse('t', info('base64'), 'AAEC/w==').arrayBuffer();
+    assert.ok(buffer instanceof ArrayBuffer);
+    assert.deepEqual([...new Uint8Array(buffer)], [0, 1, 2, 255]);
+});
+
+// They returned null after a console warning, so `await res.readFile('utf8')`
+// quietly produced null.
+test('readFile, readStream and session need a file body, and say so', async () => {
+    const memory = new FetchBlobResponse('t', info('utf8'), 'x');
+    await assert.rejects(memory.readFile('utf8'), (err) => err.code === 'EINVAL');
+    await assert.rejects(memory.readStream('utf8'), (err) => err.code === 'EINVAL');
+    assert.throws(() => memory.session('s'), (err) => err.code === 'EINVAL');
+});

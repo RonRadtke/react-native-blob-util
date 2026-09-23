@@ -107,14 +107,18 @@ async function network(): Promise<void> {
         const bytes: number[] = await response.array();
         void bytes;
         await response.flush();
-        const s = response.session('downloads');
-        if (s) { s.add('/p').remove('/p'); }
-        const asBytes: Promise<number[]> | null = response.readFile('ascii');
+        response.session('downloads').add('/p').remove('/p');
+        const asBytes: number[] = await response.readFile('ascii');
         void asBytes;
-        const asText: Promise<string> | null = response.readFile('utf8');
+        const asText: string = await response.readFile('utf8');
         void asText;
-        const stream = response.readStream('base64');
-        if (stream) { (await stream).open(); }
+        (await response.readStream('base64')).open();
+        const status: number = response.status;
+        const ok: boolean = response.ok;
+        const contentType: string | undefined = response.headers['content-type'];
+        const url: string | undefined = response.url;
+        const buffer: ArrayBuffer = await response.arrayBuffer();
+        void status; void ok; void contentType; void url; void buffer;
     } catch (err) {
         if (err instanceof CanceledFetchError) {
             const code: 'ECANCELED' = err.code;

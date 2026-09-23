@@ -197,6 +197,18 @@ Network-level differences stay documented rather than aligned: a URL without a h
 `ECONNREFUSED` on iOS, which tries to connect; and only iOS puts `rnfbEncode` on the first
 `stateChange`.
 
+### The response
+
+The result of `fetch` gains what a fetch `Response` offers first:
+
+- `res.status`, `res.ok` (status 200..299), `res.headers` (names in lower case) and
+  `res.url` (the URL after redirects), next to `res.info()`, which is unchanged. An
+  HTTP error status still resolves; with `config({path})` the error body is what was
+  written to the file, so check `res.ok` before using it.
+- `res.arrayBuffer()`.
+- `res.readFile()` and `res.readStream()` reject with `EINVAL`, and `res.session()`
+  throws, when the body is not a file. They used to log a warning and return `null`.
+
 ### Request bodies
 
 0.25 let each platform guess what a string body was, from its Content-Type and a
