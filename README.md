@@ -1,6 +1,6 @@
 # react-native-blob-util
 
-[![release](https://img.shields.io/github/release/RonRadtke/react-native-blob-util.svg?style=flat-square)](https://github.com/RonRadtke/react-native-blob-util/releases) [![npm](https://img.shields.io/npm/v/react-native-blob-util.svg?style=flat-square)](https://www.npmjs.com/package/react-native-blob-util) ![](https://img.shields.io/badge/PR-Welcome-brightgreen.svg?style=flat-square) [![](https://img.shields.io/badge/Wiki-Public-brightgreen.svg?style=flat-square)](https://github.com/RonRadtke/react-native-blob-util/wiki) [![npm](https://img.shields.io/npm/l/react-native-blob-util.svg?maxAge=2592000&style=flat-square)]()
+[![release](https://img.shields.io/github/release/RonRadtke/react-native-blob-util.svg?style=flat-square)](https://github.com/RonRadtke/react-native-blob-util/releases) [![npm](https://img.shields.io/npm/v/react-native-blob-util.svg?style=flat-square)](https://www.npmjs.com/package/react-native-blob-util) ![](https://img.shields.io/badge/PR-Welcome-brightgreen.svg?style=flat-square) [![npm](https://img.shields.io/npm/l/react-native-blob-util.svg?maxAge=2592000&style=flat-square)]()
 
 A project committed to making file access and data transfer easier and more efficient for React Native developers.
 
@@ -8,7 +8,7 @@ A project committed to making file access and data transfer easier and more effi
 
 This project is a fork of https://www.npmjs.com/package/rn-fetch-blob which on the other hand is a fork of https://github.com/wkh237/react-native-fetch-blob. Both the original repository and its first fork are not maintained anymore.
 
-The project will be continued in this repository. React-Native-Blob-Util is fully compatible with RN-Fetch-Blob and React-Native-Fetch-Blob. If you want to support the project feel free to contact me or create a pull request with your feature.
+The project will be continued in this repository. If you want to support the project feel free to contact me or create a pull request with your feature.
 
 # Version Compatibility Warning
 
@@ -23,923 +23,523 @@ react-native-blob-util version **0.17.0** and up is only compatible with react n
 
 react-native-blob-util version **0.10.16** and up is only compatible with react native **0.60** and up.
 
+0.25 is the last release that also supports the Old Architecture. From 1.0 the native modules are written in Kotlin (Android), Swift (iOS) and C++/WinRT (Windows). More on the New Architecture: https://reactnative.dev/architecture/landing-page
+
 ## Features
 
-- Access and write data to Android Media Store (e.g. Downloads folder on devices > Android 9)
-- Transfer data directly from/to storage without BASE64 bridging
-- File API supports regular files, Asset files, and CameraRoll files
-- Native-to-native file manipulation API, reduce JS bridging performance loss
-- File stream support for dealing with large file
+- Download straight to a file and upload straight from a file, without passing the data through JS as base64
+- Upload and download progress, cancellation, multipart forms
+- A file system API that works on files natively: read, write, copy, move, hash, slice, stream
+- Access to Android's MediaStore (Downloads, Pictures, Music, Movies) under scoped storage
+- Open a file in another app, or let the user pick one
+- Custom CA certificates per request
+- Android, iOS and Windows
 
-## React Native New Architecture
-Since 1.0.0 the library runs on the New Architecture only; 0.25 is the last release that also supports the Old Architecture. The native modules are written in Kotlin (Android), Swift (iOS) and C++/WinRT (Windows).
-Further information about the New Architecture: https://reactnative.dev/architecture/landing-page
+This README and [index.d.ts](index.d.ts) are the reference for the 1.0 API. The
+[wiki](https://github.com/RonRadtke/react-native-blob-util/wiki) describes the API before 1.0.
 
-## Errors and platform differences
+## Table of contents
 
-Every rejection is an `Error` with a `code`: POSIX-style names such as `ENOENT`, `EEXIST`,
-`EISDIR`, `ENOTDIR`, `EINVAL`, `EBADF`, `ENOTSUP` (a call that only exists on another platform),
-`ECANCELED`, and for requests `ETIMEDOUT`, `ENOTFOUND`, `ECONNREFUSED`, `ECONNRESET`,
-`ENETUNREACH` and `ESSL`. `EUNSPECIFIED` is the fallback; the message says what happened.
-A failed `fetch` also carries `err.respInfo`. Where Android, iOS and Windows used to answer
-the same call differently, 1.0 resolves one value and one behaviour; the tables in
-[Migration.md](Migration.md) list them.
-
-The API is grouped by capability: `fetch`/`config` for requests, `fs` for files,
-`open` for showing a file in another app or picking one, and `media` for the device's
-media library (Android's MediaStore, Downloads app and media scanner). A call a platform
-cannot make rejects with `ENOTSUP`. The pre-1.0 `android`, `ios` and `MediaCollection`
-namespaces still work and warn once per name.
-
-## Android 10 & 11
-
-Android 10 introduced scoped storage for apps. Apps no longer can create own directories directly on the external storage or access files outside the apps own directories. With version 0.14.0 support for the media storage is implemented. For more information please see the chapter about the mediastore API.
-[test](###android-media-storage)
-For more information see: https://developer.android.com/training/data-storage
-
-## TOC (visit [Wiki](https://github.com/RonRadtke/react-native-blob-util/wiki) to get the complete documentation)
-
-* [About](#user-content-about)
-* [Installation](#user-content-installation)
-* [HTTP Data Transfer](#user-content-http-data-transfer)
-* [Regular Request](#user-content-regular-request)
-* [Download file](#download-example-fetch-files-that-need-authorization-token)
-* [Upload file](#user-content-upload-example--dropbox-files-upload-api)
-* [Multipart/form upload](#user-content-multipartform-data-example--post-form-data-with-file-and-data)
-* [Upload/Download progress](#user-content-uploaddownload-progress)
-* [Cancel HTTP request](#user-content-cancel-request)
-* [Android Media Scanner, and Download Manager Support](#user-content-android-media-scanner-and-download-manager-support)
-* [Self-Signed SSL Server](#user-content-self-signed-ssl-server)
-* [Transfer Encoding](#user-content-transfer-encoding)
-* [File System](#user-content-file-system)
-* [File access](#user-content-file-access)
-* [File stream](#user-content-file-stream)
-* [Manage cached files](#user-content-cache-file-management)
-* [Performance Tips](#user-content-performance-tips)
-* [API References](https://github.com/RonRadtke/react-native-blob-util/wiki/Fetch-API)
-* [Caveats](#user-content-caveats)
-* [Development](#user-content-development)
-
-## About
-
-This project was started in the cause of solving issue [facebook/react-native#854](https://github.com/facebook/react-native/issues/854), React Native's lacks of `Blob` implementation which results into problems when transferring binary data.
-
-It is committed to making file access and transfer easier and more efficient for React Native developers. We've implemented highly customizable filesystem and network module which plays well together. For example, developers can upload and download data directly from/to storage, which is more efficient, especially for large files. The file system supports file stream, so you don't have to worry about OOM problem when accessing large files.
+* [Installation](#installation)
+* [Usage](#usage)
+* [Coming from 0.x](#coming-from-0x)
+* [Requests](#requests)
+    * [A simple request](#a-simple-request)
+    * [The response](#the-response)
+    * [Download to a file](#download-to-a-file)
+    * [Request bodies](#request-bodies)
+    * [Multipart form data](#multipart-form-data)
+    * [Progress](#progress)
+    * [Cancel a request](#cancel-a-request)
+    * [Config options](#config-options)
+    * [Android DownloadManager](#android-downloadmanager)
+    * [Self-Signed SSL Server](#self-signed-ssl-server)
+    * [Custom CA Certificates](#custom-ca-certificates)
+    * [Transfer encoding and caching](#transfer-encoding-and-caching)
+* [File System](#file-system)
+    * [Directories](#directories)
+    * [Reading and writing files](#reading-and-writing-files)
+    * [Encodings](#encodings)
+    * [Other file operations](#other-file-operations)
+    * [What the calls resolve](#what-the-calls-resolve)
+    * [File streams](#file-streams)
+    * [Cache file management](#cache-file-management)
+    * [Assets](#assets)
+    * [Platform-specific calls](#platform-specific-calls)
+    * [content:// URIs on Android](#content-uris-on-android)
+* [Setting A File Transformer](#setting-a-file-transformer)
+* [Opening and picking files](#opening-and-picking-files)
+* [Android media storage](#android-media-storage)
+* [Errors](#errors)
+* [Performance Tips](#performance-tips)
+* [Caveats](#caveats)
+* [Development](#development)
 
 ## Installation
-
-Install package from npm
 
 ```sh
 npm install --save react-native-blob-util
 ```
 
-Or if using CocoaPods, add the pod to your `Podfile`
-
-```
-pod 'react-native-blob-util',
-    :path => '../node_modules/react-native-blob-util'
-```
-
-After `0.10.3` you can install this package directly from Github
-
-```sh
-# replace <branch_name> with any one of the branches
-npm install --save github:RonRadtke/react-native-blob-util#<branch_name>
-```
-
-**iOS**
-
-When using the package from npm, run `pod install` from the `ios` directory:
+**iOS**: run `pod install` from the `ios` directory. CocoaPods is the only supported way to add the library.
 
 ```sh
 cd ios; pod install; cd ..
 ```
 
-**Okhttp**
+**Android**: autolinking picks the library up; there is nothing to link by hand. The library uses the OkHttp that ships with React Native (or the one your app uses).
 
-For using the library okhttp3 is required. It's in general included in react-native. The library uses the okhttp version shipped with react-native or used by your app.
+**Expo**: the library works with a development build (`npx expo prebuild`), not in Expo Go. Its config plugin is only needed for [custom CA certificates](#setup-with-expo).
 
-**Manually Link Native Modules**
-
-If you're using RN 0.60 or higher, manual linking should not be required anymore.
-
-If automatically linking doesn't work for you, see instructions on [manually linking](https://github.com/RonRadtke/react-native-blob-util/wiki/Manually-Link-Package#index).
-
-**Automatically Link Native Modules**
-
-For 0.29.2+ projects, simply link native packages via the following command (note: rnpm has been merged into react-native)
-
-```
-react-native link react-native-blob-util
-```
-
-As for projects < 0.29 you need `rnpm` to link native packages
+You can also install a branch straight from GitHub:
 
 ```sh
-rnpm link
+npm install --save github:RonRadtke/react-native-blob-util#<branch_name>
 ```
 
-Optionally, use the following command to add Android permissions to `AndroidManifest.xml` automatically
+### Android permissions
 
-```sh
-RNFB_ANDROID_PERMISSIONS=true react-native react-native-blob-util
-```
+The library's manifest already declares `INTERNET`, `ACCESS_NETWORK_STATE` (used by `wifiOnly`),
+`READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` and `DOWNLOAD_WITHOUT_NOTIFICATION`; they are
+merged into your app. The DownloadManager completion receiver is registered at runtime, so your
+manifest needs no `DOWNLOAD_COMPLETE` intent filter.
 
-pre 0.29 projects
-
-```sh
-RNFB_ANDROID_PERMISSIONS=true rnpm link
-```
-
-The link script might not take effect if you have non-default project structure, please visit [the wiki](https://github.com/RonRadtke/react-native-blob-util/wiki/Manually-Link-Package) to link the package manually.
-
-**Grant Permission to External storage for Android 5.0 or lower**
-
-The mechanism for granting Android permissions has slightly different since Android 6.0 released, please refer to [Official Document](https://developer.android.com/training/permissions/requesting.html).
-
-If you're going to access external storage (say, SD card storage) for `Android 5.0` (or lower) devices, you might have to add the following line to `AndroidManifest.xml`.
-
-```diff
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.ReactNativeBlobUtiltest"
-    android:versionCode="1"
-    android:versionName="1.0">
-
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-+   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-+   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-+   <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
-    ...
-
-```
-
-Also, if you're going to use `Android Download Manager` you have to add this to `AndroidManifest.xml`
-
-```diff
-    <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-+           <action android:name="android.intent.action.DOWNLOAD_COMPLETE"/>
-    </intent-filter>
-```
-
-If you are going to use the `wifiOnly` flag, you need to add this to `AndroidManifest.xml`
-
-```diff
-+   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    ...
-
-```
-
-**Grant Access Permission for Android 6.0**
-
-Beginning in Android 6.0 (API level 23), users grant permissions to apps while the app is running, not when they install the app. So adding permissions in `AndroidManifest.xml` won't work for Android 6.0+ devices. To grant permissions in runtime, you might use [PermissionAndroid API](https://facebook.github.io/react-native/docs/permissionsandroid).
+Storage permissions are granted at runtime. Your app's own directories (`fs.dirs.DocumentDir`,
+`CacheDir`, and the app-specific `DownloadDir`, `PictureDir` and so on) need no permission. To write
+to shared storage on Android 9 and lower (the `Legacy*Dir` directories), request
+`WRITE_EXTERNAL_STORAGE` with [PermissionsAndroid](https://reactnative.dev/docs/permissionsandroid).
+On Android 10 and up, use the [media API](#android-media-storage) instead.
 
 ## Usage
 
-ES6
-
-The module uses ES6 style export statement, simply use `import` to load the module.
+The default export holds everything:
 
 ```js
-import ReactNativeBlobUtil from 'react-native-blob-util'
+import ReactNativeBlobUtil from 'react-native-blob-util';
+
+const res = await ReactNativeBlobUtil.fetch('GET', 'https://example.com/data.json');
+const exists = await ReactNativeBlobUtil.fs.exists(ReactNativeBlobUtil.fs.dirs.DocumentDir + '/notes.txt');
 ```
 
-ES5
-
-If you're using ES5 require statement to load the module, please add `default`. See [here](https://github.com/RonRadtke/react-native-blob-util/wiki/Trouble-Shooting#ReactNativeBlobUtilfetch-is-not-a-function) for more detail.
-
-```
-var ReactNativeBlobUtil = require('react-native-blob-util').default
-```
-
-## HTTP Data Transfer
-
-### Regular Request
-
-After `0.8.0` react-native-blob-util automatically decides how to send the body by checking its type and `Content-Type` in the header. The rule is described in the following diagram
-
-<img src="img/RNFB-Flow-hd.png" style="width : 90%" />
-
-To sum up:
-
-- To send a form data, the `Content-Type` header does not matter. When the body is an `Array` we will set proper content type for you.
-- To send binary data, you have two choices, use BASE64 encoded string or path points to a file contains the body.
-- If the `Content-Type` containing substring`;BASE64` or `application/octet` the given body will be considered as a BASE64 encoded data which will be decoded to binary data as the request body.
-- Otherwise, if a string starts with `ReactNativeBlobUtil-file://` (which can simply be done by `ReactNativeBlobUtil.wrap(PATH_TO_THE_FILE)`), it will try to find the data from the URI string after `ReactNativeBlobUtil-file://` and use it as the request body.
-- To send the body as-is, simply use a `Content-Type` header not containing `;BASE64` or `application/octet`.
-
-> It is Worth to mentioning that the HTTP request uses cache by default, if you're going to disable it simply add a Cache-Control header `'Cache-Control' : 'no-store'`
-
-> After 0.9.4, we disabled `Chunked` transfer encoding by default, if you're going to use it, you should explicitly set header `Transfer-Encoding` to `Chunked`.
-
-### Download example: Fetch files that need authorization token
-
-Most simple way is download to memory and stored as BASE64 encoded string, this is handy when the response data is small. Note that when it comes to authorization, not only can you use an authorization token, but this package will automatically pass the cookies created by normal js requests such as axios and fetch. Therefore, if you are using traditional cookie-based ways to authorize your user, you don't need to do anything before this package works.
+The same objects are also named exports:
 
 ```js
+import {fetch, config, fs, open, media, wrap, session, base64} from 'react-native-blob-util';
 
-// send http request in a new thread (using native code)
-ReactNativeBlobUtil.fetch('GET', 'http://www.example.com/images/img1.png', {
-    Authorization: 'Bearer access-token...',
-    // more headers  ..
-})
-        .then(async (res) => {
-            let status = res.info().status;
-
-            if (status == 200) {
-                // every accessor returns a Promise, whether the body is in memory or a file
-                let base64Str = await res.base64()
-                let text = await res.text()
-                let json = await res.json()
-            }
-            else {
-                // handle other status codes
-            }
-        })
-        // Something went wrong:
-        .catch((errorMessage, statusCode) => {
-            // error handling
-        })
+const res = await fetch('GET', 'https://example.com/data.json');
+const exists = await fs.exists(fs.dirs.DocumentDir + '/notes.txt');
 ```
 
-### Download to storage directly
+`CanceledFetchError`, `FetchBlobResponse`, `URIUtil` and `getUUID` are named exports as well.
 
-If the response data is large, that would be a bad idea to convert it into BASE64 string. A better solution is streaming the response directly into a file, simply add a `fileCache` option to config, and set it to `true`. This will make incoming response data stored in a temporary path **without** any file extension.
+The API is grouped by what a call does:
 
-**These files won't be removed automatically, please refer to [Cache File Management](#user-content-cache-file-management)**
+| Namespace | For |
+|---|---|
+| `fetch`, `config` | HTTP requests |
+| `fs` | files and directories |
+| `open` | showing a file in another app, or letting the user pick one |
+| `media` | Android's MediaStore, Downloads app and media scanner |
+
+A call a platform cannot make rejects with `ENOTSUP`.
+
+## Coming from 0.x
+
+[Migration.md](Migration.md) lists everything 1.0 changes: removed APIs (the Web API polyfills,
+`JSONStream`, `response.blob()`), renamed calls, values that are now the same on every platform,
+error codes, request body rules and the Android `content://` security fix.
+
+The old names keep working for now and print one deprecation warning each:
+
+- the `android`, `ios` and `MediaCollection` namespaces (use `open.*`, `media.*` and `fs.*`);
+- `fs.readFileWithTransform` and `fs.writeFileWithTransform` (use `readFile`/`writeFile` with `{transform: true}`);
+- `fs.lstat`, `fs.scanFile`, `fs.pathForAppGroup`, `fs.syncPathAppGroup`;
+- the config keys `transformFile`, `addAndroidDownloads`, `wifiOnly`, `targetHostIp` and `IOSBackgroundTask`.
+
+## Requests
+
+Requests run in native code. The response can be held in memory or written straight to a file.
+
+### A simple request
 
 ```js
-ReactNativeBlobUtil
-        .config({
-            // add this option that makes response data to be stored as a file,
-            // this is much more performant.
-            fileCache: true,
-        })
-        .fetch('GET', 'http://www.example.com/file/example.zip', {
-            //some headers ..
-        })
-        .then((res) => {
-            // the temp file path
-            console.log('The file saved to ', res.path())
-        })
+import {fetch} from 'react-native-blob-util';
+
+async function loadItems() {
+    try {
+        const res = await fetch('GET', 'https://example.com/api/items', {
+            Authorization: 'Bearer access-token',
+        });
+        if (!res.ok) {
+            console.warn('Server answered', res.status);
+            return null;
+        }
+        return await res.json();
+    } catch (err) {
+        // The request itself failed: no connection, timeout, TLS error, cancelled ...
+        console.warn(err.code, err.message);
+        return null;
+    }
+}
 ```
 
-**Set Temp File Extension**
+An HTTP error status (404, 500, ...) resolves like any other response; check `res.ok` or
+`res.status`. The promise only rejects when the request fails. See [Errors](#errors).
 
-Sometimes you might need a file extension for some reason. For example, when using file path as the source of `Image` component, the path should end with something like .png or .jpg, you can do this by add `appendExt` option to `config`.
+Cookies set by other requests in the app (React Native's `fetch`, axios) are sent along.
+
+### The response
+
+| Member | What it is |
+|---|---|
+| `res.status` | the HTTP status |
+| `res.ok` | `true` for a status of 200..299 |
+| `res.headers` | the response headers, names in lower case |
+| `res.url` | the URL the body came from, after redirects; `undefined` when unknown |
+| `res.info()` | the full response info: `status`, `headers`, `redirects`, `respType`, ... |
+| `res.text()` | the body as text (UTF-8) |
+| `res.json()` | the body parsed as JSON |
+| `res.base64()` | the body as a base64 string |
+| `res.array()` | the body as byte values 0..255 |
+| `res.arrayBuffer()` | the body as an `ArrayBuffer` |
+| `res.path()` | the path of the response file, or `null` when the body is in memory |
+| `res.flush()` | removes the response file; resolves at once when there is none |
+| `res.readFile(encoding)`, `res.readStream(encoding)` | read the response file; reject `EINVAL` when the body is not a file |
+| `res.session(name)` | adds the response file to a [session](#cache-file-management); throws `EINVAL` when the body is not a file |
+
+`text()`, `json()`, `base64()`, `array()`, `arrayBuffer()` and `flush()` always return a Promise,
+whether the body is in memory or in a file.
+
+### Download to a file
+
+A large response should not pass through JS. With `fileCache: true` it is written to a file with
+a random name in the cache directory; `appendExt` gives that file an extension. With `path` it is
+written where you say.
 
 ```js
-ReactNativeBlobUtil
-        .config({
-            fileCache: true,
-            // by adding this option, the temp files will have a file extension
-            appendExt: 'png'
-        })
-        .fetch('GET', 'http://www.example.com/file/example.zip', {
-            //some headers ..
-        })
-        .then((res) => {
-            // the temp file path with file extension `png`
-            console.log('The file saved to ', res.path())
-            // Beware that when using a file path as Image source on Android,
-            // you must prepend "file://"" before the file path
-            imageView = <Image source={{uri: Platform.OS === 'android' ? 'file://' + res.path() : '' + res.path()}}/>
-        })
+import {config, fs} from 'react-native-blob-util';
+
+const res = await config({
+    path: fs.dirs.DocumentDir + '/report.pdf',
+}).fetch('GET', 'https://example.com/report.pdf', {
+    Authorization: 'Bearer access-token',
+});
+
+if (!res.ok) {
+    // The error page was written to the file; don't keep it.
+    await res.flush();
+    throw new Error(`Download failed with status ${res.status}`);
+}
+console.log('Saved to', res.path());
 ```
 
-**Use Specific File Path**
-
-If you prefer a particular file path rather than randomly generated one, you can use `path` option. We've added [several  constants](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#dirs) in v0.5.0 which represents commonly used directories.
+Always check `res.ok` before using a downloaded file: an error status still resolves, and the
+file then holds the server's error body.
 
 ```js
-let dirs = ReactNativeBlobUtil.fs.dirs
-ReactNativeBlobUtil
-        .config({
-            // response data will be saved to this path if it has access right.
-            path: dirs.DocumentDir + '/path-to-file.anything'
-        })
-        .fetch('GET', 'http://www.example.com/file/example.zip', {
-            //some headers ..
-        })
-        .then((res) => {
-            // the path should be dirs.DocumentDir + 'path-to-file.anything'
-            console.log('The file saved to ', res.path())
-        })
+import {Image} from 'react-native';
+import {config} from 'react-native-blob-util';
+
+const res = await config({fileCache: true, appendExt: 'png'})
+    .fetch('GET', 'https://example.com/image.png');
+
+// An Image source needs the file:// prefix on Android; iOS accepts it as well.
+const image = <Image source={{uri: 'file://' + res.path()}} />;
 ```
 
-**These files won't be removed automatically, please refer to [Cache File Management](#user-content-cache-file-management)**
+Files written by `fileCache` or `path` are **not** removed automatically. See
+[Cache file management](#cache-file-management).
 
-**Use File Transformer**
-
-If you need to perform any processing on the bytes prior to it being written into storage (e.g. if you want it to be encrypted) then you can use `transform` option.  NOTE: you will need to set a transformer on the libray (see [Setting a File Transformer](#Setting-A-File-Transformer))
+**Use a file transformer**: with `transform: true` the registered
+[file transformer](#setting-a-file-transformer) runs on the response before it is written to disk
+(for example to encrypt it). It only applies when the response is written to a file.
 
 ```js
-ReactNativeBlobUtil
-        .config({
-            // response data will be saved to this path if it has access right.
-            path: dirs.DocumentDir + '/path-to-file.anything',
-            transform: true
-        })
-        .fetch('GET', 'http://www.example.com/file/example.zip', {
-            //some headers ..
-        })
-        .then((res) => {
-            // the path should be dirs.DocumentDir + 'path-to-file.anything'
-            console.log('The file saved to ', res.path())
-        })
+const res = await config({
+    path: fs.dirs.DocumentDir + '/secret.bin',
+    transform: true,
+}).fetch('GET', 'https://example.com/secret.bin');
 ```
 
-#### Upload example : Dropbox [files-upload](https://www.dropbox.com/developers/documentation/http/documentation#files-upload) API
+### Request bodies
 
-`react-native-blob-util` will convert the base64 string in `body` to binary format using native API, this process is done in a separated thread so that it won't block your GUI.
+Say what a body is with one of the explicit forms. They are never guessed from anything:
+
+| Body | Sent as |
+|---|---|
+| `{text: string}` | the string, as it is |
+| `{base64: string}` | the bytes the base64 string encodes |
+| `{file: path}` | the contents of a file: a path, or a `content://` URI on Android |
+| an `ArrayBuffer` or a typed array (`Uint8Array`, ...) | the bytes |
+| an array of fields | a [multipart form](#multipart-form-data) |
 
 ```js
+import {fetch, fs} from 'react-native-blob-util';
 
-ReactNativeBlobUtil.fetch('POST', 'https://content.dropboxapi.com/2/files/upload', {
-    Authorization: "Bearer access-token...",
-    'Dropbox-API-Arg': JSON.stringify({
-        path: '/img-from-react-native.png',
-        mode: 'add',
-        autorename: true,
-        mute: false
-    }),
+// JSON, or any string that comes from a user or a server
+await fetch('POST', 'https://example.com/api/notes', {
+    'Content-Type': 'application/json',
+}, {text: JSON.stringify({title: 'Hello'})});
+
+// Binary data you hold as base64
+await fetch('POST', 'https://content.dropboxapi.com/2/files/upload', {
+    Authorization: 'Bearer access-token',
+    'Dropbox-API-Arg': JSON.stringify({path: '/img-from-react-native.png', mode: 'add', autorename: true, mute: false}),
     'Content-Type': 'application/octet-stream',
-    // here's the body you're going to send, should be a BASE64 encoded string
-    // (you can use "base64"(refer to the library 'mathiasbynens/base64') APIs to make one).
-    // The data will be converted to "byte array"(say, blob) before request sent.
-}, base64ImageString)
-        .then((res) => {
-            console.log(res.text())
-        })
-        .catch((err) => {
-            // error handling ..
-        })
-```
+}, {base64: base64ImageString});
 
-### Upload a file from storage
+// A file, streamed from storage
+await fetch('PUT', 'https://example.com/upload/video.mp4', {
+    'Content-Type': 'video/mp4',
+}, {file: fs.dirs.DocumentDir + '/video.mp4'});
 
-If you're going to use a `file` as request body, just wrap the path with `wrap` API.
-
-```js
-ReactNativeBlobUtil.fetch('POST', 'https://content.dropboxapi.com/2/files/upload', {
-    // dropbox upload headers
-    Authorization: "Bearer access-token...",
-    'Dropbox-API-Arg': JSON.stringify({
-        path: '/img-from-react-native.png',
-        mode: 'add',
-        autorename: true,
-        mute: false
-    }),
+// Bytes
+await fetch('POST', 'https://example.com/api/blob', {
     'Content-Type': 'application/octet-stream',
-    // Change BASE64 encoded data to a file path with prefix `ReactNativeBlobUtil-file://`.
-    // Or simply wrap the file path with ReactNativeBlobUtil.wrap().
-}, ReactNativeBlobUtil.wrap(PATH_TO_THE_FILE))
-        .then((res) => {
-            console.log(res.text())
-        })
-        .catch((err) => {
-            // error handling ..
-        })
+}, new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
 ```
 
-### Multipart/form-data example: Post form data with file and data
+A **plain string** body is read by the rule 0.x used, the same way on every platform:
 
-In `version >= 0.3.0` you can also post files with form data, just put an array in `body`, with elements have property `name`, `data`, and `filename`(optional).
-
-Elements have property `filename` will be transformed into binary format, otherwise, it turns into utf8 string.
+- a string made by `wrap(path)` is a file (`wrap` works for paths and `content://` URIs);
+- with a `Content-Type` that ends in `;base64` (removed before sending) or starts with
+  `application/octet`, the string is base64;
+- anything else is text. Without a `Content-Type` a string is text.
 
 ```js
+import {fetch, wrap} from 'react-native-blob-util';
 
-ReactNativeBlobUtil.fetch('POST', 'http://www.example.com/upload-form', {
-    Authorization: "Bearer access-token",
-    otherHeader: "foo",
+await fetch('POST', 'https://example.com/upload', {
+    'Content-Type': 'application/octet-stream',
+}, wrap(pathToFile));
+```
+
+Prefer `{text}` for a string you did not write yourself: a plain string that happens to start with
+the file prefix is uploaded as that file's contents.
+
+Other rules:
+
+- `GET` and `HEAD` reject a body with `EINVAL`. `DELETE` and the other methods send it.
+- A file body whose file does not exist rejects with `ENOENT`.
+- A header name or value containing CR, LF or NUL rejects with `EINVAL`. `null` and `undefined`
+  header values are sent as `""`.
+
+### Multipart form data
+
+Pass an array of fields as the body. The library sets `Content-Type: multipart/form-data` with
+its boundary.
+
+Each field has a `name` and `data`, and optionally a `filename` and a `type` (the part's MIME
+type). `data` can use the explicit forms above. A plain string is text when the field has no
+`filename`, and base64 (or a `wrap(path)` file) when it has one. A file part without a `filename`
+is named after the file.
+
+```js
+import {fetch, fs, wrap} from 'react-native-blob-util';
+
+const res = await fetch('POST', 'https://example.com/upload-form', {
+    Authorization: 'Bearer access-token',
     'Content-Type': 'multipart/form-data',
 }, [
-    // element with property `filename` will be transformed into `file` in form data
-    {name: 'avatar', filename: 'avatar.png', data: binaryDataInBase64},
-    // custom content type
-    {name: 'avatar-png', filename: 'avatar-png.png', type: 'image/png', data: binaryDataInBase64},
-    // part file from storage
-    {name: 'avatar-foo', filename: 'avatar-foo.png', type: 'image/foo', data: ReactNativeBlobUtil.wrap(path_to_a_file)},
-    // elements without property `filename` will be sent as plain text
+    // text fields
     {name: 'name', data: 'user'},
-    {
-        name: 'info', data: JSON.stringify({
-            mail: 'example@example.com',
-            tel: '12345678'
-        })
-    },
-]).then((resp) => {
+    {name: 'info', data: {text: JSON.stringify({mail: 'example@example.com', tel: '12345678'})}},
+    // a file from storage, with its own MIME type
+    {name: 'avatar', filename: 'avatar.png', type: 'image/png', data: {file: fs.dirs.DocumentDir + '/avatar.png'}},
+    // a file from the app bundle
+    {name: 'ringtone', filename: 'ring.mp3', type: 'audio/mpeg', data: wrap(fs.asset('default-ringtone.mp3'))},
+    // binary data held as base64
+    {name: 'thumbnail', filename: 'thumb.jpg', type: 'image/jpeg', data: {base64: thumbnailBase64}},
+]);
+```
+
+A `name` or `filename` containing `"`, CR or LF is escaped as browsers do (`%22`, `%0D`, `%0A`); a
+`type` containing CR or LF rejects with `EINVAL`.
+
+### Progress
+
+`progress` reports the download, `uploadProgress` the upload. Both return the task, so they chain,
+and both take an optional first argument `{interval, count}`:
+
+- `interval`: report at most every this many milliseconds. Default 250; `0` reports every chunk.
+- `count`: report this many times in total. Default unlimited. Needs a `Content-Length` from the server.
+
+```js
+import {fetch} from 'react-native-blob-util';
+
+const res = await fetch('POST', 'https://example.com/upload', {
+    'Content-Type': 'application/octet-stream',
+}, {file: pathToFile})
+    .uploadProgress({interval: 250}, (sent, total) => {
+        console.log('uploaded', sent / total);
+    })
+    .progress({count: 10}, (received, total) => {
+        console.log('downloaded', received / total);
+    });
+```
+
+`stateChange(fn)` is called with the response info as soon as the headers arrive, before the body
+is complete.
+
+### Cancel a request
+
+`task.cancel()` cancels the request. The task rejects right away with a `CanceledFetchError`
+whose `code` is `ECANCELED`; the Promise `cancel()` returns resolves once native has cancelled.
+Cancelling a finished task does nothing.
+
+```js
+import {CanceledFetchError, fetch} from 'react-native-blob-util';
+
+const task = fetch('GET', 'https://example.com/large-file');
+
+task.then((res) => {
     // ...
 }).catch((err) => {
-    // ...
-})
+    if (err.code === 'ECANCELED') {
+        return; // cancelled by us
+    }
+    console.warn(err);
+});
+
+// later
+await task.cancel();
 ```
 
-What if you want to append a file to form data? Just like [upload a file from storage](#user-content-upload-a-file-from-storage) example, wrap `data` by `wrap` API (this feature is only available for `version >= v0.5.0`). On version >= `0.6.2`, it is possible to set custom MIME type when appending a file to form data. But keep in mind when the file is large it's likely to crash your app. Please consider use other strategy (see [#94](https://github.com/joltup/react-native-blob-util/issues/94)).
+`err instanceof CanceledFetchError` works as well. `task.taskId` is the id native knows the task by.
+
+### Config options
+
+`config(options)` returns a `fetch` bound to those options:
 
 ```js
+import {config} from 'react-native-blob-util';
 
-ReactNativeBlobUtil.fetch('POST', 'http://www.example.com/upload-form', {
-    Authorization: "Bearer access-token",
-    otherHeader: "foo",
-    // this is required, otherwise it won't be process as a multipart/form-data request
-    'Content-Type': 'multipart/form-data',
-}, [
-    // append field data from file path
-    {
-        name: 'avatar',
-        filename: 'avatar.png',
-        // Change BASE64 encoded data to a file path with prefix `ReactNativeBlobUtil-file://`.
-        // Or simply wrap the file path with ReactNativeBlobUtil.wrap().
-        data: ReactNativeBlobUtil.wrap(PATH_TO_THE_FILE)
-    },
-    {
-        name: 'ringtone',
-        filename: 'ring.mp3',
-        // use custom MIME type
-        type: 'application/mp3',
-        // upload a file from asset is also possible in version >= 0.6.2
-        data: ReactNativeBlobUtil.wrap(ReactNativeBlobUtil.fs.asset('default-ringtone.mp3'))
-    },
-    // elements without property `filename` will be sent as plain text
-    {name: 'name', data: 'user'},
-    {
-        name: 'info', data: JSON.stringify({
-            mail: 'example@example.com',
-            tel: '12345678'
-        })
-    },
-]).then((resp) => {
-    // ...
-}).catch((err) => {
-    // ...
-})
+const res = await config({fileCache: true, timeout: 30000}).fetch('GET', url);
 ```
 
-### Upload/Download progress
-
-In `version >= 0.4.2` it is possible to know the upload/download progress. After `0.7.0` IOS and Android upload progress are also supported.
+| Option | Type | Description |
+|---|---|---|
+| `fileCache` | `boolean` | Write the response to a file with a random name in the cache directory. |
+| `appendExt` | `string` | Extension for the `fileCache` file name. |
+| `path` | `string` | Write the response to this path. Overrides `fileCache` and `appendExt`. |
+| `overwrite` | `boolean` | Replace an existing file at `path` (default `true`). `false` appends the response to the existing file. |
+| `key` | `string` | Cache the response under this key: if a file downloaded with the same key exists, it is returned without a request. |
+| `session` | `string` | Add the response file to this [session](#cache-file-management). |
+| `timeout` | `number` | Request timeout in milliseconds. Default 60000. |
+| `followRedirect` | `boolean` | Follow redirects (default `true`). |
+| `transform` | `boolean` | Run the [file transformer](#setting-a-file-transformer) on a response written to a file. |
+| `trusty` | `boolean` | Skip certificate validation. For development only; see [Self-Signed SSL Server](#self-signed-ssl-server). |
+| `customCACerts` | `string[]` | Trust these bundled CA certificates. See [Custom CA Certificates](#custom-ca-certificates). |
+| `pinnedHosts` | `string[]` | Apply `customCACerts` to these hosts only. |
+| `trustSystemCerts` | `boolean` | Keep trusting the system CAs alongside `customCACerts`. Default `false`. |
+| `android.downloadManager` | object | Download through Android's DownloadManager. See [below](#android-downloadmanager). |
+| `android.wifiOnly` | `boolean` | Only send the request over WiFi. Fails with `ENETUNREACH` without WiFi. |
+| `android.targetHostIp` | `string` | Send the request over the network interface that can reach this IP. |
+| `ios.backgroundTask` | `boolean` | Use a background session, so the download continues while the app is suspended. |
 
 ```js
-  ReactNativeBlobUtil.fetch('POST', 'http://www.example.com/upload', {
-    //... some headers,
-    'Content-Type': 'octet-stream'
-}, base64DataString)
-        // listen to upload progress event
-        .uploadProgress((written, total) => {
-            console.log('uploaded', written / total)
-        })
-        // listen to download progress event
-        .progress((received, total) => {
-            console.log('progress', received / total)
-        })
-        .then((resp) => {
-            // ...
-        })
-        .catch((err) => {
-            // ...
-        })
+config({
+    android: {wifiOnly: true},
+    ios: {backgroundTask: true},
+}).fetch('GET', 'https://example.com/large-file.zip');
 ```
 
-In `0.9.6`, you can specify an object as the first argument which contains `count` and `interval`, to the frequency of progress event (this will be done in the native context a reduce RCT bridge overhead). Notice that `count` argument will not work if the server does not provide response content length.
+Options for one platform are ignored on the others.
 
-```js
-  ReactNativeBlobUtil.fetch('POST', 'http://www.example.com/upload', {
-    //... some headers,
-    'Content-Type': 'octet-stream'
-}, base64DataString)
-        // listen to upload progress event, emit every 250ms
-        .uploadProgress({interval: 250}, (written, total) => {
-            console.log('uploaded', written / total)
-        })
-        // listen to download progress event, every 10%
-        .progress({count: 10}, (received, total) => {
-            console.log('progress', received / total)
-        })
-        .then((resp) => {
-            // ...
-        })
-        .catch((err) => {
-            // ...
-        })
-```
+### Android DownloadManager
 
-### Cancel Request
-
-After `0.7.0` it is possible to cancel an HTTP request. Upon cancellation, it throws a promise rejection, be sure to catch it.
-
-```js
-let task = ReactNativeBlobUtil.fetch('GET', 'http://example.com/file/1')
-
-task.then(() => { ...
-})
-        // handle request cancelled rejection
-        .catch((err) => {
-            console.log(err)
-        })
-// cancel the request, the callback function is optional
-task.cancel((err) => { ...
-})
-
-```
-
-### Android Media Scanner, and Download Manager Support
-
-If you want to make a file in `External Storage` becomes visible in Picture, Downloads, or other built-in apps, you will have to use `Media Scanner` or `Download Manager` or the `Media Storage`.
-
-**Media Scanner**
-
-Media scanner scans the file and categorizes by given MIME type, if MIME type not specified, it will try to resolve the file using its file extension.
-
-```js
-
-ReactNativeBlobUtil
-        .config({
-            // DCIMDir is in external storage
-            path: dirs.DCIMDir + '/music.mp3'
-        })
-        .fetch('GET', 'http://example.com/music.mp3')
-        .then((res) => ReactNativeBlobUtil.media.scan([{path: res.path(), mime: 'audio/mpeg'}]))
-        .then(() => {
-            // scan file success
-        })
-        .catch((err) => {
-            // scan file error
-        })
-```
-
-**Download Manager**
-
-When downloading large files on Android it is recommended to use `Download Manager`, it supports a lot of native features like the progress bar, and notification, also the download task will be handled by OS, and more efficient.
+For large downloads on Android, the system's DownloadManager handles the transfer, shows the
+progress in a notification and makes the file visible in the Downloads app.
 
 <img src="img/download-manager.png" width="256">
 
-When using DownloadManager, `fileCache` and `path` properties in `config` will not take effect, because Android DownloadManager can only store files to external storage, also notice that Download Manager can only support `GET` method, which means the request body will be ignored.
-
-When download complete, DownloadManager will generate a file path so that you can deal with it.
+With `downloadManager`, `fileCache` and `path` do not apply: set the destination with
+`downloadManager.path`. The DownloadManager only makes `GET` requests. When it completes,
+`res.path()` is the downloaded file.
 
 ```js
-ReactNativeBlobUtil
-        .config({
-            addAndroidDownloads: {
-                useDownloadManager: true, // <-- this is the only thing required
-                // Optional, override notification setting (default to true)
-                notification: false,
-                // Optional, but recommended since android DownloadManager will fail when
-                // the url does not contains a file extension, by default the mime type will be text/plain
-                mime: 'text/plain',
-                description: 'File downloaded by download manager.'
-            }
-        })
-        .fetch('GET', 'http://example.com/file/somefile')
-        .then((resp) => {
-            // the path of downloaded file
-            resp.path()
-        })
+import {config} from 'react-native-blob-util';
+
+const res = await config({
+    android: {
+        downloadManager: {
+            useDownloadManager: true, // required for the other options
+            notification: true,
+            title: 'report.pdf',
+            description: 'A file downloaded by the DownloadManager.',
+            // recommended: the DownloadManager fails when the URL has no file extension
+            // and no MIME type is given (the default is text/plain)
+            mime: 'application/pdf',
+            mediaScannable: true,
+        },
+    },
+}).fetch('GET', 'https://example.com/report.pdf');
+
+console.log(res.path());
 ```
 
-Your app might not have right to remove/change the file created by Download Manager, therefore you might need to [set custom location to the download task](https://github.com/wkh237/react-native-fetch-blob/issues/236).
-
-**Download Notification and Visibility in Download App (Android Only)**
+| `downloadManager` option | Description |
+|---|---|
+| `useDownloadManager` | Download through the DownloadManager. Required for the other options. |
+| `title`, `description` | Shown in the notification and the Downloads app. |
+| `path` | Destination; must be on external storage. |
+| `mime` | MIME type of the file. Default `text/plain`. |
+| `mediaScannable` | Let the media scanner index the file. |
+| `notification` | Show a notification while downloading and when complete. |
+| `storeInDownloads` | Android 10+: store the file in the Downloads collection (may override `path`). |
+| `storeLocal` | Store the file in the app's own download directory. |
 
 <img src="img/android-notification1.png" width="256">
 <img src="img/android-notification2.png" width="256">
 
+Your app might not be allowed to change or remove a file the DownloadManager created in a
+location it chose; set `path` if you need to.
 
-If you need to display a notification upon the file is downloaded to storage (as the above) or make the downloaded file visible in "Downloads" app. You have to add some options to `config`.
-
-```js
-ReactNativeBlobUtil.config({
-    fileCache: true,
-    // android only options, these options be a no-op on IOS
-    addAndroidDownloads: {
-        // Show notification when response data transmitted
-        notification: true,
-        // Title of download notification
-        title: 'Great ! Download Success ! :O ',
-        // File description (not notification description)
-        description: 'An image file.',
-        mime: 'image/png',
-        // Make the file scannable  by media scanner
-        mediaScannable: true,
-    }
-})
-        .fetch('GET', 'http://example.com/image1.png')
-        .then(...)
-```
-
-**Open Downloaded File with Intent**
-
-This is a new feature added in `0.9.0` if you're going to open a file path using official [Linking](https://facebook.github.io/react-native/docs/linking.html) API that might not work as expected, also, if you're going to install an APK in `Downloads` app, that will not function too. As an alternative, you can try `actionViewIntent` API, which will send an ACTION_VIEW intent for you which uses the given `MIME` type.
-
-Download and install an APK programmatically
-
-Note:
-be sure to specify the path, do not use the default path, because the permission problem causes the installation to fail, parsing the package fails
-
-default path: `/data/data/com.android.providers.downloads/cache/xxx.apk`   // Will cause parsing of the package to fail，Unable to install APK
+To install a downloaded APK, download it to a path you set (not the default location, from which
+the package installer cannot read it) and open it with [`open.file`](#opening-and-picking-files):
 
 ```js
+import {config, fs, open} from 'react-native-blob-util';
 
-const android = ReactNativeBlobUtil.android
-const dirs = ReactNativeBlobUtil.fs.dirs;
-const apkUrl = "http://www.example.com/awesome.apk";    
-const fileName = url.substring(url.lastIndexOf('/') + 1);
+const res = await config({
+    android: {
+        downloadManager: {
+            useDownloadManager: true,
+            path: fs.dirs.DownloadDir + '/awesome.apk',
+            title: 'awesome.apk',
+            description: 'An APK that will be installed',
+            mime: 'application/vnd.android.package-archive',
+            mediaScannable: true,
+            notification: true,
+        },
+    },
+}).fetch('GET', 'https://www.example.com/awesome.apk');
 
-ReactNativeBlobUtil.config({
-    addAndroidDownloads: {
-        useDownloadManager: true,
-        path: `${dirs.DownloadDir}/${fileName}`,    // <-- Must specify
-        title: 'awesome.apk',
-        description: 'An APK that will be installed',
-        mime: 'application/vnd.android.package-archive',
-        mediaScannable: true,
-        notification: true,
-    }
-})
-        .fetch('GET', `http://www.example.com/awesome.apk`)
-        .then((res) => {
-            android.actionViewIntent(res.path(), 'application/vnd.android.package-archive')
-        })
+const apk = res.path();
+if (res.ok && apk) {
+    await open.file(apk, {mime: 'application/vnd.android.package-archive'});
+}
 ```
 
-Or show an image in image viewer
-
-```js
-      android.actionViewIntent(PATH_OF_IMG, 'image/png')
-```
-
-## File System
-
-### Android Media Storage
-
-Android 10 introduced scoped storage and thus new APIs to store files to Documents, Downloads, Music and other collections. Version 0.14.0 introduced an API to access files in the Media Store but also to create and write to new files in the Media Store. In general you only can access files in the Media Store created by your app, or selected by a picker.
-
-#### CopyToMediaStore
-
-Copies an existing file from the internal Storage to the Media Store. <br> An example for downloading a file and storing it to the `downloads` collection
-
-```js
-ReactNativeBlobUtil
-        .config({
-            fileCache: true
-        })
-        .fetch('GET', 'https://example.de/image.png')
-        .then(async (res) => {
-            let result = await ReactNativeBlobUtil.MediaCollection.copyToMediaStore({
-                        name: filename, // name of the file
-                        parentFolder: '', // subdirectory in the Media Store, e.g. HawkIntech/Files to create a folder HawkIntech with a subfolder Files and save the image within this folder
-                        mimeType: 'image/png' // MIME type of the file
-                    },
-                    'Download', // Media Collection to store the file in ("Audio" | "Image" | "Video" | "Download")
-                    res.path() // Path to the file being copied in the apps own storage
-            );
-        });
-```
-
-This example is taking advantage of the fileCache option to directly store the downloaded file and get a path for. <br>
-Currently it's not possible to write data directly from a string recevied by fetch, but only to copy it from a file.
-
-#### createMediaFile
-
-Creates a new file in the specified collection without writing any data
-
-````js
-let path = await ReactNativeBlobUtil.media.createFile({
-            name: filename, // name of the file
-            parentFolder: '', // subdirectory in the Media Store, e.g. HawkIntech/Files to create a folder HawkIntech with a subfolder Files and save the image within this folder
-            mimeType: 'image/png' // MIME type of the file
-        }, 'Download'// Media Collection to store the file in ("Audio" | "Image" | "Video" | "Download")
-);
-````
-
-#### writeMediaFile
-
-Writes data from a file in the apps storage to an existing entry of the Media Store
-````js
-await ReactNativeBlobUtil.media.write('content://....', // content uri of the entry in the media storage
-        localpath // path to the file that should be copied
-);
-````
-
-Copies and tranforms data from a file in the apps storage to an existing entry of the Media Store. NOTE: you must set a transformer on the file in order for the transformation to happen (see [Setting a File Transformer](#Setting-A-File-Transformer)).
-
-````js
-await ReactNativeBlobUtil.media.write('content://....', // content uri of the entry in the media storage
-        localpath, // path to the file that should be copied
-        {transform: true}
-);
-````
-
-#### copyToInternal
-Copies an entry form the media storage to the apps internal storage.
-````js
-let destpath = ReactNativeBlobUtil.dirs.CacheDir + '/image.png';
-await ReactNativeBlobUtil.MediaCollection.copyToInternal('content://....', // content uri of the entry in the media storage
-        destpath // path to destination the entry should be copied to
-);
-````
-
-### File Access
-
-File access APIs were made when developing `v0.5.0`, which helping us write tests, and was not planned to be a part of this module. However, we realized that it's hard to find a great solution to manage cached files, everyone who uses this module may need these APIs for their cases.
-
-Before start using file APIs, we recommend read [Differences between File Source](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#differences-between-file-source) first.
-
-File Access APIs
-
-- [asset (0.6.2)](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#assetfilenamestringstring)
-- [dirs](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#dirs)
-- [createFile](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#createfilepath-data-encodingpromise)
-- [writeFile (0.6.0)](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#writefilepathstring-contentstring--array-encodingstring-appendbooleanpromise)
-- writeFileWithTransform
-- [appendFile (0.6.0) ](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#appendfilepathstring-contentstring--arraynumber-encodingstring-promisenumber)
-- [readFile (0.6.0)](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#readfilepath-encodingpromise)
-- readFileWithTransform
-- [readStream](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#readstreampath-encoding-buffersize-interval-promisernfbreadstream)
-- [hash (0.10.9)](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#hashpath-algorithm-promise)
-- [writeStream](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#writestreampathstring-encodingstringpromise)
-- [hash](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#hashpath-algorithmpromise)
-- [unlink](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#unlinkpathstringpromise)
-- [mkdir](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#mkdirpathstringpromise)
-- [ls](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#lspathstringpromise)
-- [mv](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#mvfromstring-tostringpromise)
-- [cp](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#cpsrcstring-deststringpromise)
-- [exists](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#existspathstringpromise)
-- [isDir](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#isdirpathstringpromise)
-- [stat](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#statpathstringpromise)
-- [lstat](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#lstatpathstringpromise)
-- [scanFile (Android only)](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API#scanfilepathstringpromise-androi-only)
-
-See [File API](https://github.com/RonRadtke/react-native-blob-util/wiki/File-System-Access-API) for more information
-
-### File Stream
-
-In `v0.5.0` we've added  `writeStream` and `readStream`, which allows your app read/write data from the file path. This API creates a file stream, rather than convert entire data into BASE64 encoded string. It's handy when processing **large files**.
-
-When calling `readStream` method, you have to `open` the stream, and start to read data. When the file is large, consider using an appropriate `bufferSize` and `interval` to reduce the native event dispatching overhead (see [Performance Tips](#user-content-performance-tips))
-
-> The file stream event has a default throttle(10ms) and buffer size which preventing it cause too much overhead to main thread, you can also [tweak these values](#user-content-performance-tips).
-
-```js
-let data = ''
-ReactNativeBlobUtil.fs.readStream(
-        // file path
-        PATH_TO_THE_FILE,
-        // encoding, should be one of `base64`, `utf8`, `ascii`
-        'base64',
-        // (optional) buffer size in bytes, default 12288
-        // when reading file in BASE64 encoding, buffer size must be multiples of 3.
-        4095)
-        .then((ifstream) => {
-            ifstream.open()
-            ifstream.onData((chunk) => {
-                // when encoding is `ascii`, chunk will be an array contains numbers
-                // otherwise it will be a string
-                data += chunk
-            })
-            ifstream.onError((err) => {
-                console.log('oops', err)
-            })
-            ifstream.onEnd(() => {
-                <Image source={{uri: 'data:image/png,base64' + data}}
-    })
-            })
-```
-
-When using `writeStream`, the stream object becomes writable, and you can then perform operations like `write` and `close`.
-
-Since version 0.10.9 `write()` resolves with the `ReactNativeBlobUtil` instance so you can promise-chain write calls:
-
-```js
-ReactNativeBlobUtil.fs.writeStream(
-        PATH_TO_FILE,
-        // encoding, should be one of `base64`, `utf8`, `ascii`
-        'utf8',
-        // should data append to existing content ?
-        true
-)
-        .then(ofstream => ofstream.write('foo'))
-        .then(ofstream => ofstream.write('bar'))
-        .then(ofstream => ofstream.write('foobar'))
-        .then(ofstream => ofstream.close())
-        .catch(console.error)
-```
-
-or
-
-```js
-ReactNativeBlobUtil.fs.writeStream(
-        PATH_TO_FILE,
-        // encoding, should be one of `base64`, `utf8`, `ascii`
-        'utf8',
-        // should data append to existing content ?
-        true
-)
-        .then(stream => Promise.all([
-            stream.write('foo'),
-            stream.write('bar'),
-            stream.write('foobar')
-        ]))
-        // Use array destructuring to get the stream object from the first item of the array we get from Promise.all()
-        .then(([stream]) => stream.close())
-        .catch(console.error)
-```
-
-You should **NOT** do something like this:
-
-```js
-ReactNativeBlobUtil.fs.writeStream(
-        PATH_TO_FILE,
-        // encoding, should be one of `base64`, `utf8`, `ascii`
-        'utf8',
-        // should data append to existing content ?
-        true)
-        .then((ofstream) => {
-            // BAD IDEA - Don't do this, those writes are unchecked:
-            ofstream.write('foo')
-            ofstream.write('bar')
-            ofstream.close()
-        })
-        .catch(console.error)  // Cannot catch any write() errors!
-```
-
-The problem with the above code is that the promises from the `ofstream.write()` calls are detached and "Lost". That means the entire promise chain A) resolves without waiting for the writes to finish and B) any errors caused by them are lost. That code may _seem_ to work if there are no errors, but those writes are of the type "fire and forget": You start them and then turn away and never know if they really succeeded.
-
-### Cache File Management
-
-When using `fileCache` or `path` options along with `fetch` API, response data will automatically store into the file system. The files will **NOT** removed unless you `unlink` it. There're several ways to remove the files
-
-```js
-
-// remove file using ReactNativeBlobUtilResponse.flush() object method
-ReactNativeBlobUtil.config({
-    fileCache: true
-})
-        .fetch('GET', 'http://example.com/download/file')
-        .then((res) => {
-            // remove cached file from storage
-            res.flush()
-        })
-
-// remove file by specifying a path
-ReactNativeBlobUtil.fs.unlink('some-file-path').then(() => {
-    // ...
-})
-
-```
-
-You can also group requests by using `session` API and use `dispose` to remove them all when needed.
-
-```js
-
-ReactNativeBlobUtil.config({
-    fileCache: true
-})
-        .fetch('GET', 'http://example.com/download/file')
-        .then((res) => {
-            // set session of a response
-            res.session('foo')
-        })
-
-ReactNativeBlobUtil.config({
-    // you can also set session beforehand
-    session: 'foo'
-    fileCache: true
-})
-        .fetch('GET', 'http://example.com/download/file')
-        .then((res) => {
-            // ...
-        })
-
-// or put an existing file path to the session
-ReactNativeBlobUtil.session('foo').add('some-file-path')
-// remove a file path from the session
-ReactNativeBlobUtil.session('foo').remove('some-file-path')
-// list paths of a session
-ReactNativeBlobUtil.session('foo').list()
-// remove all files in a session
-ReactNativeBlobUtil.session('foo').dispose().then(() => { ...
-})
-
-```
-
-### Transfer Encoding
-
-After `0.9.4`, the `Chunked` transfer encoding is disabled by default due to some service provider may not support chunked transfer. To enable it, set `Transfer-Encoding` header to `Chunked`.
-
-```js
-ReactNativeBlobUtil.fetch('POST', 'http://example.com/upload', {'Transfer-Encoding': 'Chunked'}, bodyData)
-```
+To register a file you downloaded yourself with the Downloads app, use
+[`media.addDownload`](#android-media-storage).
 
 ### Self-Signed SSL Server
 
-By default, react-native-blob-util does NOT allow connection to unknown certification provider since it's dangerous. To connect a server with self-signed certification, you need to add `trusty` to `config` explicitly. This function is available for version >= `0.5.3`
-In addition since ``0.16.0`` you'll have to define your own trust manager for android.
+By default, react-native-blob-util does not connect to a server whose certificate does not chain
+to a trusted CA. `trusty: true` skips that check. It is meant for development against a test
+server; to trust a private CA in production use [Custom CA Certificates](#custom-ca-certificates).
+
+What `trusty` skips differs per platform:
+
+- **Android** uses the `X509TrustManager` your app sets as `ReactNativeBlobUtilUtils.sharedTrustManager`
+  (below). The library ships none, and a `trusty` request fails without one. The host name is
+  still verified; anything else, including certificate dates, is up to your trust manager (the
+  example below accepts any certificate chain).
+- **iOS** accepts the server's certificate whatever issued it; a certificate for another host
+  name or an expired one still fails.
+- **Windows** ignores an untrusted chain; a certificate for another host name or an expired one
+  still fails.
 
 #### Kotlin
 ````kotlin
@@ -994,15 +594,10 @@ public class MainApplication extends Application implements ReactApplication {
 ````
 
 ```js
-ReactNativeBlobUtil.config({
-    trusty: true
-})
-        .fetch('GET', 'https://mysite.com')
-        .then((resp) => {
-            // ...
-        })
-```
+import {config} from 'react-native-blob-util';
 
+const res = await config({trusty: true}).fetch('GET', 'https://mysite.test');
+```
 
 ### Custom CA Certificates
 
@@ -1036,15 +631,13 @@ module.exports = {
 #### Usage
 
 ```js
-ReactNativeBlobUtil.config({
-    customCACerts: ['my_root_ca'],          // resource names without extension
+import {config} from 'react-native-blob-util';
+
+const res = await config({
+    customCACerts: ['my_root_ca'],                  // resource names without extension
     pinnedHosts: ['10.10.10.10', 'gateway.local'],  // optional: only apply to these hosts
-    trustSystemCerts: false                 // optional: also trust system CAs (default: false)
-})
-.fetch('GET', 'https://10.10.10.10/api/data')
-.then((resp) => {
-    // ...
-})
+    trustSystemCerts: false,                        // optional: also trust system CAs (default: false)
+}).fetch('GET', 'https://10.10.10.10/api/data');
 ```
 
 #### Options
@@ -1069,30 +662,283 @@ The same rules apply on iOS, Android and Windows:
   rather than quietly falling back to the system trust store, so a typo cannot
   silently undo the pinning.
 - **`pinnedHosts` scopes the custom trust.** Requests to other hosts are
-  evaluated normally against the system trust store.
+  evaluated normally against the system trust store. Host names are compared
+  case-insensitively. The decision is made for each connection, so a redirect to or from a
+  pinned host is covered.
 
+A rejected certificate fails the request with the code `ESSL`.
 
 #### Alternative: Android Network Security Config
 
 For app-wide trust (affecting all HTTP clients, not just react-native-blob-util), consider using Android's [Network Security Configuration](https://developer.android.com/training/articles/security-config) instead. This is a declarative XML approach that applies to all network requests in your app.
 
-### WiFi only requests
+### Transfer encoding and caching
 
-If you wish to only route requests through the Wifi interface, set the below configuration. Note: On Android, the `ACCESS_NETWORK_STATE` permission must be set, and this flag will only work on API version 21 (Lollipop, Android 5.0) or above. APIs below 21 will ignore this flag.
+`Chunked` transfer encoding is off by default, since some servers do not support it. To use it,
+set the `Transfer-Encoding` header:
 
 ```js
-ReactNativeBlobUtil.config({
-    wifiOnly: true
-})
-        .fetch('GET', 'https://mysite.com')
-        .then((resp) => {
-            // ...
-        })
+await fetch('POST', 'https://example.com/upload', {'Transfer-Encoding': 'Chunked'}, {file: pathToFile});
 ```
 
-### Transform Files
+Requests use the HTTP cache. To bypass it, send `'Cache-Control': 'no-store'`.
 
-Sometimes you may need the files to be transformed after reading from storage or before writing into storage (eg encryption/decyrption). In order to perform the transformations, use `readFileWithTransform` and `writeFileWithTransform`. NOTE: you must set a transformer on the file in order for the transformation to happen (see [Setting a File Transformer](#Setting-A-File-Transformer)).
+## File System
+
+`fs` works on files in native code; only what you read comes into JS.
+
+Pass plain paths, without a `file://` prefix.
+
+### Directories
+
+`fs.dirs` holds well-known directories. A directory that does not exist on a platform is `""`.
+
+| Key | What it is |
+|---|---|
+| `DocumentDir` | the app's documents (Android: its files directory) |
+| `CacheDir` | the app's cache directory |
+| `MainBundleDir` | the app bundle (iOS), the app's data directory (Android), the app package (Windows) |
+| `LibraryDir`, `ApplicationSupportDir` | iOS only |
+| `DownloadDir`, `PictureDir`, `MusicDir`, `MovieDir`, `DCIMDir` | Android: the app-specific directories on external storage; no permission needed |
+| `LegacyDownloadDir`, `LegacyPictureDir`, `LegacyMusicDir`, `LegacyMovieDir`, `LegacyDCIMDir` | Android: the shared public directories. Writable only up to Android 9, with a permission; use the [media API](#android-media-storage) on 10+ |
+
+`SDCardDir`, `SDCardApplicationDir` and `LegacySDCardDir` are deprecated; use `fs.sdCardDir()`
+and `fs.sdCardApplicationDir()`.
+
+### Reading and writing files
+
+Every call that takes an encoding also takes an options object; the positional forms still work.
+
+```js
+import {fs} from 'react-native-blob-util';
+
+const path = fs.dirs.DocumentDir + '/notes.txt';
+
+const written = await fs.writeFile(path, 'Hello');          // resolves the number of bytes
+await fs.appendFile(path, ', world', {encoding: 'utf8'});
+const text = await fs.readFile(path);                        // utf8 by default
+const b64 = await fs.readFile(path, {encoding: 'base64'});
+
+await fs.createFile(fs.dirs.DocumentDir + '/new.txt', 'first line', {encoding: 'utf8'}); // EEXIST if it exists
+
+// through the registered file transformer
+await fs.writeFile(path, 'secret', {encoding: 'utf8', transform: true});
+const plain = await fs.readFile(path, {encoding: 'utf8', transform: true});
+```
+
+| Call | Options |
+|---|---|
+| `fs.readFile(path, options)` | `{encoding, transform}` |
+| `fs.writeFile(path, data, options)` | `{encoding, transform}` |
+| `fs.appendFile(path, data, options)` | `{encoding}` |
+| `fs.createFile(path, data, options)` | `{encoding}` |
+| `fs.readStream(path, options)` | `{encoding, bufferSize, tick}` |
+| `fs.writeStream(path, options)` | `{encoding, append}` |
+
+`transform: true` runs the [file transformer](#setting-a-file-transformer); it cannot be combined
+with `ascii`.
+
+### Encodings
+
+| Encoding | Read | Write |
+|---|---|---|
+| `utf8` (default) | a string | a string |
+| `base64` | a base64 string | a base64 string, decoded before writing |
+| `ascii` | an array of byte values 0..255 | an array of byte values 0..255 |
+| `uri` | — | a path: the file at that path is copied, without passing through JS |
+
+```js
+import {fs} from 'react-native-blob-util';
+
+// bytes
+const header = fs.dirs.DocumentDir + '/header.bin';
+await fs.writeFile(header, [0x89, 0x50, 0x4e, 0x47], {encoding: 'ascii'});
+const bytes = await fs.readFile(header, {encoding: 'ascii'}); // [137, 80, 78, 71]
+
+// append one file to another, natively
+await fs.appendFile(fs.dirs.DocumentDir + '/all.log', fs.dirs.CacheDir + '/today.log', {encoding: 'uri'});
+```
+
+An unknown encoding rejects with `EINVAL`. Reading invalid UTF-8 as `utf8` gives U+FFFD for the
+bad bytes. On iOS a `utf8` read stops at the first NUL byte; read such files as `base64` or `ascii`.
+
+### Other file operations
+
+```js
+import {fs} from 'react-native-blob-util';
+
+const dir = fs.dirs.DocumentDir + '/photos';
+
+await fs.mkdir(dir);                                  // creates missing parents; EEXIST if it exists
+const names = await fs.ls(dir);                       // ['a.jpg', 'b.jpg']
+const entries = await fs.ls(dir, {stats: true});      // a stat of each entry
+const info = await fs.stat(dir + '/a.jpg');           // {filename, path, size, type, lastModified}
+const there = await fs.exists(dir + '/a.jpg');        // true or false
+const isDirectory = await fs.isDir(dir);
+await fs.cp(dir + '/a.jpg', dir + '/copy.jpg');       // an existing destination is overwritten
+await fs.mv(dir + '/copy.jpg', dir + '/moved.jpg');   // an existing destination is overwritten
+await fs.slice(dir + '/a.jpg', dir + '/head.bin', 0, 1024); // bytes [start, end); negative offsets count from the end
+const sha = await fs.hash(dir + '/a.jpg', 'sha256');  // md5, sha1, sha224 (not on Windows), sha256, sha384, sha512
+await fs.unlink(dir);                                 // removes a file or a directory; resolves if nothing is there
+const {free, total} = await fs.df();                  // bytes; Android adds internal_* and external_* fields
+```
+
+`size` is in bytes and `lastModified` in milliseconds since the epoch. `type` is `'file'`,
+`'directory'` or `'asset'`.
+
+### What the calls resolve
+
+A call resolves `undefined` unless it returns something you do not already have:
+
+| Resolves | Calls |
+|---|---|
+| `undefined` | `cp`, `mv`, `mkdir`, `createFile`, `slice`, `unlink`, `excludeFromBackup`, `media.write`, `media.copyToInternal` |
+| the number of bytes written | `writeFile`, `appendFile` |
+| a value | `readFile`, `stat`, `ls`, `exists`, `isDir`, `hash`, `df`, `media.createFile` (a content URI) |
+
+### File streams
+
+Streams read and write a file in chunks, for files too large to hold in memory.
+
+**Read stream**: register the handlers, then call `open()`. `open()` returns a Promise that
+resolves when the stream reaches the end of the file and rejects with the error when it fails.
+
+```js
+import {fs} from 'react-native-blob-util';
+
+const stream = await fs.readStream(pathToFile, {
+    encoding: 'base64',
+    bufferSize: 12288, // bytes per chunk; default 12288. Use a multiple of 3 for base64.
+    tick: 10,          // milliseconds between chunks; default 10
+});
+
+let data = '';
+stream.onData((chunk) => {
+    // a string, or an array of bytes 0..255 for 'ascii'
+    data += chunk;
+});
+stream.onEnd(() => {
+    console.log('read', data.length, 'characters');
+});
+
+try {
+    await stream.open();
+} catch (err) {
+    console.warn('read failed', err.code, err.message);
+}
+```
+
+If you do not `await open()`, set `onError` instead: with `onError` set, a failure does not
+become an unhandled rejection.
+
+```js
+stream.onError((err) => console.warn(err.code, err.message));
+stream.open();
+```
+
+A stream can be opened once; opening a finished stream rejects with `EBADF`.
+
+**Write stream**: `write()` resolves the stream, so writes chain. A write stream must be closed.
+
+```js
+import {fs} from 'react-native-blob-util';
+
+const out = await fs.writeStream(pathToFile, {encoding: 'utf8', append: true});
+try {
+    await out.write('foo');
+    await out.write('bar');
+} finally {
+    await out.close();
+}
+```
+
+Wait for each `write()`: a write whose Promise nobody waits for can fail without anyone noticing.
+Writing to or closing a closed stream rejects with `EBADF`. For an `ascii` stream, write arrays
+of bytes.
+
+### Cache file management
+
+Files written by `fileCache` or `path` stay until you remove them:
+
+```js
+import {config, fs} from 'react-native-blob-util';
+
+const res = await config({fileCache: true}).fetch('GET', 'https://example.com/download/file');
+// ... use the file, then
+await res.flush();
+
+// or by path
+await fs.unlink(somePath);
+```
+
+A **session** is a named list of files that can be removed together. Sessions are kept in JS
+memory; they do not survive an app restart.
+
+```js
+import {config, session} from 'react-native-blob-util';
+
+// add the response file when the request completes
+await config({fileCache: true, session: 'foo'}).fetch('GET', 'https://example.com/a');
+
+// or afterwards
+const res = await config({fileCache: true}).fetch('GET', 'https://example.com/b');
+res.session('foo');
+
+// or any file
+session('foo').add(someFilePath);
+session('foo').remove(someFilePath);
+console.log(session('foo').list());
+
+// delete every file in the session and forget it
+await session('foo').dispose();
+```
+
+`fs.session(name)` is the same as `session(name)`.
+
+### Assets
+
+`fs.asset(name)` returns a path to a file bundled with the app (Android `assets/`, the iOS app
+bundle) that the other `fs` calls and `wrap()` accept:
+
+```js
+const text = await fs.readFile(fs.asset('licenses.txt'));
+await fs.cp(fs.asset('default.db'), fs.dirs.DocumentDir + '/app.db');
+```
+
+### Platform-specific calls
+
+These reject with `ENOTSUP` on other platforms.
+
+| Call | Platform | Description |
+|---|---|---|
+| `fs.sdCardDir()` | Android | the external storage root |
+| `fs.sdCardApplicationDir()` | Android | the app's directory on external storage |
+| `fs.excludeFromBackup(path)` | iOS | exclude a file or directory from iCloud and iTunes backups |
+| `fs.appGroupDir(groupName)` | iOS | the directory shared by the apps of an app group |
+| `fs.appGroupDirSync(groupName)` | iOS | the same, synchronously; `""` on other platforms instead of rejecting |
+
+### content:// URIs on Android
+
+A `content://` URI is opened through its content provider, which decides whether your app may
+read or write it. A refusal rejects with `EACCES`.
+
+- `readFile`, `readStream`, `hash`, `exists`, `unlink`, `cp` (as source or destination),
+  `writeStream`, and uploads with `{file: uri}` or `wrap(uri)` work on a URI.
+- `stat` reports what the provider reports: `filename`, `size`, `lastModified`, `type: 'file'`,
+  and `path` is the URI itself, not a file path.
+- `ls`, `mv`, `mkdir`, `createFile`, `writeFile` and the destination of `slice` take file paths
+  only and reject a URI with `ENOTSUP`. Copy the content to a file first:
+
+```js
+import {fs, open} from 'react-native-blob-util';
+
+const uri = await open.pick({mime: 'image/*'});
+if (uri) {
+    const copy = fs.dirs.CacheDir + '/picked-image';
+    await fs.cp(uri, copy);
+    // work with `copy` as a regular file
+}
+```
 
 ## Setting A File Transformer
 
@@ -1161,47 +1007,213 @@ iOS (Objective-C):
 }
 ```
 
-Here are the places where the transformer would apply
-- Reading a file from the file system
-- Writing a file into the file system
-- Http response is downloaded to storage directly
+The transformer runs only where you ask for it with `transform: true`:
+
+- `fs.readFile(path, {transform: true})`
+- `fs.writeFile(path, data, {transform: true})`
+- `config({transform: true})`, for a response written to a file
+- `media.write(uri, path, {transform: true})`
+
+## Opening and picking files
+
+`open` shows a file in another app, or lets the user pick one. Pass a path without `file://`
+(a `file://` URL is accepted on iOS too). These calls are not available on Windows.
+
+| Call | Android | iOS |
+|---|---|---|
+| `open.file(path, {mime, scheme})` | opens the default app for `mime` (an `ACTION_VIEW` intent) | shows a full-screen preview |
+| `open.chooser(path, {mime, scheme, title})` | shows an app chooser titled `title` | shows the "open in" menu |
+| `open.optionsMenu(path, {scheme})` | `ENOTSUP` | shows the options menu |
+| `open.pick({mime})` | shows the system file picker; resolves the chosen file's `content://` URI, or `null` when the user cancels | `ENOTSUP` |
+
+`mime` is used on Android and `scheme` (a URI scheme your app declares) on iOS.
+
+```js
+import {open} from 'react-native-blob-util';
+
+await open.file(pathToPdf, {mime: 'application/pdf'});
+await open.chooser(pathToImage, {mime: 'image/png', title: 'Open with'});
+
+const uri = await open.pick({mime: 'application/pdf'});
+if (uri === null) {
+    // the user cancelled
+}
+```
+
+On Android, `open.file` rejects with `ENOAPP` when no app can open the MIME type, and a second
+`open.pick` while the picker is open rejects with `EBUSY`. React Native's `Linking` cannot open a
+local file on Android, and cannot install an APK; use `open.file` for both.
+
+## Android media storage
+
+Android 10 introduced scoped storage: an app can no longer create directories on shared external
+storage or write files outside its own directories. Files that should appear in the Downloads app,
+the gallery or a music player go through the MediaStore instead, which `media` wraps. An app can
+only access MediaStore entries it created itself, or that the user picked. See
+https://developer.android.com/training/data-storage.
+
+Every `media` call rejects with `ENOTSUP` on iOS and Windows.
+
+A MediaStore entry is described by `{name, mime, parentFolder}`: the file name with its extension,
+its MIME type, and an optional folder inside the collection (`'MyApp/Files'` creates `MyApp` with
+`Files` inside it). The collection is `'Download'`, `'Image'`, `'Video'` or `'Audio'`.
+
+**Copy a file into the MediaStore** in one step. Resolves the entry's `content://` URI.
+
+```js
+import {config, media} from 'react-native-blob-util';
+
+const res = await config({fileCache: true}).fetch('GET', 'https://example.com/image.png');
+const downloaded = res.path();
+if (res.ok && downloaded) {
+    const uri = await media.copyToMediaStore(
+        {name: 'image.png', parentFolder: 'MyApp', mime: 'image/png'},
+        'Download',
+        downloaded,
+    );
+}
+await res.flush();
+```
+
+Data is copied from a file; to store a string, write it to a file with `fs.writeFile` first.
+
+**Create an entry and write it** in two steps:
+
+```js
+const uri = await media.createFile({name: 'report.pdf', mime: 'application/pdf'}, 'Download');
+await media.write(uri, localPath);
+
+// through the registered file transformer
+await media.write(uri, localPath, {transform: true});
+```
+
+**Copy an entry into the app's own storage**, overwriting the destination:
+
+```js
+import {fs, media} from 'react-native-blob-util';
+
+await media.copyToInternal('content://...', fs.dirs.CacheDir + '/image.png');
+```
+
+**Read an entry**: text, a base64 string, or bytes 0..255 for `ascii`.
+
+```js
+const b64 = await media.read('content://...', {encoding: 'base64'});
+```
+
+**Register a finished download** with the Downloads app:
+
+```js
+await media.addDownload({
+    title: 'report.pdf',
+    description: 'The monthly report',
+    mime: 'application/pdf',
+    path: localPath,
+    showNotification: true,
+});
+```
+
+**Media scanner**: ask the scanner to index files so they show in the gallery and other apps. The
+MIME type is optional; without it the scanner goes by the file extension.
+
+```js
+import {media} from 'react-native-blob-util';
+
+await media.scan([
+    {path: pathToSong, mime: 'audio/mpeg'},
+    {path: pathToPhoto},
+]);
+```
+
+On Android 9 and lower, `media.createFile` and `media.copyToMediaStore` reject a `name` or
+`parentFolder` containing a `..` segment.
+
+## Errors
+
+Every rejection is an `Error` with a `code`. A failed request also has `err.respInfo`, the
+response info received before it failed. The message says what happened; match on the code.
+
+```js
+import {config} from 'react-native-blob-util';
+
+try {
+    const res = await config({timeout: 10000}).fetch('GET', 'https://example.com/data');
+} catch (err) {
+    switch (err.code) {
+        case 'ETIMEDOUT':
+            // err.respInfo.timeout is true as well
+            break;
+        case 'ENOTFOUND':
+        case 'ECONNREFUSED':
+        case 'ENETUNREACH':
+            break;
+        default:
+            console.warn(err.code, err.message, err.respInfo);
+    }
+}
+```
+
+| Code | Meaning |
+|---|---|
+| `ENOENT` | a file or directory does not exist (or the destination's directory) |
+| `EISDIR` | a directory where a file was expected |
+| `ENOTDIR` | a file where a directory was expected; the download directory could not be created |
+| `EEXIST` | the file or directory already exists (`mkdir`, `createFile`) |
+| `EACCES` | a `content://` provider refused access (Android) |
+| `EBADF` | the stream is already closed |
+| `ETIMEDOUT` | the request timed out |
+| `ENOTFOUND` | the host name could not be resolved |
+| `ECONNREFUSED` | the host refused the connection |
+| `ECONNRESET` | the connection was lost |
+| `ENETUNREACH` | no usable network (Android `wifiOnly` without WiFi; iOS offline) |
+| `ESSL` | the TLS handshake or certificate check failed, including `customCACerts` and `pinnedHosts` rejections |
+| `ECANCELED` | the request was cancelled |
+| `EINVAL` | an invalid argument: URL, method, header, encoding, a body on `GET`/`HEAD` |
+| `ENOTSUP` | not available on this platform, or a `content://` URI where only a file path works |
+| `EBUSY` | a file picker is already open |
+| `ENOAPP` | no app can open the file (Android) |
+| `EUNSPECIFIED` | anything else; the message says what |
+
+In TypeScript, `CodedError` and `FetchError` describe these errors, and `ErrorCode` is the union
+of the codes.
 
 ## Performance Tips
 
 **Read Stream and Progress Event Overhead**
 
-If the process seems to block JS thread when file is large when reading data via `fs.readStream`. It might because the default buffer size is quite small (4kb) which result in a lot of events triggered from JS thread. Try to increase the buffer size (for example 100kb = 102400) and set a larger interval (available for 0.9.4+, the default value is 10ms) to limit the frequency.
+If reading a large file with `fs.readStream` keeps the JS thread busy, the chunks may be too small
+for the file: each chunk is one event. The default is 12288 bytes. Try a larger `bufferSize`
+(a multiple of 3 for base64, for example 102399) and a larger `tick` (default 10 ms). For request
+progress, raise `interval` or set `count`.
 
-**Reduce RCT Bridge and BASE64 Overhead**
+**Reduce Bridge and BASE64 Overhead**
 
-React Native connects JS and Native context by passing JSON around React Native bridge, and there will be an overhead to convert data before they sent to each side. When data is large, this will be quite a performance impact to your app. It's recommended to use file storage instead of BASE64 if possible.The following chart shows how much faster when loading data from storage than BASE64 encoded string on iPhone 6.
+Data that passes between JS and native has to be converted on the way. When data is large, this has a real performance cost. Use file storage instead of BASE64 where you can: download with `fileCache` or `path`, upload with `{file}`. The following chart shows how much faster loading data from storage is than a BASE64 encoded string on iPhone 6.
 
 <img src="img/performance_1.png" style="width : 100%"/>
 
-**ASCII Encoding has /terrible Performance**
+**ASCII Encoding has Terrible Performance**
 
-Due to the [lack of typed array implementation in JavascriptCore, and limitation of React Native structure](https://github.com/facebook/react-native/issues/1424), to convert data to JS byte array spends lot of time. Use it only when needed, the following chart shows how much time it takes when reading a file with different encoding.
+Converting data to a JS array of numbers takes a lot of time. Use `ascii` only when you need the bytes; the following chart shows how long reading a file takes with each encoding.
 
 <img src="img/performance_encoding.png" style="width : 100%"/>
 
 **Concat and Replacing Files**
 
-If you're going to concatenate files, you don't have to read the data to JS context anymore! In `0.8.0` we introduced new encoding `uri` for writeFile and appendFile API, which make it possible to handle the whole process in native.
+To concatenate or copy files you don't have to read the data into JS: the `uri` encoding of `writeFile` and `appendFile`, and `fs.cp`, do the whole thing in native code.
 
 <img src="img/performance_f2f.png" style="width : 100%"/>
 
 ## Caveats
 
 * This library does not urlencode unicode characters in URL automatically, see [#146](https://github.com/wkh237/react-native-fetch-blob/issues/146).
-* When file stream and upload/download progress event slow down your app, consider an upgrade to `0.9.6+`, use [additional arguments](https://github.com/RonRadtke/react-native-blob-util/wiki/Fetch-API#fetchprogressconfig-eventlistenerpromiseReactNativeBlobUtilresponse) to limit its frequency.
-* When passing a file path to the library, remove `file://` prefix.
-
-when you got a problem, have a look at [Trouble Shooting](https://github.com/RonRadtke/react-native-blob-util/wiki/Trouble-Shooting).
+* When passing a file path to the library, remove the `file://` prefix.
+* Progress and stream events are sent to JS one by one; limit them as described in [Performance Tips](#performance-tips).
 
 ## Changes
 
 See [release notes](https://github.com/RonRadtke/react-native-blob-util/releases)
 
-### Development
+## Development
 
 If you're interested in working on this module, see [CONTRIBUTING.md](CONTRIBUTING.md). Please feel free to make a PR or file an issue.

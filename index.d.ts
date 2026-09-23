@@ -2,7 +2,8 @@
 // Project: https://github.com/RonRadtke/react-native-blob-util
 //
 // Declared against the JavaScript in this package: index.js, fetch.js, fs.js,
-// android.js, ios.js, mediacollection.js and class/. Every method here exists
+// open.js, media.js, the deprecated android.js, ios.js and mediacollection.js,
+// and class/. Every method here exists
 // at runtime with this signature, and every runtime method is declared here.
 
 declare const ReactNativeBlobUtil: ReactNativeBlobUtilStatic;
@@ -66,7 +67,8 @@ export interface ReactNativeBlobUtilStatic {
     CanceledFetchError: typeof CanceledFetchError;
 }
 
-export type Methods = 'POST' | 'GET' | 'DELETE' | 'PUT' | 'PATCH' | 'HEAD' | 'post' | 'get' | 'delete' | 'put' | 'patch' | 'head';
+export type Methods = 'POST' | 'GET' | 'DELETE' | 'PUT' | 'PATCH' | 'HEAD' | 'OPTIONS'
+    | 'post' | 'get' | 'delete' | 'put' | 'patch' | 'head' | 'options';
 
 export type RequestHeaders = { [name: string]: string | null | undefined };
 
@@ -268,7 +270,8 @@ export interface ReactNativeBlobUtilConfig {
     session?: string;
 
     /**
-     * Overwrite an existing file at `path`. Default true.
+     * Replace an existing file at `path`. Default true; false appends the
+     * response to the existing file.
      */
     overwrite?: boolean;
 
@@ -680,6 +683,8 @@ export interface Dirs {
     MovieDir: string;
     DownloadDir: string;
     DCIMDir: string;
+    /** Android: the ringtone directory; "" elsewhere. */
+    RingtoneDir: string;
     /** @deprecated */
     SDCardDir: string;
     /** @deprecated */
@@ -689,6 +694,7 @@ export interface Dirs {
     LegacyMovieDir: string;
     LegacyDownloadDir: string;
     LegacyDCIMDir: string;
+    LegacyRingtoneDir: string;
     /** @deprecated */
     LegacySDCardDir: string;
 }

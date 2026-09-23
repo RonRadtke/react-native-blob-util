@@ -15,6 +15,7 @@ import ReactNativeBlobUtil, {
     base64 as namedBase64,
 } from '../../../index';
 import type {
+    Methods,
     RNFetchBlobDf,
     CodedError,
     ErrorCode,
@@ -300,6 +301,11 @@ async function optionObjects(): Promise<void> {
         .fetch('GET', 'https://example.test/');
     void text; void bytes; void reader; void writer; void picked; void read;
 }
+
+// OPTIONS, and the ringtone directories fs.dirs has at runtime.
+const options: Methods = 'OPTIONS';
+const ringtones: string = ReactNativeBlobUtil.fs.dirs.RingtoneDir + ReactNativeBlobUtil.fs.dirs.LegacyRingtoneDir;
+void options; void ringtones;
 
 // The pre-1.0 name of the df result still compiles.
 const legacyDf: RNFetchBlobDf = {free: 1, total: 2};
