@@ -69,15 +69,15 @@ npm run lint      # eslint over the package's own JS; must stay free of errors
 ```
 
 Run it before committing, alongside `npm test`. It currently reports **0
-errors and 46 warnings** and exits 0, so a non-zero exit or any error line is
+errors and 27 warnings** and exits 0, so a non-zero exit or any error line is
 something you introduced.
 
 The warnings are a real backlog, not noise to ignore wholesale — mostly
-`import/no-default-export` (16), `import/order` (7), `quotes` (6),
-`no-console` (6) and `no-useless-escape` (5). Do not clear them with a blanket `eslint --fix`:
-that rewrites nearly every file at once and buries whatever you were actually
-changing. Fix them in the files you are already touching, or in a deliberate
-pass of their own. If you do need `--fix`, scope it to one rule:
+`import/no-default-export` (16, the default-export modules, a design choice
+rather than a slip), `no-useless-escape` (4) and `no-console` (3). Do not clear
+them with a blanket `eslint --fix`: that rewrites nearly every file at once and
+buries whatever you were actually changing. Fix them in the files you are
+already touching, or in a deliberate pass of their own. If you do need `--fix`, scope it to one rule:
 
 ```sh
 npx eslint <paths> --no-eslintrc --parser @babel/eslint-parser --parser-options=sourceType:module --rule '{"semi":["error","always"]}' --fix
@@ -129,6 +129,24 @@ possibly-null module for the lifetime of the process.
 Nothing may touch native at module scope. A `new NativeEventEmitter(...)` or a
 `getConstants()` call at import time crashes a New Architecture cold start
 before the app can boot.
+
+## Contracts between JS and native
+
+Three rules that hold across the codebase since 1.0; a change that breaks one
+reopens a bug that was fixed on purpose.
+
+- **JS decides what a request body is.** `utils/request.js` classifies every body
+  as `text`, `base64` or `file` and sends it as `options.bodyType` (multipart:
+  a `kind` per field). Native obeys it and must not infer anything from the
+  Content-Type or a prefix; the platforms used to guess differently.
+- **A `content://` URI is never turned into a file path on Android.**
+  `normalizePath` returns null for it; open it through
+  `ReactNativeBlobUtilContent` (ContentResolver) or reject `ENOTSUP`. Resolving
+  one to a path let a URI shared by another app read or delete this app's private
+  files.
+- **A call resolves `undefined` unless it returns something the caller does not
+  already have**, and every rejection carries a code from the `ErrorCode` union in
+  `index.d.ts`. A deprecated alias keeps resolving what it resolved before.
 
 ## Three platforms
 
