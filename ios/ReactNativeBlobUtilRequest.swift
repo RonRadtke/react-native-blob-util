@@ -613,7 +613,18 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                            didReceive challenge: URLAuthenticationChallenge,
                            completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         if optionBool(ReactNativeBlobUtilConst.configTrusty) {
-            completionHandler(.useCredential, challenge.protectionSpace.serverTrust.map { URLCredential(trust: $0) })
+            // Only a server-trust challenge is trusty's business; basic auth and
+            // client certificates get the default handling.
+            guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+                  let serverTrust = challenge.protectionSpace.serverTrust else {
+                completionHandler(.performDefaultHandling, nil)
+                return
+            }
+            if ReactNativeBlobUtilRequest.evaluateTrusty(serverTrust, host: challenge.protectionSpace.host) {
+                completionHandler(.useCredential, URLCredential(trust: serverTrust))
+            } else {
+                completionHandler(.cancelAuthenticationChallenge, nil)
+            }
             return
         }
 
@@ -629,7 +640,9 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             // treated as unset, and the pinning would silently apply to every host.
             if let pinnedHosts = options?[ReactNativeBlobUtilConst.configPinnedHosts] as? [Any], !pinnedHosts.isEmpty {
                 let host = challenge.protectionSpace.host
-                if !pinnedHosts.contains(where: { ($0 as? String) == host }) {
+                // Case-insensitive: a host name is, and a pinned entry written with
+                // capitals never matched, which quietly meant system trust.
+                if !pinnedHosts.contains(where: { ($0 as? String)?.caseInsensitiveCompare(host) == .orderedSame }) {
                     completionHandler(.performDefaultHandling, nil)
                     return
                 }
@@ -680,6 +693,21 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             completionHandler(.performDefaultHandling,
                               challenge.protectionSpace.serverTrust.map { URLCredential(trust: $0) })
         }
+    }
+
+    /// trusty: the certificate is accepted whatever issued it - the chain is not
+    /// validated - but only for the host it names and only while it is valid.
+    /// It used to be accepted without evaluating anything, for any host. Android
+    /// keeps hostname verification under trusty and Windows only forgives an
+    /// untrusted root, so all three now mean the same. The leaf is made the only
+    /// anchor, and the SSL policy for the host checks the name and the dates.
+    public static func evaluateTrusty(_ trust: SecTrust, host: String) -> Bool {
+        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leaf = chain.first else { return false }
+        SecTrustSetPolicies(trust, SecPolicyCreateSSL(true, host as CFString))
+        SecTrustSetAnchorCertificates(trust, [leaf] as CFArray)
+        SecTrustSetAnchorCertificatesOnly(trust, true)
+        return SecTrustEvaluateWithError(trust, nil)
     }
 
     /// DER first, then PEM, which is converted before it is handed to Security.

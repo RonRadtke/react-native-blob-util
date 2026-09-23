@@ -228,7 +228,8 @@
     XCTAssertEqualObjects([NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil], @"original");
 }
 
-- (void)testHashReadFailureRejectsWithEREAD {
+// EUNSPECIFIED, the code every platform uses for a read failure (it was EREAD).
+- (void)testHashReadFailureRejectsWithEUNSPECIFIED {
     NSString *path = [self existingFile];
     [self withFailingHandleAtPath:path factory:@selector(fileHandleForReadingAtPath:) run:^{
         __block NSUInteger rejected = 0;
@@ -236,7 +237,7 @@
             resolver:^(id value) { XCTFail(@"Hash on a closed descriptor resolved: %@", value); }
             rejecter:^(NSString *code, NSString *message, NSError *error) {
                 rejected++;
-                XCTAssertEqualObjects(code, @"EREAD");
+                XCTAssertEqualObjects(code, @"EUNSPECIFIED");
                 XCTAssertEqualObjects(message, ([NSString stringWithFormat:@"Error reading file '%@'", path]));
                 XCTAssertNotNil(error);
             }];

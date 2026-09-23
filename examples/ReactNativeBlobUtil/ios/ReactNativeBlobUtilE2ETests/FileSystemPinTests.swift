@@ -192,6 +192,11 @@ final class FileSystemPinTests: XCTestCase {
         XCTAssertTrue(path.contains("/ReactNativeBlobUtil_tmp/"),
                       "iOS nests temp files in ReactNativeBlobUtil_tmp; Android does not. ios.json records it.")
         XCTAssertTrue(path.hasSuffix("/ReactNativeBlobUtil_tmp/ReactNativeBlobUtilTmp_task-1.bin"), path)
+        // Application Support, not Documents: Documents is backed up to iCloud and
+        // shown in the Files app.
+        let support = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true)[0]
+        XCTAssertTrue(path.hasPrefix(support), path)
+        XCTAssertFalse(path.contains("/Documents/"), path)
     }
 
     func testGetTempPathWithoutAnExtension() throws {

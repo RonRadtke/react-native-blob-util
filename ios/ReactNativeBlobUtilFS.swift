@@ -87,11 +87,15 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
     @objc(getTempPath)
     public static func getTempPath() -> String { NSTemporaryDirectory() }
 
+    /// Where fileCache and key responses are written. Application Support, not
+    /// Documents: Documents is backed up to iCloud and shown in the Files app
+    /// when file sharing is on. Not Caches either, which the system may empty
+    /// while the app keeps the path - Android keeps these in filesDir too.
     /// Note the ReactNativeBlobUtil_tmp subdirectory: Android puts these files
-    /// straight in DocumentDir, iOS nests them. ios.json records the difference.
+    /// straight in its directory, iOS nests them. ios.json records the difference.
     @objc(getTempPath:withExtension:)
     public static func getTempPath(_ taskId: String?, withExtension ext: String?) -> String {
-        let documentDir = searchPath(.documentDirectory)
+        let documentDir = searchPath(.applicationSupportDirectory)
         var filename = "/ReactNativeBlobUtil_tmp/ReactNativeBlobUtilTmp_\(taskId ?? "")"
         if let ext = ext {
             filename += ".\(ext)"
@@ -634,7 +638,8 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         do {
             attributes = try FileManager.default.attributesOfItem(atPath: path)
         } catch {
-            return reject("EUNKNOWN", (error as NSError).description, nil)
+            // EUNSPECIFIED, the code every platform uses for this (it was EUNKNOWN).
+            return reject("EUNSPECIFIED", (error as NSError).description, nil)
         }
 
         if attributes[.type] as? FileAttributeType == .typeDirectory {
@@ -642,7 +647,7 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         }
 
         guard let handle = FileHandle(forReadingAtPath: path) else {
-            return reject("EUNKNOWN", "Error opening '\(path)' for reading", nil)
+            return reject("EUNSPECIFIED", "Error opening '\(path)' for reading", nil)
         }
         defer { try? handle.close() }
 
@@ -682,7 +687,7 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             do {
                 chunk = try handle.read(upToCount: chunkSize) ?? Data()
             } catch {
-                return reject("EREAD", "Error reading file '\(path)'", error)
+                return reject("EUNSPECIFIED", "Error reading file '\(path)'", error)
             }
             if chunk.isEmpty { break }
             chunk.withUnsafeBytes { raw in

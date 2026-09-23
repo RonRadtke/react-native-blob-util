@@ -388,9 +388,69 @@ final class RequestBuilderPinTests: XCTestCase {
         return try XCTUnwrap(disposition)
     }
 
-    func testTrustyAcceptsWithoutEvaluating() throws {
-        XCTAssertEqual(try decide(options: ["trusty": true]), .useCredential)
+    /// trusty used to answer every server-trust challenge with .useCredential
+    /// without evaluating anything. It now accepts a certificate whatever issued
+    /// it, but only for its own host and only while it is valid.
+    func testTrustyAcceptsASelfSignedCertificateForItsHost() throws {
+        let disposition = try decideWithRealTrust(options: ["trusty": true], host: "localhost",
+                                                  pem: Self.trustyLeafPEM, at: Self.insideValidity)
+        XCTAssertEqual(disposition, .useCredential)
     }
+
+    func testTrustyRefusesACertificateForAnotherHost() throws {
+        let disposition = try decideWithRealTrust(options: ["trusty": true], host: "example.com",
+                                                  pem: Self.trustyLeafPEM, at: Self.insideValidity)
+        XCTAssertEqual(disposition, .cancelAuthenticationChallenge)
+    }
+
+    func testTrustyRefusesAnExpiredCertificate() throws {
+        let disposition = try decideWithRealTrust(options: ["trusty": true], host: "localhost",
+                                                  pem: Self.trustyLeafPEM, at: Self.afterValidity)
+        XCTAssertEqual(disposition, .cancelAuthenticationChallenge)
+    }
+
+    func testTrustyLeavesANonServerTrustChallengeAlone() throws {
+        XCTAssertEqual(try decide(options: ["trusty": true], method: NSURLAuthenticationMethodHTTPBasic),
+                       .performDefaultHandling)
+    }
+
+    /// A pinned host written with capitals never matched the lower-case host,
+    /// which quietly meant system trust instead of the custom CA.
+    func testPinnedHostsMatchCaseInsensitively() throws {
+        let disposition = try decideWithRealTrust(options: [
+            "customCACerts": ["missing_name"],
+            "pinnedHosts": ["LOCALHOST"],
+        ], host: "localhost")
+        XCTAssertEqual(disposition, .cancelAuthenticationChallenge,
+                       "localhost is pinned, so the unloadable cert must refuse")
+    }
+
+    /// A self-signed certificate for localhost, valid 2026-09-23 to 2028-08-23.
+    /// The trust is evaluated at a fixed date, so the test never goes stale.
+    private static let trustyLeafPEM = """
+        -----BEGIN CERTIFICATE-----
+        MIIDMTCCAhmgAwIBAgIUNgVSzyX+mXD1oI5Xf2H8s7y7aHQwDQYJKoZIhvcNAQEL
+        BQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTI2MDkyMzAwNTEyOVoXDTI4MDgy
+        MzAwNTEyOVowFDESMBAGA1UEAwwJbG9jYWxob3N0MIIBIjANBgkqhkiG9w0BAQEF
+        AAOCAQ8AMIIBCgKCAQEAnJOiNWWML0pzCKqeuThwiUYn28bAzRk/xIF5gE0BdXCa
+        WwIbVyfYroFT3pjnLzeemkJuUCoZ06bo8oVLOuNPGwRNxddRyJvQX3enjupyjG3u
+        f8QECRl6s8DprAuDP7SYVrvWmYyIlHZAC65bJOIWyL40lqBPFpdELisze0SLoTXd
+        JSO2Yb7FIZqE1mqfveUxw/lSZlLQJf/s3sdnxniqAWF6uA/n/nB06ZDCO4sEWROZ
+        mdbC66f1WIPwAv7wJ+OU0SpGAO7NsInO7xtjthTYl2evbcHWl9eOTMzZrwQJV67i
+        d6xqEwmIt31Y7wg9ZUlvN8qwnVL/Kzn/P+2g3+mv1wIDAQABo3sweTAdBgNVHQ4E
+        FgQUk3NSf5lRFNzxDPWEdAtc/RtB61cwHwYDVR0jBBgwFoAUk3NSf5lRFNzxDPWE
+        dAtc/RtB61cwFAYDVR0RBA0wC4IJbG9jYWxob3N0MBMGA1UdJQQMMAoGCCsGAQUF
+        BwMBMAwGA1UdEwEB/wQCMAAwDQYJKoZIhvcNAQELBQADggEBAEac2yS5xIRb2sg/
+        Ol9B6ZuqSGZ9Fv3PKEarvBS77+LU5SHgWXeLWo4aKTnIZx/zz4U1D7sEOD1SavPW
+        dV7tjxF6GB5y67zE1fqiDTMROssBBNYXUdXvP3owAk3rZ39KsPTzXu/DbjSB9hs8
+        WJdFYEMIUll8UD9mv7C/Vu88sEQ0g5WJUEWThDtuHOv6m6MRaHds+QnQLYjCP5wf
+        ktolqy+ThtM5UhXusKP9Syu/V7sC74b60h3gjhSCkIyr9NtIwLopU9ERZtd5gpVS
+        kRmdh7ziZhW3D9nXxpBRXNa2FRnkcGv3B4MVxahRK5I+0FsCHn/jRlSWmWoguKys
+        4rAh8q4=
+        -----END CERTIFICATE-----
+        """
+    private static let insideValidity = Date(timeIntervalSince1970: 1_800_000_000) // 2027-01-15
+    private static let afterValidity = Date(timeIntervalSince1970: 1_900_000_000)  // 2030-03-17
 
     /// pinnedHosts scopes customCACerts to the hosts it names.
     ///
@@ -435,9 +495,16 @@ final class RequestBuilderPinTests: XCTestCase {
     /// bundles, so no network handshake is involved.
     private final class TrustingProtectionSpace: URLProtectionSpace {
         private let trust: SecTrust
-        init?(host: String) {
-            guard let path = Bundle.main.path(forResource: "test_ca", ofType: "pem"),
-                  let pem = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+        /// `pem` defaults to the bundled test CA; `date` fixes when the trust is evaluated.
+        init?(host: String, pem givenPEM: String? = nil, at date: Date? = nil) {
+            let pem: String
+            if let givenPEM = givenPEM {
+                pem = givenPEM
+            } else {
+                guard let path = Bundle.main.path(forResource: "test_ca", ofType: "pem"),
+                      let bundled = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+                pem = bundled
+            }
             let base64 = pem
                 .replacingOccurrences(of: "-----BEGIN CERTIFICATE-----", with: "")
                 .replacingOccurrences(of: "-----END CERTIFICATE-----", with: "")
@@ -450,6 +517,9 @@ final class RequestBuilderPinTests: XCTestCase {
                                                         SecPolicyCreateSSL(true, host as CFString),
                                                         &created)
             guard status == errSecSuccess, let trust = created else { return nil }
+            if let date = date {
+                SecTrustSetVerifyDate(trust, date as CFDate)
+            }
             self.trust = trust
             super.init(host: host, port: 443, protocol: "https", realm: nil,
                        authenticationMethod: NSURLAuthenticationMethodServerTrust)
@@ -458,10 +528,11 @@ final class RequestBuilderPinTests: XCTestCase {
         override var serverTrust: SecTrust? { trust }
     }
 
-    private func decideWithRealTrust(options: [String: Any], host: String = "localhost")
+    private func decideWithRealTrust(options: [String: Any], host: String = "localhost",
+                                     pem: String? = nil, at date: Date? = nil)
         throws -> URLSession.AuthChallengeDisposition {
-        let space = try XCTUnwrap(TrustingProtectionSpace(host: host),
-                                  "could not build a SecTrust from the bundled test CA")
+        let space = try XCTUnwrap(TrustingProtectionSpace(host: host, pem: pem, at: date),
+                                  "could not build a SecTrust from the test certificate")
         let challenge = URLAuthenticationChallenge(protectionSpace: space, proposedCredential: nil,
                                                   previousFailureCount: 0, failureResponse: nil,
                                                   error: nil, sender: RecordingChallengeSender())
@@ -514,9 +585,12 @@ final class RequestBuilderPinTests: XCTestCase {
 
     /// Objective-C's -boolValue accepts NSString, so "true" meant trusty.
     func testTrustyAcceptsAStringBoolTheWayObjectiveCDid() throws {
-        XCTAssertEqual(try decide(options: ["trusty": "true"]), .useCredential)
-        XCTAssertEqual(try decide(options: ["trusty": "YES"]), .useCredential)
-        XCTAssertEqual(try decide(options: ["trusty": "false"]), .performDefaultHandling)
+        for value in ["true", "YES"] {
+            XCTAssertEqual(try decideWithRealTrust(options: ["trusty": value], pem: Self.trustyLeafPEM,
+                                                   at: Self.insideValidity), .useCredential, value)
+        }
+        XCTAssertEqual(try decideWithRealTrust(options: ["trusty": "false"], pem: Self.trustyLeafPEM,
+                                               at: Self.insideValidity), .performDefaultHandling)
     }
 
     func testNoTlsOptionsFallsThroughToDefaultHandling() throws {
