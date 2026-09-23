@@ -234,6 +234,10 @@ in JavaScript and every platform sends what it is told.
   Content-Type ending in `;base64` (removed before sending) or starting with
   `application/octet` makes it base64; anything else is text. **Without a
   Content-Type a string is text on every platform** (iOS decoded it as base64).
+- A body sent without a Content-Type gets one, as fetch does for a string: text goes
+  out as `text/plain;charset=UTF-8`, base64, bytes and files as `application/octet-stream`.
+  The platforms disagreed: Android sent none, Windows `text/plain; charset=UTF-8`, and
+  iOS's URLSession adds `application/x-www-form-urlencoded` by itself.
 - New explicit forms, never guessed from anything: `{text: string}`,
   `{base64: string}`, `{file: path}` (a path, or a `content://` URI on Android), and
   bytes (`ArrayBuffer` or a typed array). Use `{text}` for a string that comes from a

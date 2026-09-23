@@ -165,7 +165,8 @@ test('a plain fetch sends no options; config() sends exactly its options (audit 
 
 test('headers with empty values are sent as empty strings', async () => {
     const task = fetch('POST', 'https://example.test/a', {'X-Empty': null, 'X-Set': 'v'}, 'data');
-    assert.deepEqual(calls[0].headers, {'X-Empty': '', 'X-Set': 'v'});
+    // A text body without a Content-Type gets text/plain (see requestBody.test.js).
+    assert.deepEqual(calls[0].headers, {'X-Empty': '', 'X-Set': 'v', 'Content-Type': 'text/plain;charset=UTF-8'});
     completeLast();
     await task;
 });

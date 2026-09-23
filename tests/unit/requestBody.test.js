@@ -124,3 +124,21 @@ test('multipart fields carry their kind', async () => {
         ['explicitFile', 'file', 'ReactNativeBlobUtil-file:///docs/dir/report.pdf', 'report.pdf'],
     ]);
 });
+
+// Without a Content-Type, iOS's URLSession adds application/x-www-form-urlencoded
+// on its own, Android sent none, and Windows added text/plain. JS now supplies
+// one, as fetch does for a string body, so all three send the same header.
+test('a body without a Content-Type gets one: text/plain for text, octet-stream otherwise', async () => {
+    let call = await sent('POST', {}, 'plain');
+    assert.equal(call.headers['Content-Type'], 'text/plain;charset=UTF-8');
+    call = await sent('POST', {'X-Other': '1'}, {base64: 'AAEC'});
+    assert.equal(call.headers['Content-Type'], 'application/octet-stream');
+    call = await sent('POST', undefined, {file: '/docs/a.txt'});
+    assert.equal(call.headers['Content-Type'], 'application/octet-stream');
+    // A Content-Type the caller gave, in any case, is kept.
+    call = await sent('POST', {'content-type': 'application/json'}, '{}');
+    assert.deepEqual(call.headers, {'content-type': 'application/json'});
+    // No body, no header.
+    call = await sent('GET', {}, undefined);
+    assert.deepEqual(call.headers, {});
+});

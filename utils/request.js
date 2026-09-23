@@ -214,10 +214,17 @@ export function prepareBody(method: string, headers: ?Object, body: any): Object
     else {
         return {...none, error: 'Unsupported body: pass a string, {text}, {base64}, {file}, bytes or a multipart array'};
     }
-    let outHeaders = headers;
-    const key = headers ? headerKey(headers, 'content-type') : null;
-    if (kind === 'base64' && key && /;base64/i.test(String(headers[key]))) {
-        outHeaders = {...headers, [key]: String(headers[key]).replace(/;base64/ig, '')};
+    const outHeaders = {...headers};
+    const key = headerKey(outHeaders, 'content-type');
+    if (!key) {
+        // Without one the platforms disagreed: iOS's URLSession adds
+        // application/x-www-form-urlencoded by itself, Android sent none and
+        // Windows text/plain. The same header everywhere, as fetch does for a
+        // string body.
+        outHeaders['Content-Type'] = kind === 'text' ? 'text/plain;charset=UTF-8' : 'application/octet-stream';
+    }
+    else if (kind === 'base64' && /;base64/i.test(String(outHeaders[key]))) {
+        outHeaders[key] = String(outHeaders[key]).replace(/;base64/ig, '');
     }
     return {body: data, bodyType: kind, headers: outHeaders, error: null};
 }

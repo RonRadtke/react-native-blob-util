@@ -1153,7 +1153,7 @@
       "resolved": {
         "bytes": 14,
         "contentLength": "14",
-        "contentType": "",
+        "contentType": "text/plain;charset=UTF-8",
         "custom": "hello",
         "method": "POST",
         "parts": null,
@@ -1207,7 +1207,7 @@
       "resolved": {
         "bytes": 4,
         "contentLength": "4",
-        "contentType": "",
+        "contentType": "application/octet-stream",
         "custom": null,
         "method": "POST",
         "parts": null,
