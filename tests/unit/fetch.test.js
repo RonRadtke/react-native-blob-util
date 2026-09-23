@@ -103,6 +103,15 @@ test('stateChange only reports the task it belongs to (audit #1)', async () => {
     assert.equal(resB.respInfo.status, 201);
 });
 
+// An interval of 0 ("every chunk") went through `||` and became 250.
+test('a progress interval or count of 0 is kept', async () => {
+    const task = fetch('GET', 'https://example.test/a').progress({interval: 0, count: 0}, () => {});
+    const {taskId} = pending[pending.length - 1];
+    assert.deepEqual(calls.find((c) => c.name === 'enableProgressReport').args, [taskId, 0, 0]);
+    completeLast();
+    await task;
+});
+
 test('progress events reach the handler with numeric counts', async () => {
     const seen = [];
     const task = fetch('GET', 'https://example.test/a').progress({interval: 100, count: 5}, (w, t, chunk) => seen.push([w, t, chunk]));

@@ -284,6 +284,14 @@ Promise that resolves once native has cancelled; the optional callback still wor
   The old keys keep working and warn once each.
 - `media.read` rejects an unknown encoding with `EINVAL`, as `fs.readFile` does; it was
   read as utf8.
+- A read stream's `open()` returns a Promise that resolves when the stream ends and
+  rejects with the error when it fails. An error without `onError` used to be dropped;
+  now it rejects that Promise (with `onError` set, the rejection is marked handled).
+  The native listener is added by `open()`, so a stream that is never opened no longer
+  leaves it behind, and opening a finished stream rejects `EBADF` instead of throwing.
+  `fs.readStream('')` rejects `EINVAL` instead of throwing.
+- `task.progress({interval: 0}, fn)` reports every chunk; `0` used to become `250`.
+- `open.*` on iOS accepts a path that is already a `file://` URL; it was prefixed twice.
 
 ## Android
 

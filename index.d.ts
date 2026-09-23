@@ -712,9 +712,11 @@ export declare class ReactNativeBlobUtilReadStream {
     streamId: string;
 
     /**
-     * Start reading. Register the handlers first.
+     * Start reading. Register the handlers first. Resolves when the stream
+     * ends and rejects with the error when it fails; with `onError` set the
+     * rejection counts as handled.
      */
-    open(): void;
+    open(): Promise<void>;
 
     /**
      * Called per chunk: a string, or byte values 0..255 for an ascii stream.

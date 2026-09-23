@@ -203,8 +203,11 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
             let count = -1;
             let fn = args[0];
             if (args.length === 2) {
-                interval = args[0].interval || interval;
-                count = args[0].count || count;
+                // Only a missing value falls back to the default; 0 is a valid
+                // interval ("every chunk") and used to become 250.
+                const settings = args[0] || {};
+                interval = settings.interval === undefined || settings.interval === null ? interval : settings.interval;
+                count = settings.count === undefined || settings.count === null ? count : settings.count;
                 fn = args[1];
             }
             promise[handlerName] = fn;

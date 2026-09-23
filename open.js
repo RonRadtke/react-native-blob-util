@@ -12,6 +12,11 @@ function checkPath(path: string): ?Error {
     return typeof path === 'string' ? null : addCode('EINVAL', new TypeError('Missing argument "path" '));
 }
 
+// iOS takes a file URL. A path that already is one was prefixed a second time.
+function fileUrl(path: string): string {
+    return path.startsWith('file://') ? path : 'file://' + path;
+}
+
 /**
  * Open a file in another app: Android shows the default app for its MIME type
  * (an ACTION_VIEW intent), iOS shows a full-screen preview
@@ -27,7 +32,7 @@ function file(path: string, options: OpenOptions = {}): Promise<void> {
         case 'android':
             return requireNativeModule().actionViewIntent(path, options.mime || '', null).then(() => undefined);
         case 'ios':
-            return requireNativeModule().presentPreview('file://' + path, options.scheme).then(() => undefined);
+            return requireNativeModule().presentPreview(fileUrl(path), options.scheme).then(() => undefined);
         default:
             return Promise.reject(notSupported('android or iOS', 'ReactNativeBlobUtil.open.file'));
     }
@@ -47,7 +52,7 @@ function chooser(path: string, options: OpenOptions = {}): Promise<void> {
         case 'android':
             return requireNativeModule().actionViewIntent(path, options.mime || '', options.title || 'Open with').then(() => undefined);
         case 'ios':
-            return requireNativeModule().presentOpenInMenu('file://' + path, options.scheme).then(() => undefined);
+            return requireNativeModule().presentOpenInMenu(fileUrl(path), options.scheme).then(() => undefined);
         default:
             return Promise.reject(notSupported('android or iOS', 'ReactNativeBlobUtil.open.chooser'));
     }
@@ -63,7 +68,7 @@ function optionsMenu(path: string, options: OpenOptions = {}): Promise<void> {
     if (Platform.OS !== 'ios') {
         return Promise.reject(notSupported('ios', 'ReactNativeBlobUtil.open.optionsMenu'));
     }
-    return requireNativeModule().presentOptionsMenu('file://' + path, options.scheme).then(() => undefined);
+    return requireNativeModule().presentOptionsMenu(fileUrl(path), options.scheme).then(() => undefined);
 }
 
 /**

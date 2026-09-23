@@ -85,3 +85,10 @@ test('a missing path is EINVAL', async () => {
     await assert.rejects(open.chooser(undefined), {code: 'EINVAL'});
     assert.deepEqual(calls, []);
 });
+
+test('a path that already is a file URL is not prefixed again on iOS', async () => {
+    rn.setPlatform('ios');
+    await open.file('file:///a.pdf');
+    await open.chooser('/b.pdf');
+    assert.deepEqual(calls.map((c) => c[1]), ['file:///a.pdf', 'file:///b.pdf']);
+});

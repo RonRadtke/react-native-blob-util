@@ -85,3 +85,39 @@ test('events for other streams are ignored', async () => {
 
     assert.deepEqual(await done, []);
 });
+
+// 1.0: the native listener was added in the constructor, so a stream that was
+// created and never opened left it behind for the life of the app.
+test('the event listener exists only while the stream is open', async () => {
+    // Earlier tests may leave a stream open, so count from here.
+    const before = rn.listenerCount('ReactNativeBlobUtilFilesystem');
+    const stream = await fs.readStream('/a', 'utf8');
+    assert.equal(rn.listenerCount('ReactNativeBlobUtilFilesystem'), before);
+    const done = stream.open();
+    assert.equal(rn.listenerCount('ReactNativeBlobUtilFilesystem'), before + 1);
+    rn.emit('ReactNativeBlobUtilFilesystem', {streamId: calls[0][4], event: 'end', detail: ''});
+    await done;
+    assert.equal(rn.listenerCount('ReactNativeBlobUtilFilesystem'), before);
+});
+
+// open() returned nothing and an error without onError was dropped: the
+// default handler was a no-op, so the "throw" branch never ran.
+test('open() resolves at the end and rejects with the error, onError or not', async () => {
+    const ok = await fs.readStream('/a', 'utf8');
+    const ended = ok.open();
+    rn.emit('ReactNativeBlobUtilFilesystem', {streamId: calls[0][4], event: 'end', detail: ''});
+    assert.equal(await ended, undefined);
+
+    const failing = await fs.readStream('/b', 'utf8');
+    const failed = failing.open();
+    rn.emit('ReactNativeBlobUtilFilesystem', {streamId: calls[1][4], event: 'error', code: 'ENOENT', detail: 'No such file'});
+    await assert.rejects(failed, {code: 'ENOENT', message: 'No such file'});
+});
+
+test('readStream with an empty path rejects EINVAL instead of throwing', async () => {
+    let task;
+    assert.doesNotThrow(() => {
+        task = fs.readStream('', 'utf8');
+    });
+    await assert.rejects(task, {code: 'EINVAL'});
+});
