@@ -650,6 +650,9 @@ export interface ReactNativeBlobUtilStat {
     lastModified: number;
 }
 
+/** @deprecated use ReactNativeBlobUtilDf */
+export type RNFetchBlobDf = ReactNativeBlobUtilDf;
+
 export interface ReactNativeBlobUtilDf {
     free: number;
     total: number;

@@ -15,6 +15,7 @@ import ReactNativeBlobUtil, {
     base64 as namedBase64,
 } from '../../../index';
 import type {
+    RNFetchBlobDf,
     CodedError,
     ErrorCode,
     Encoding,
@@ -299,5 +300,9 @@ async function optionObjects(): Promise<void> {
         .fetch('GET', 'https://example.test/');
     void text; void bytes; void reader; void writer; void picked; void read;
 }
+
+// The pre-1.0 name of the df result still compiles.
+const legacyDf: RNFetchBlobDf = {free: 1, total: 2};
+void legacyDf;
 
 void network; void filesystem; void platforms; void helpers; void namedExports; void optionObjects;

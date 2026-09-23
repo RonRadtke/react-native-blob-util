@@ -97,12 +97,13 @@ string, adjust those comparisons.
   whose `code` is `ENOTSUP`. Before, `android.*` and `ios.present*` rejected with a
   bare string, `fs.pathForAppGroup` and `ios.excludeFromBackupKey` never settled on
   Android, and MediaCollection resolved `""` or `[]` on Windows as if it had worked.
-- `fs.scanFile` is now `android.scanFile`; `fs.pathForAppGroup` and
-  `fs.syncPathAppGroup` are now `ios.pathForAppGroup` and `ios.syncPathAppGroup`. The
-  `fs` names still work and print one deprecation warning.
+- `fs.scanFile` is now `media.scan`; `fs.pathForAppGroup` and `fs.syncPathAppGroup` are
+  now `fs.appGroupDir` and `fs.appGroupDirSync`. The old names still work and print
+  one deprecation warning.
 - `ios.openDocument` and `ios.previewDocument` were crossed: `openDocument` showed the
   preview and `previewDocument` the options menu. They now do what their names say
-  (`presentOptionsMenu` and `presentPreview`), and are deprecated in favour of those.
+  (the options menu and the preview), and are deprecated in favour of
+  `open.optionsMenu` and `open.file`.
 - `MediaCollection.createMediaFile`, `writeToMediaFile` and
   `writeToMediaFileWithTransform` are the spellings that match native; the old
   `...Mediafile` names still work and warn once.
@@ -181,7 +182,7 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `fs.ls` on a missing path | ENOENT (Android, iOS), ENOTDIR (Windows) | ENOENT |
 | `lstat` `lastModified` on Windows | seconds | milliseconds, like the other platforms |
 | `android.getContentIntent` when the user cancels | never settled | resolves `null`; a second call while the picker is open rejects `EBUSY` |
-| `android.actionViewIntent` | resolved `true`, then `null` again on resume | resolves `true` once |
+| `android.actionViewIntent` | resolved `true`, then `null` again on resume | settles once; resolves `undefined`, like `open.file` it forwards to |
 | `respInfo.respType` on Android | `""` for every text response (a broken header check) | `text`, `json` or `blob` by Content-Type, as on iOS |
 | An upload on Android whose source cannot be read (a revoked `content://` URI, a missing asset, a read error mid-way) | sent an empty or cut-off body, and either resolved or failed with "unexpected end of stream" | rejects with the source's own error (`EUNSPECIFIED`) |
 | A header name or value containing CR, LF or NUL | sent as it was: rejected by OkHttp on Android, and on Windows it started a new header on the wire | rejects `EINVAL` before the request starts, on every platform |
