@@ -79,6 +79,33 @@ namespace
         return reference;
     }
 
+    // Base64 read the way Android and iOS read it: a character outside the
+    // alphabet (whitespace, a line break, anything else) is skipped and missing
+    // padding is supplied. CryptographicBuffer rejects all of that with "Bad
+    // Data", so a body the other two platforms send failed here.
+    IBuffer DecodeBase64Leniently(std::string const& text)
+    {
+        std::string clean;
+        clean.reserve(text.size());
+        for (const char c : text)
+        {
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/')
+            {
+                clean.push_back(c);
+            }
+        }
+        // A lone trailing character encodes no whole byte; Android drops it.
+        if (clean.size() % 4 == 1)
+        {
+            clean.pop_back();
+        }
+        while (clean.size() % 4 != 0)
+        {
+            clean.push_back('=');
+        }
+        return CryptographicBuffer::DecodeFromBase64String(winrt::to_hstring(clean));
+    }
+
     // The contents of a request body's file. Throws when it cannot be read.
     IAsyncOperation<IBuffer> readRequestFile(std::string path)
     {
@@ -1130,7 +1157,7 @@ namespace winrt::ReactNativeBlobUtil
                 {
                     try
                     {
-                        partBuffer = CryptographicBuffer::DecodeFromBase64String(winrt::to_hstring(data));
+                        partBuffer = DecodeBase64Leniently(data);
                     }
                     catch (winrt::hresult_error const&)
                     {
@@ -1233,7 +1260,7 @@ namespace winrt::ReactNativeBlobUtil
             }
             else if (!body.empty() && kind == "base64")
             {
-                requestBuffer = CryptographicBuffer::DecodeFromBase64String(winrt::to_hstring(body));
+                requestBuffer = DecodeBase64Leniently(body);
             }
             else if (!body.empty())
             {
