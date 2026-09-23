@@ -69,14 +69,15 @@ function optionsMenu(path: string, options: OpenOptions = {}): Promise<void> {
 /**
  * Show the system file picker (Android) and resolve the chosen file's content
  * URI, or null when the user cancels.
- * @param  {string} mime MIME type filter, default any.
+ * @param  {string | {mime?: string}} mimeOrOptions MIME type filter, default any.
  * @return {Promise<?string>}
  */
-function pick(mime: string = '*/*'): Promise<?string> {
+function pick(mimeOrOptions: string | {mime?: string} = '*/*'): Promise<?string> {
     if (Platform.OS !== 'android') {
         return Promise.reject(notSupported('android', 'ReactNativeBlobUtil.open.pick'));
     }
-    return requireNativeModule().getContentIntent(mime);
+    const mime = mimeOrOptions !== null && typeof mimeOrOptions === 'object' ? mimeOrOptions.mime : mimeOrOptions;
+    return requireNativeModule().getContentIntent(mime || '*/*');
 }
 
 export default {file, chooser, optionsMenu, pick};

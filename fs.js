@@ -5,9 +5,9 @@
 // import type {ReactNativeBlobUtilConfig, ReactNativeBlobUtilNative, ReactNativeBlobUtilStream} from './types'
 
 import {Platform} from 'react-native';
+import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
 import ReactNativeBlobUtilSession from './class/ReactNativeBlobUtilSession';
 import ReactNativeBlobUtilWriteStream from './class/ReactNativeBlobUtilWriteStream';
-import ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
 import media from './media';
 import {toUnsignedBytes} from './utils/bytes';
 import {deprecatedAlias} from './utils/deprecate';
@@ -109,6 +109,17 @@ function normalizeEncoding(encoding: ?string, allowed: Array<string>): string | 
 }
 
 /**
+ * The encoding and options of a call that takes either the positional form
+ * (encoding, options) or one options object ({encoding, ...rest}).
+ */
+function encodingAndOptions(encodingOrOptions: any, options: ?Object): [any, Object] {
+    if (encodingOrOptions !== null && typeof encodingOrOptions === 'object' && !Array.isArray(encodingOrOptions)) {
+        return [encodingOrOptions.encoding, encodingOrOptions];
+    }
+    return [encodingOrOptions, options || {}];
+}
+
+/**
  * Get a file cache session
  * @param  {string} name Stream ID
  * @return {ReactNativeBlobUtilSession}
@@ -126,16 +137,17 @@ function session(name: string): ReactNativeBlobUtilSession {
 function asset(path: string): string {
     if (Platform.OS === 'ios') {
         // path from camera roll
-        if (/^assets-library\:\/\//.test(path))
+        if (/^assets-library:\/\//.test(path))
             return path;
     }
     return 'bundle-assets://' + path;
 }
 
-function createFile(path: string, data: string, encoding: 'base64' | 'ascii' | 'utf8' | 'uri' = 'utf8'): Promise<string> {
+function createFile(path: string, data: string, encodingOrOptions: any = 'utf8'): Promise<string> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
+    let [encoding] = encodingAndOptions(encodingOrOptions, null);
     encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
@@ -155,18 +167,20 @@ function createFile(path: string, data: string, encoding: 'base64' | 'ascii' | '
 /**
  * Create write stream to a file.
  * @param  {string} path Target path of file stream.
- * @param  {string} encoding Encoding of input data.
+ * @param  {string | {encoding?: string, append?: boolean}} encodingOrOptions Encoding of input data, or the options.
  * @param  {boolean} [append]  A flag represent if data append to existing ones.
  * @return {Promise<ReactNativeBlobUtilWriteStream>} A promise resolves a `WriteStream` object.
  */
 function writeStream(
     path: string,
-    encoding?: 'utf8' | 'ascii' | 'base64' = 'utf8',
+    encodingOrOptions?: any = 'utf8',
     append?: boolean = false,
 ): Promise<ReactNativeBlobUtilWriteStream> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
+    let [encoding, options] = encodingAndOptions(encodingOrOptions, {append});
+    append = Boolean(options.append);
     encoding = normalizeEncoding(encoding, READ_ENCODINGS);
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
@@ -178,20 +192,24 @@ function writeStream(
 /**
  * Create file stream from file at `path`.
  * @param  {string} path   The file path.
- * @param  {string} encoding Data encoding, should be one of `base64`, `utf8`, `ascii`
+ * @param  {string | {encoding?: string, bufferSize?: number, tick?: number}} encodingOrOptions
+ *         Data encoding (`base64`, `utf8`, `ascii`), or the options.
  * @param  {number} [bufferSize=12288] Size of stream buffer, in bytes. Use a multiple of 3 for base64.
  * @param  {number} [tick=10] Interval in milliseconds between reading chunks of data
  * @return {ReactNativeBlobUtilStream} ReactNativeBlobUtilStream stream instance.
  */
 function readStream(
     path: string,
-    encoding: 'utf8' | 'ascii' | 'base64' = 'utf8',
+    encodingOrOptions: any = 'utf8',
     bufferSize?: number,
     tick?: number = 10
 ): Promise<ReactNativeBlobUtilReadStream> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
+    let [encoding, options] = encodingAndOptions(encodingOrOptions, {bufferSize, tick});
+    bufferSize = options.bufferSize;
+    tick = options.tick === undefined || options.tick === null ? 10 : options.tick;
     encoding = normalizeEncoding(encoding, READ_ENCODINGS);
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
@@ -214,38 +232,41 @@ function mkdir(path: string): Promise {
 /**
  * Read a file.
  * @param  {string} path Path of the file.
- * @param  {'base64' | 'utf8' | 'ascii'} encoding Encoding of the result.
+ * @param  {'base64' | 'utf8' | 'ascii' | {encoding?: string, transform?: boolean}} encodingOrOptions
+ *         Encoding of the result, or the options.
  * @param  {{transform?: boolean}} options Run the registered file transformer on the data.
  * @return {Promise<Array<number> | string>}
  */
-function readFile(path: string, encoding: string = 'utf8', options: ?{transform?: boolean} = null): Promise<any> {
+function readFile(path: string, encodingOrOptions: any = 'utf8', options: ?{transform?: boolean} = null): Promise<any> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
+    let [encoding, opts] = encodingAndOptions(encodingOrOptions, options);
     encoding = normalizeEncoding(encoding, READ_ENCODINGS);
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
-    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, Boolean(options && options.transform)));
+    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, Boolean(opts.transform)));
 }
 
 /**
  * Write data to a file, replacing it.
  * @param  {string} path  Path of the file.
  * @param  {string | number[]} data Data to write to the file.
- * @param  {string} encoding Encoding of data (Optional).
+ * @param  {string | {encoding?: string, transform?: boolean}} encodingOrOptions Encoding of data, or the options.
  * @param  {{transform?: boolean}} options Run the registered file transformer on the data first (not for ascii).
  * @return {Promise<number>} The number of bytes written.
  */
-function writeFile(path: string, data: string | Array<number>, encoding: ?string = 'utf8', options: ?{transform?: boolean} = null): Promise<number> {
+function writeFile(path: string, data: string | Array<number>, encodingOrOptions: any = 'utf8', options: ?{transform?: boolean} = null): Promise<number> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
+    let [encoding, opts] = encodingAndOptions(encodingOrOptions, options);
     encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
     }
-    const transform = Boolean(options && options.transform);
+    const transform = Boolean(opts.transform);
     if (encoding === 'ascii') {
         if (transform) {
             return Promise.reject(addCode('EINVAL', new TypeError('ascii is not supported for converted files')));
@@ -265,10 +286,11 @@ function writeFile(path: string, data: string | Array<number>, encoding: ?string
     }
 }
 
-function appendFile(path: string, data: string | Array<number>, encoding?: string = 'utf8'): Promise<number> {
+function appendFile(path: string, data: string | Array<number>, encodingOrOptions?: any = 'utf8'): Promise<number> {
     if (typeof path !== 'string') {
         return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "path" ')));
     }
+    let [encoding] = encodingAndOptions(encodingOrOptions, null);
     encoding = normalizeEncoding(encoding, WRITE_ENCODINGS);
     if (encoding instanceof Error) {
         return Promise.reject(encoding);
@@ -410,18 +432,18 @@ function slice(src: string, dest: string, start: number, end: number): Promise {
     let p = Promise.resolve();
     let size = 0;
 
-    function normalize(num, size) {
+    function normalize(num, length) {
         if (num < 0)
-            return Math.max(0, size + num);
+            return Math.max(0, length + num);
         if (!num && num !== 0)
-            return size;
+            return length;
         return num;
     }
 
     if (start < 0 || end < 0 || !start || !end) {
         p = p.then(() => stat(src))
-            .then((stat) => {
-                size = Math.floor(stat.size);
+            .then((info) => {
+                size = Math.floor(info.size);
                 start = normalize(start || 0, size);
                 end = normalize(end, size);
             });

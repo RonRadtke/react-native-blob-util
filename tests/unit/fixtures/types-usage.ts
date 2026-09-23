@@ -279,4 +279,21 @@ async function namedExports(enc: Encoding): Promise<void> {
     }
 }
 
-void network; void filesystem; void platforms; void helpers; void namedExports;
+async function optionObjects(): Promise<void> {
+    const text: string = await namedFs.readFile('/p/a.txt', {encoding: 'base64', transform: true});
+    const bytes: number[] = await namedFs.readFile('/p/a.bin', {encoding: 'ascii'});
+    await namedFs.writeFile('/p/a.txt', 'AAEC', {encoding: 'base64', transform: true});
+    await namedFs.writeFile('/p/a.bin', [1, 2], {encoding: 'ascii'});
+    await namedFs.appendFile('/p/a.txt', 'more', {encoding: 'utf8'});
+    await namedFs.createFile('/p/b.txt', 'x', {encoding: 'utf8'});
+    const reader = await namedFs.readStream('/p/a.txt', {encoding: 'base64', bufferSize: 3000, tick: 5});
+    const writer = await namedFs.writeStream('/p/a.txt', {encoding: 'utf8', append: true});
+    const picked: string | null = await namedOpen.pick({mime: 'image/*'});
+    await namedMedia.createFile({name: 'a.png', mime: 'image/png'}, 'Image');
+    const read: string | number[] = await namedMedia.read('content://x', {encoding: 'base64'});
+    await namedConfig({transform: true, android: {downloadManager: {useDownloadManager: true}, wifiOnly: true}, ios: {backgroundTask: true}})
+        .fetch('GET', 'https://example.test/');
+    void text; void bytes; void reader; void writer; void picked; void read;
+}
+
+void network; void filesystem; void platforms; void helpers; void namedExports; void optionObjects;

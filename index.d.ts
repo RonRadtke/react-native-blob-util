@@ -286,6 +286,9 @@ export interface ReactNativeBlobUtilConfig {
      * Run the registered file transformer on the response before it is written
      * to disk. Only applies when the response is written to a file.
      */
+    transform?: boolean;
+
+    /** @deprecated use `transform` */
     transformFile?: boolean;
 
     /**
@@ -311,26 +314,40 @@ export interface ReactNativeBlobUtilConfig {
      */
     trustSystemCerts?: boolean;
 
-    /**
-     * Android only: only send the request over WiFi.
-     */
+    /** Options only Android reads. */
+    android?: {
+        /** Download through the DownloadManager. */
+        downloadManager?: AddAndroidDownloads;
+        /** Only send the request over WiFi. */
+        wifiOnly?: boolean;
+        /** Pick the network interface that can reach this IP. */
+        targetHostIp?: string;
+    };
+
+    /** Options only iOS reads. */
+    ios?: {
+        /** Use a background session so the download continues when the app is suspended. */
+        backgroundTask?: boolean;
+    };
+
+    /** @deprecated use `android.wifiOnly` */
     wifiOnly?: boolean;
 
-    /**
-     * Android only: pick the network interface that can reach this IP.
-     */
+    /** @deprecated use `android.targetHostIp` */
     targetHostIp?: string;
 
-    /**
-     * Android only: download through the DownloadManager.
-     */
+    /** @deprecated use `android.downloadManager` */
     addAndroidDownloads?: AddAndroidDownloads;
 
-    /**
-     * iOS only: use a background session so the download continues when the
-     * app is suspended.
-     */
+    /** @deprecated use `ios.backgroundTask` */
     IOSBackgroundTask?: boolean;
+}
+
+/** Options of fs.readFile and fs.writeFile. */
+export interface FileOptions<E> {
+    encoding?: E;
+    /** Run the registered file transformer (not for ascii). */
+    transform?: boolean;
 }
 
 export interface AddAndroidDownloads {
@@ -431,6 +448,7 @@ export interface FS {
      * @param tick Milliseconds between chunks. Default 10.
      */
     readStream(path: string, encoding?: Encoding, bufferSize?: number, tick?: number): Promise<ReactNativeBlobUtilReadStream>;
+    readStream(path: string, options: {encoding?: Encoding; bufferSize?: number; tick?: number}): Promise<ReactNativeBlobUtilReadStream>;
 
     /**
      * Move a file. An existing destination is overwritten.
@@ -447,6 +465,7 @@ export interface FS {
      * @param append Append to the file instead of replacing it. Default false.
      */
     writeStream(path: string, encoding?: Encoding, append?: boolean): Promise<ReactNativeBlobUtilWriteStream>;
+    writeStream(path: string, options: {encoding?: Encoding; append?: boolean}): Promise<ReactNativeBlobUtilWriteStream>;
 
     /**
      * Write data to a file, replacing it.
@@ -459,6 +478,8 @@ export interface FS {
     writeFile(path: string, data: string, encoding: 'utf8' | 'base64' | 'uri' | undefined, options: {transform?: boolean}): Promise<number>;
     // An encoding only known at runtime.
     writeFile(path: string, data: string | number[], encoding?: WriteEncoding, options?: {transform?: boolean}): Promise<number>;
+    writeFile(path: string, data: number[], options: FileOptions<'ascii'> & {encoding: 'ascii'}): Promise<number>;
+    writeFile(path: string, data: string, options: FileOptions<'utf8' | 'base64' | 'uri'>): Promise<number>;
 
     /** @deprecated use `writeFile(path, data, encoding, {transform: true})` */
     writeFileWithTransform(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
@@ -470,6 +491,7 @@ export interface FS {
     appendFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
     appendFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
     appendFile(path: string, data: string | number[], encoding?: WriteEncoding): Promise<number>;
+    appendFile(path: string, data: string | number[], options: {encoding?: WriteEncoding}): Promise<number>;
 
     /**
      * Read a file: text for utf8, a base64 string, or byte values 0..255 for ascii.
@@ -481,6 +503,8 @@ export interface FS {
     readFile(path: string, encoding: 'utf8' | 'base64' | undefined, options: {transform?: boolean}): Promise<string>;
     // An encoding only known at runtime.
     readFile(path: string, encoding?: Encoding, options?: {transform?: boolean}): Promise<string | number[]>;
+    readFile(path: string, options: FileOptions<'ascii'> & {encoding: 'ascii'}): Promise<number[]>;
+    readFile(path: string, options: FileOptions<'utf8' | 'base64'>): Promise<string>;
 
     /** @deprecated use `readFile(path, encoding, {transform: true})` */
     readFileWithTransform(path: string, encoding: 'ascii'): Promise<number[]>;
@@ -503,6 +527,7 @@ export interface FS {
      */
     createFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<string>;
     createFile(path: string, data: number[], encoding: 'ascii'): Promise<string>;
+    createFile(path: string, data: string | number[], options: {encoding?: WriteEncoding}): Promise<string>;
 
     /**
      * Information about a file or directory.
@@ -585,7 +610,7 @@ export interface OpenApi {
      * Android: the system file picker. Resolves the chosen file's content URI,
      * or null when the user cancels.
      */
-    pick(mime?: string): Promise<string | null>;
+    pick(mime?: string | {mime?: string}): Promise<string | null>;
 }
 
 /**
@@ -604,7 +629,7 @@ export interface MediaApi {
     /** Read an entry: text, a base64 string, or bytes 0..255. */
     read(uri: string, encoding: 'ascii'): Promise<number[]>;
     read(uri: string, encoding?: 'utf8' | 'base64'): Promise<string>;
-    read(uri: string, encoding?: Encoding): Promise<string | number[]>;
+    read(uri: string, encoding?: Encoding | {encoding?: Encoding}): Promise<string | number[]>;
     /** Register a finished download with the Downloads app. */
     addDownload(options: AndroidDownloadOption): Promise<void>;
     /** Ask the media scanner to index files. */
@@ -828,9 +853,12 @@ export type Mediatype = 'Audio' | 'Image' | 'Video' | 'Download';
 export interface filedescriptor {
     /** File name, with extension. */
     name: string;
-    /** Sub-directory inside the collection; "" for the collection itself. */
-    parentFolder: string;
-    mimeType: string;
+    /** Sub-directory inside the collection; "" (the default) for the collection itself. */
+    parentFolder?: string;
+    /** The MIME type. */
+    mime?: string;
+    /** @deprecated use `mime` */
+    mimeType?: string;
 }
 
 /**

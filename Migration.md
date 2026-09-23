@@ -258,6 +258,26 @@ Promise that resolves once native has cancelled; the optional callback still wor
 - `fs.readStream` reads 12288 bytes per chunk by default (a multiple of 3, so base64
   chunks concatenate) instead of 10240, and `tick` defaults to 10 ms in both the
   wrapper and the stream.
+- Every call that took positional flags also takes one options object; the positional
+  forms keep working:
+  `fs.readFile(path, {encoding, transform})`, `fs.writeFile(path, data, {encoding, transform})`,
+  `fs.appendFile(path, data, {encoding})`, `fs.createFile(path, data, {encoding})`,
+  `fs.readStream(path, {encoding, bufferSize, tick})`, `fs.writeStream(path, {encoding, append})`,
+  `open.pick({mime})`, `media.read(uri, {encoding})`.
+- `mime` is the key for a MIME type everywhere. Media descriptors take `{name, mime,
+  parentFolder}`; `mimeType` still works.
+- `config` groups the platform-only options and renames the transformer flag:
+
+  | Before | 1.0 |
+  |---|---|
+  | `transformFile` | `transform` (as in `readFile`/`writeFile`) |
+  | `addAndroidDownloads` | `android: {downloadManager}` |
+  | `wifiOnly`, `targetHostIp` | `android: {wifiOnly, targetHostIp}` |
+  | `IOSBackgroundTask` | `ios: {backgroundTask}` |
+
+  The old keys keep working and warn once each.
+- `media.read` rejects an unknown encoding with `EINVAL`, as `fs.readFile` does; it was
+  read as utf8.
 
 ## Android
 

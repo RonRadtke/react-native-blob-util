@@ -9,11 +9,23 @@ import type {filedescriptor} from './types';
 
 const androidOnly = (name, fn) => platformOnly('android', `ReactNativeBlobUtil.media.${name}`, fn);
 
+/**
+ * The descriptor as native reads it: parentFolder defaults to "", and `mime`,
+ * the key the rest of the API uses, stands in for native's `mimeType`.
+ */
 function withParentFolder(fd: filedescriptor): filedescriptor {
-    if (fd && typeof fd === 'object' && !('parentFolder' in fd)) {
-        return {...fd, parentFolder: ''};
+    if (!fd || typeof fd !== 'object') {
+        return fd;
     }
-    return fd;
+    const out = {...fd};
+    if (!('parentFolder' in out)) {
+        out.parentFolder = '';
+    }
+    if (out.mimeType === undefined && out.mime !== undefined) {
+        out.mimeType = out.mime;
+    }
+    delete out.mime;
+    return out;
 }
 
 /**
@@ -56,8 +68,15 @@ const copyToInternal = androidOnly('copyToInternal', (uri: string, dest: string)
 /**
  * Read an entry: text for utf8, a base64 string, or bytes 0..255 for ascii.
  */
-const read = androidOnly('read', (uri: string, encoding: string = 'utf8') => {
-    const lowered = String(encoding).toLowerCase();
+const read = androidOnly('read', (uri: string, encodingOrOptions: any = 'utf8') => {
+    const encoding = encodingOrOptions !== null && typeof encodingOrOptions === 'object'
+        ? encodingOrOptions.encoding
+        : encodingOrOptions;
+    const lowered = encoding === undefined || encoding === null ? 'utf8' : String(encoding).toLowerCase();
+    // Checked here as fs.readFile does; native read an unknown encoding as utf8.
+    if (!['utf8', 'ascii', 'base64'].includes(lowered)) {
+        return Promise.reject(addCode('EINVAL', new TypeError(`Unsupported encoding "${encoding}", expected one of utf8, ascii, base64`)));
+    }
     const result = requireNativeModule().getBlob(uri, lowered);
     return lowered === 'ascii' ? result.then(toUnsignedBytes) : result;
 });

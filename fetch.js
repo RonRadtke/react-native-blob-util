@@ -2,6 +2,7 @@ import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
 import fs from './fs';
 import toByteCount from './utils/byteCount';
+import {normalizeConfig} from './utils/config';
 import {addCode} from './utils/errors';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
 import {escapeForm, invalidFormField, invalidHeader, nativeOptions, prepareBody} from './utils/request';
@@ -73,6 +74,7 @@ export function fetch(...args: any): Promise {
 }
 
 function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, url: string, headers: ?Object, body: any): Promise {
+    options = normalizeConfig(options);
 
     // create task ID for receiving progress event
     const taskId = getUUID();
