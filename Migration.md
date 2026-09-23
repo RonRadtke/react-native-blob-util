@@ -384,6 +384,20 @@ Apps that follow the README don't need to change anything.
 - `ios/ReactNativeBlobUtil.xcodeproj` is deleted. It no longer matched the sources, so
   linking the library through that project stopped working long ago. Use CocoaPods.
 
+### TLS, cached files and codes (iOS)
+
+- `trusty: true` no longer accepts any certificate for any host. The chain is still not
+  validated, but the host name and the validity dates are: a certificate that names another
+  host, or has expired, is refused and the request fails with `ESSL`.
+- `pinnedHosts` entries match the host case-insensitively; one written with capitals used to
+  match nothing and silently fall back to system trust.
+- `fileCache` and `key` responses are written to `Library/Application Support/ReactNativeBlobUtil_tmp`
+  instead of `Documents/ReactNativeBlobUtil_tmp`, so they are no longer in the iCloud backup or
+  visible in the Files app. **A path to a cached file stored before the upgrade no longer
+  exists**; download the file again (or move it out of `Documents` yourself).
+- `fs.hash` rejects `EUNSPECIFIED` where it rejected `EUNKNOWN` and `EREAD`; the messages are
+  unchanged.
+
 ## Windows
 
 - `fetch` reports the response: `res.info()` (and so `res.status`, `res.ok`,
