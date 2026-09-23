@@ -78,8 +78,18 @@ class ReactNativeBlobUtilMediaCollection {
             }
         }
 
+        /**
+         * Whether a name or folder climbs out of where it is put. Before Android 10
+         * the media file is created at a joined path, so "../" reached any
+         * directory the app can write to.
+         */
+        @JvmStatic
+        internal fun hasParentSegment(value: String?): Boolean =
+            value != null && value.split('/', '\\').any { it == ".." }
+
         @JvmStatic
         fun createNewMediaFile(file: FileDescription, mt: MediaType, ctx: ReactApplicationContext): Uri? {
+            if (hasParentSegment(file.name) || hasParentSegment(file.partentFolder)) return null
             // Add a specific media item.
             val appCtx = ReactNativeBlobUtilImpl.RCTContext.applicationContext
             val resolver = appCtx.contentResolver

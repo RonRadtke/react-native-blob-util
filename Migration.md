@@ -269,6 +269,25 @@ forged Downloads URI read and deleted a file in your app's data directory.
   file with `fs.cp(uri, path)` first.
 - `com.ReactNativeBlobUtil.Utils.PathResolver` is gone.
 
+### TLS and other hardening (Android)
+
+- `trusty: true` keeps hostname verification. It used to install an accept-all
+  hostname verifier next to your `sharedTrustManager`, so a trust manager that
+  validated a private CA still accepted that CA's certificate for any host name. If your
+  test server's certificate does not name the host you connect to, fix the certificate
+  (or use `customCACerts`, the supported way to trust a private CA).
+- `customCACerts` with `pinnedHosts` is decided per TLS handshake, so a redirect is
+  covered: a request that started at an unpinned host and was redirected to a pinned
+  one reached the pinned host with the system's trust. `customCACertsApplyTo` is gone
+  from `ReactNativeBlobUtilUtils`; `getCustomCACertOkHttpClient` takes the pinned hosts.
+- A DownloadManager download no longer leaves its broadcast receiver registered for the
+  life of the app, and an unrelated `DOWNLOAD_COMPLETE` broadcast without an id no
+  longer crashes it.
+- Before Android 10, `media.createFile` / `copyToMediaStore` reject a `name` or
+  `parentFolder` containing a `..` segment; the file used to be created wherever the
+  joined path pointed.
+- Request URLs are no longer written to logcat when a request fails to build.
+
 - `ReactNativeBlobUtilUtils.sharedTrustManager` is still a static field. Java and
   Kotlin code that sets it compiles unchanged.
 - `ReactNativeBlobUtilFileTransformer` stays a Java class, so existing

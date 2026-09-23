@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Base64
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.modules.core.DeviceEventManagerModule
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import java.io.BufferedReader
 import java.io.ByteArrayInputStream
@@ -17,7 +16,6 @@ import java.security.SecureRandom
 import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
 import java.util.Locale
-import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.TrustManagerFactory
@@ -83,7 +81,9 @@ class ReactNativeBlobUtilUtils {
 
                 val builder = client.newBuilder()
                 builder.sslSocketFactory(sslSocketFactory, trustManager)
-                builder.hostnameVerifier(HostnameVerifier { _, _ -> true })
+                // The hostname is still verified. trusty used to switch that off too, so
+                // an app whose trust manager validated a private CA properly still
+                // accepted that CA's certificate for any name.
 
                 return builder
             } catch (e: Exception) {
@@ -92,28 +92,18 @@ class ReactNativeBlobUtilUtils {
         }
 
         /**
-         * Whether a request to [url] should use the custom CA trust store.
-         *
-         * When pinnedHosts is set the custom CA only covers those hosts; anything else
-         * falls through to the platform trust store, which is what the README documents
+         * A client that trusts the custom CAs. With pinnedHosts, only for those hosts,
+         * decided per handshake so redirects are covered (ReactNativeBlobUtilPinnedTrustManager);
+         * every other host gets the system's trust, which is what the README documents
          * and what iOS does by returning NSURLSessionAuthChallengePerformDefaultHandling.
          */
-        @JvmStatic
-        fun customCACertsApplyTo(certNames: List<String?>?, pinnedHosts: List<String?>?, url: String?): Boolean {
-            if (certNames.isNullOrEmpty()) return false
-            if (pinnedHosts.isNullOrEmpty()) return true
-
-            val parsed = url?.toHttpUrlOrNull() ?: return false
-
-            return pinnedHosts.contains(parsed.host)
-        }
-
         @JvmStatic
         fun getCustomCACertOkHttpClient(
             client: OkHttpClient,
             context: Context,
             certNames: List<String?>,
             trustSystemCerts: Boolean,
+            pinnedHosts: List<String?>? = null,
         ): OkHttpClient.Builder {
             try {
                 val cf = CertificateFactory.getInstance("X.509")
@@ -152,8 +142,17 @@ class ReactNativeBlobUtilUtils {
                 val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
                 tmf.init(keyStore)
 
-                val customTrustManager = tmf.trustManagers.firstOrNull { it is X509TrustManager } as X509TrustManager?
+                val caTrustManager = tmf.trustManagers.firstOrNull { it is X509TrustManager } as X509TrustManager?
                     ?: throw IllegalStateException("No X509TrustManager found")
+                val customTrustManager: X509TrustManager = if (pinnedHosts.isNullOrEmpty()) {
+                    caTrustManager
+                } else {
+                    val systemTmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                    systemTmf.init(null as KeyStore?)
+                    val systemTrustManager = systemTmf.trustManagers.firstOrNull { it is X509TrustManager } as X509TrustManager?
+                        ?: throw IllegalStateException("No system X509TrustManager found")
+                    ReactNativeBlobUtilPinnedTrustManager(caTrustManager, systemTrustManager, pinnedHosts)
+                }
 
                 val sslContext = SSLContext.getInstance("TLS")
                 sslContext.init(null, arrayOf<TrustManager>(customTrustManager), SecureRandom())
@@ -162,8 +161,7 @@ class ReactNativeBlobUtilUtils {
                 builder.sslSocketFactory(sslContext.socketFactory, customTrustManager)
 
                 // No hostnameVerifier override: the default verifier still applies, so a
-                // certificate is only accepted for the names it actually carries. Scoping to
-                // pinnedHosts happens before this client is built - see ReactNativeBlobUtilReq.
+                // certificate is only accepted for the names it actually carries.
 
                 return builder
             } catch (e: Exception) {

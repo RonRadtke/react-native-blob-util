@@ -28,30 +28,6 @@ class ReactNativeBlobUtilUtilsTest {
     }
 
     @Test
-    fun `custom CA certs do not apply without cert names`() {
-        assertFalse(ReactNativeBlobUtilUtils.customCACertsApplyTo(null, null, "https://example.com/"))
-        assertFalse(ReactNativeBlobUtilUtils.customCACertsApplyTo(emptyList(), listOf("example.com"), "https://example.com/"))
-    }
-
-    @Test
-    fun `custom CA certs apply to every host when no hosts are pinned`() {
-        assertTrue(ReactNativeBlobUtilUtils.customCACertsApplyTo(listOf("ca"), null, "https://anything.example/"))
-        assertTrue(ReactNativeBlobUtilUtils.customCACertsApplyTo(listOf("ca"), emptyList(), "https://anything.example/"))
-    }
-
-    @Test
-    fun `custom CA certs apply only to pinned hosts`() {
-        val pinned = listOf("10.0.2.2")
-        assertTrue(ReactNativeBlobUtilUtils.customCACertsApplyTo(listOf("ca"), pinned, "https://10.0.2.2:19077/health"))
-        assertFalse(ReactNativeBlobUtilUtils.customCACertsApplyTo(listOf("ca"), pinned, "https://wrong.example.com/health"))
-    }
-
-    @Test
-    fun `an unparseable url never gets the custom CA`() {
-        assertFalse(ReactNativeBlobUtilUtils.customCACertsApplyTo(listOf("ca"), listOf("example.com"), "not a url"))
-    }
-
-    @Test
     fun `stringToBytes encodes utf8 and ascii`() {
         assertArrayEquals(byteArrayOf(0x68, 0xc3.toByte(), 0xa9.toByte()), ReactNativeBlobUtilUtils.stringToBytes("hé", "utf8"))
         assertArrayEquals(byteArrayOf(0x68, 0x69), ReactNativeBlobUtilUtils.stringToBytes("hi", "ASCII"))

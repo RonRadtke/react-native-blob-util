@@ -347,13 +347,14 @@ class ReactNativeBlobUtilReq(
             // use trusty SSL socket
             val clientBuilder = if (options.trusty!!) {
                 ReactNativeBlobUtilUtils.getUnsafeOkHttpClient(client)
-            } else if (ReactNativeBlobUtilUtils.customCACertsApplyTo(options.customCACerts, options.pinnedHosts, url)) {
+            } else if (!options.customCACerts.isNullOrEmpty()) {
                 ReactNativeBlobUtilUtils.getCustomCACertOkHttpClient(
                     client,
                     ReactNativeBlobUtilImpl.RCTContext,
-                    // customCACertsApplyTo returned true, so the list is not empty.
                     options.customCACerts!!,
                     options.trustSystemCerts!!,
+                    // Scoped per handshake, so a redirect to a pinned host is checked too.
+                    options.pinnedHosts,
                 )
             } else {
                 client.newBuilder()
@@ -427,7 +428,8 @@ class ReactNativeBlobUtilReq(
             try {
                 builder.url(URL(url))
             } catch (e: MalformedURLException) {
-                e.printStackTrace()
+                // Not logged: the URL can carry tokens, and logcat is not the place.
+                // Request.Builder rejects it below and the request fails EINVAL.
             }
 
             val mheaders = HashMap<String, String?>()
@@ -621,7 +623,6 @@ class ReactNativeBlobUtilReq(
 
 
         } catch (error: Exception) {
-            error.printStackTrace()
             releaseTaskResource()
             // OkHttp's Request.Builder rejects a malformed URL or method with
             // IllegalArgumentException; everything else is unexpected.
@@ -910,9 +911,17 @@ class ReactNativeBlobUtilReq(
         val action = intent.action
         if (DownloadManager.ACTION_DOWNLOAD_COMPLETE == action) {
             val appCtx = ReactNativeBlobUtilImpl.RCTContext.applicationContext
-            val id = intent.extras!!.getLong(DownloadManager.EXTRA_DOWNLOAD_ID)
+            // An intent without the id is not ours; it used to crash on extras!!.
+            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
             if (id == downloadManagerId) {
                 releaseTaskResource() // remove task ID from task map
+                // One receiver per download; it was never unregistered and every finished
+                // download left one behind for the life of the app.
+                try {
+                    appCtx.unregisterReceiver(this)
+                } catch (e: IllegalArgumentException) {
+                    // not registered any more
+                }
 
                 val query = DownloadManager.Query()
                 query.setFilterById(downloadManagerId)
