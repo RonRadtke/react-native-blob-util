@@ -102,7 +102,8 @@ public:
 	ReactNativeBlobUtilConfig(::React::JSValue& options);
 
 	bool overwrite;
-	std::chrono::seconds timeout;
+	// Milliseconds, as on Android and iOS (it was read as seconds, and never applied).
+	std::chrono::milliseconds timeout;
 	bool trusty;
 	bool fileCache;
 	std::string key;
@@ -145,6 +146,27 @@ struct ReactNativeBlobUtil
     winrt::fire_and_forget fetchBlobForm(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, ::React::JSValueArray form, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
     REACT_METHOD(fetchBlob)
+    // Sends a request, following redirects hop by hop (each with its own trust
+    // decision) and cancelling it when config.timeout runs out.
+    winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Web::Http::HttpResponseMessage> SendAsync(
+        winrt::Windows::Web::Http::HttpRequestMessage request,
+        ReactNativeBlobUtilConfig config,
+        std::string taskId,
+        std::shared_ptr<std::vector<std::string>> redirects,
+        std::shared_ptr<bool> timedOut);
+
+    // SendAsync, then the state event and the response, with its info.
+    winrt::Windows::Foundation::IAsyncAction SendAndDeliverAsync(
+        winrt::Windows::Web::Http::HttpRequestMessage request,
+        ReactNativeBlobUtilConfig config,
+        std::string taskId,
+        std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback);
+
+    // Upload and download progress events for one operation.
+    void WatchProgress(
+        winrt::Windows::Foundation::IAsyncOperationWithProgress<winrt::Windows::Web::Http::HttpResponseMessage, winrt::Windows::Web::Http::HttpProgress> const& operation,
+        std::string taskId);
+
     winrt::fire_and_forget fetchBlob(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, std::string body, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 
     REACT_METHOD(createFile)

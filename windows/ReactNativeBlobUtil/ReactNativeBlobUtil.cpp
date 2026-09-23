@@ -86,6 +86,64 @@ namespace
         co_return co_await FileIO::ReadBufferAsync(file);
     }
 
+    // Android's rules: text/* is "text", application/json "json", any other
+    // Content-Type "blob", none "text"; a response written to a file is "blob".
+    std::string RespTypeFor(std::string contentType, bool toFile)
+    {
+        std::transform(contentType.begin(), contentType.end(), contentType.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (toFile) return "blob";
+        if (contentType.empty() || contentType.find("text/") != std::string::npos) return "text";
+        if (contentType.find("application/json") != std::string::npos) return "json";
+        return "blob";
+    }
+
+    // The response info Android and iOS report, which fetch.js turns into
+    // res.info(), res.status, res.ok, res.headers and res.url. Windows reported
+    // none, so res.status was undefined and res.ok always false there.
+    ::React::JSValueObject ResponseInfo(
+        winrt::Windows::Web::Http::HttpResponseMessage const& response,
+        std::string const& taskId,
+        std::vector<std::string> const& redirects,
+        bool toFile)
+    {
+        ::React::JSValueObject headers;
+        std::string contentType;
+        for (auto const& header : response.Headers())
+        {
+            headers[winrt::to_string(header.Key())] = winrt::to_string(header.Value());
+        }
+        if (response.Content() != nullptr)
+        {
+            for (auto const& header : response.Content().Headers())
+            {
+                const auto key = winrt::to_string(header.Key());
+                headers[key] = winrt::to_string(header.Value());
+                std::string lowered = key;
+                std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (lowered == "content-type")
+                {
+                    contentType = winrt::to_string(header.Value());
+                }
+            }
+        }
+        ::React::JSValueArray redirectList;
+        for (auto const& url : redirects)
+        {
+            redirectList.push_back(::React::JSValue{ url });
+        }
+        ::React::JSValueObject info;
+        info["taskId"] = taskId;
+        info["state"] = "2";
+        info["status"] = static_cast<int64_t>(response.StatusCode());
+        info["headers"] = std::move(headers);
+        info["redirects"] = std::move(redirectList);
+        info["respType"] = RespTypeFor(contentType, toFile);
+        info["timeout"] = false;
+        return info;
+    }
+
     // The code for a failed request, from the WinINet/WinHTTP HRESULT the
     // Windows.Web.Http stack raises. Names follow POSIX/Node so an app can
     // switch on them the same way on every platform.
@@ -222,8 +280,9 @@ ReactNativeBlobUtilConfig::ReactNativeBlobUtilConfig(::React::JSValue& options)
 
     appendExt = getStringOrDefault(options["appendExt"]);
     fileCache = getBoolOrDefault(options["fileCache"]);
-    followRedirect = getBoolOrDefault(options["followRedirect"]);
-    overwrite = getBoolOrDefault(options["overwrite"]);
+    // Both default to true, as on Android and iOS; they defaulted to false here.
+    followRedirect = getBoolOrDefault(options["followRedirect"], true);
+    overwrite = getBoolOrDefault(options["overwrite"], true);
     trusty = getBoolOrDefault(options["trusty"]);
 
     trustSystemCerts = getBoolOrDefault(options["trustSystemCerts"]);
@@ -269,7 +328,7 @@ ReactNativeBlobUtilConfig::ReactNativeBlobUtilConfig(::React::JSValue& options)
 
     // Timeout handling
     int64_t potentialTimeout = getInt64OrDefault(options["timeout"]);
-    timeout = std::chrono::seconds{ potentialTimeout > 0 ? potentialTimeout : 60000 };
+    timeout = std::chrono::milliseconds{ potentialTimeout > 0 ? potentialTimeout : 60000 };
 }
 
 ReactNativeBlobUtilProgressConfig::ReactNativeBlobUtilProgressConfig(double count_, double interval_) : count(count_), interval(interval_) {
@@ -715,7 +774,8 @@ namespace
         winrt::Windows::Web::Http::HttpResponseMessage response,
         ReactNativeBlobUtilConfig config,
         std::string taskId,
-        std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback)
+        std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback,
+        ::React::JSValueObject info)
     {
         if (!config.fileCache && config.path.empty())
         {
@@ -728,7 +788,7 @@ namespace
             // (err, rawType, data, responseInfo) as four arguments - the shape
             // fetch.js destructures and the one Android already sends. The body is
             // read as text here, so it is always the utf8 form.
-            callback(std::nullopt, "utf8", responseBody, std::nullopt);
+            callback(std::nullopt, "utf8", responseBody, ::React::JSValue{ std::move(info) });
             co_return;
         }
 
@@ -749,16 +809,31 @@ namespace
 
         const auto folder = co_await winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(
             path.parent_path().wstring());
+        // overwrite: false appends to an existing file, as on Android and iOS; the
+        // option was read here but never used.
+        const bool append = !config.overwrite && std::filesystem::exists(path);
         const auto file = co_await folder.CreateFileAsync(
             path.filename().wstring(),
-            winrt::Windows::Storage::CreationCollisionOption::ReplaceExisting);
+            append ? winrt::Windows::Storage::CreationCollisionOption::OpenIfExists
+                   : winrt::Windows::Storage::CreationCollisionOption::ReplaceExisting);
 
         if (buffer != nullptr)
         {
-            co_await winrt::Windows::Storage::FileIO::WriteBufferAsync(file, buffer);
+            if (append)
+            {
+                auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
+                stream.Seek(stream.Size());
+                co_await stream.WriteAsync(buffer);
+                co_await stream.FlushAsync();
+                stream.Close();
+            }
+            else
+            {
+                co_await winrt::Windows::Storage::FileIO::WriteBufferAsync(file, buffer);
+            }
         }
 
-        callback(std::nullopt, "path", destination, std::nullopt);
+        callback(std::nullopt, "path", destination, ::React::JSValue{ std::move(info) });
     }
 }
 
@@ -798,6 +873,182 @@ namespace winrt::ReactNativeBlobUtil
         return constants;
     }
 
+    void ReactNativeBlobUtil::WatchProgress(
+        winrt::Windows::Foundation::IAsyncOperationWithProgress<winrt::Windows::Web::Http::HttpResponseMessage, winrt::Windows::Web::Http::HttpProgress> const& operation,
+        std::string taskId)
+    {
+        // SendRequestAsync reports both directions, so one handler covers upload
+        // and download. The config is looked up on every callback rather than
+        // once here, because fetch.js starts the request first and only then
+        // calls enableProgressReport() - at send time the entry does not exist
+        // yet. Android looks it up per chunk for the same reason.
+        ProgressThrottle downloadThrottle, uploadThrottle;
+        operation.Progress([this, taskId, downloadThrottle, uploadThrottle](
+            auto const&, winrt::Windows::Web::Http::HttpProgress const& progress) mutable
+        {
+            const bool sending{ progress.Stage == winrt::Windows::Web::Http::HttpProgressStage::SendingContent };
+
+            // Only the two stages that move bytes. The others - resolving,
+            // connecting, negotiating TLS - would otherwise report zero-byte
+            // progress for every phase of the connection.
+            if (!sending && progress.Stage != winrt::Windows::Web::Http::HttpProgressStage::ReceivingContent)
+            {
+                return;
+            }
+
+            {
+                std::scoped_lock lock{ m_mutex };
+                const auto& configs{ sending ? uploadProgressMap : downloadProgressMap };
+                const auto entry{ configs.find(taskId) };
+                if (entry == configs.end())
+                {
+                    return;
+                }
+
+                (sending ? uploadThrottle : downloadThrottle).config = entry->second;
+            }
+
+            const uint64_t written{ sending ? progress.BytesSent : progress.BytesReceived };
+            const auto expected{ sending ? progress.TotalBytesToSend : progress.TotalBytesToReceive };
+            const int64_t total{ expected ? static_cast<int64_t>(expected.Value()) : -1 };
+
+            auto& throttle{ sending ? uploadThrottle : downloadThrottle };
+            if (!throttle.ShouldReport(written, total > 0 ? static_cast<uint64_t>(total) : 0))
+            {
+                return;
+            }
+
+            // Numbers, matching what Android and iOS emit, with -1 as the
+            // unknown-length sentinel they already use.
+            m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit",
+                sending ? L"ReactNativeBlobUtilProgress-upload" : L"ReactNativeBlobUtilProgress",
+                winrt::Microsoft::ReactNative::JSValueObject{
+                    {"taskId", taskId},
+                    {"written", static_cast<int64_t>(written)},
+                    {"total", total},
+                    {"chunk", ""},
+                });
+        });
+    }
+
+    winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Web::Http::HttpResponseMessage> ReactNativeBlobUtil::SendAsync(
+        winrt::Windows::Web::Http::HttpRequestMessage request,
+        ReactNativeBlobUtilConfig config,
+        std::string taskId,
+        std::shared_ptr<std::vector<std::string>> redirects,
+        std::shared_ptr<bool> timedOut)
+    {
+        // Redirects are followed here rather than by the stack, one hop at a
+        // time: each hop gets its own trust decision, so customCACerts and
+        // pinnedHosts apply to the host that hop is for. Windows did not follow
+        // redirects at all before 1.0. The first URL is listed too, as Android
+        // lists every URL it requested.
+        redirects->push_back(winrt::to_string(request.RequestUri().AbsoluteUri()));
+        for (int hop = 0;; ++hop)
+        {
+            winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter filter;
+            filter.AllowAutoRedirect(false);
+            if (config.trusty)
+            {
+                filter.IgnorableServerCertificateErrors().Append(
+                    winrt::Windows::Security::Cryptography::Certificates::ChainValidationResult::Untrusted);
+            }
+            else
+            {
+                ConfigureServerTrust(filter, config, request.RequestUri());
+            }
+            winrt::Windows::Web::Http::HttpClient httpClient{ filter };
+
+            auto operation{ httpClient.SendRequestAsync(request) };
+            WatchProgress(operation, taskId);
+            // HttpClient has no timeout of its own: the operation is cancelled
+            // when config.timeout runs out, and the caller reports ETIMEDOUT.
+            auto timer = winrt::Windows::System::Threading::ThreadPoolTimer::CreateTimer(
+                [operation, timedOut](auto&&) { *timedOut = true; operation.Cancel(); },
+                config.timeout);
+            winrt::Windows::Web::Http::HttpResponseMessage response{ nullptr };
+            try
+            {
+                response = co_await operation;
+            }
+            catch (...)
+            {
+                timer.Cancel();
+                throw;
+            }
+            timer.Cancel();
+
+            const int status{ static_cast<int>(response.StatusCode()) };
+            const auto location{ response.Headers().TryLookup(L"Location") };
+            // Twenty hops at most, as OkHttp allows.
+            if (!config.followRedirect || status < 300 || status >= 400 || !location || hop >= 20)
+            {
+                co_return response;
+            }
+
+            const winrt::Windows::Foundation::Uri next{ request.RequestUri().CombineUri(location.value()) };
+            // As OkHttp: 307 and 308 repeat the request; 301, 302 and 303 turn
+            // anything but GET and HEAD into a GET without a body.
+            const auto method{ request.Method().Method() };
+            const bool repeat{ status == 307 || status == 308 || method == L"GET" || method == L"HEAD" };
+            winrt::Windows::Web::Http::HttpRequestMessage nextRequest{
+                repeat ? request.Method() : winrt::Windows::Web::Http::HttpMethod::Get(), next };
+            for (auto const& header : request.Headers())
+            {
+                nextRequest.Headers().TryAppendWithoutValidation(header.Key(), header.Value());
+            }
+            // Authorization does not follow to another host, as with OkHttp.
+            if (next.Host() != request.RequestUri().Host() && nextRequest.Headers().HasKey(L"Authorization"))
+            {
+                nextRequest.Headers().Remove(L"Authorization");
+            }
+            if (repeat && request.Content() != nullptr)
+            {
+                nextRequest.Content(request.Content());
+            }
+            redirects->push_back(winrt::to_string(next.AbsoluteUri()));
+            request = nextRequest;
+        }
+    }
+
+    winrt::Windows::Foundation::IAsyncAction ReactNativeBlobUtil::SendAndDeliverAsync(
+        winrt::Windows::Web::Http::HttpRequestMessage request,
+        ReactNativeBlobUtilConfig config,
+        std::string taskId,
+        std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback)
+    {
+        auto redirects = std::make_shared<std::vector<std::string>>();
+        auto timedOut = std::make_shared<bool>(false);
+        winrt::Windows::Web::Http::HttpResponseMessage response{ nullptr };
+        bool failedOnTimeout{ false };
+        try
+        {
+            response = co_await SendAsync(request, config, taskId, redirects, timedOut);
+        }
+        catch (winrt::hresult_error const&)
+        {
+            if (!*timedOut)
+            {
+                throw;
+            }
+            failedOnTimeout = true;
+        }
+        if (failedOnTimeout)
+        {
+            // What Android reports: ETIMEDOUT, and respInfo.timeout true.
+            ::React::JSValueObject info;
+            info["taskId"] = taskId;
+            info["timeout"] = true;
+            callback(fetchError("ETIMEDOUT", "The request timed out."), std::nullopt, std::nullopt, ::React::JSValue{ std::move(info) });
+            co_return;
+        }
+
+        const bool toFile{ config.fileCache || !config.path.empty() };
+        m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilState",
+            ResponseInfo(response, taskId, *redirects, toFile));
+        co_await DeliverResponseAsync(response, config, taskId, callback, ResponseInfo(response, taskId, *redirects, toFile));
+    }
+
     winrt::fire_and_forget ReactNativeBlobUtil::fetchBlobForm(
         ::React::JSValue options,
         std::string taskId,
@@ -825,19 +1076,7 @@ namespace winrt::ReactNativeBlobUtil
             }
 
             winrt::hstring boundary{ L"-----" };
-            winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter filter;
             ReactNativeBlobUtilConfig config{ options };
-            filter.AllowAutoRedirect(false);
-
-            if (config.trusty)
-            {
-                filter.IgnorableServerCertificateErrors().Append(
-                    winrt::Windows::Security::Cryptography::Certificates::ChainValidationResult::Untrusted);
-            }
-            else
-            {
-                ConfigureServerTrust(filter, config, requestUri);
-            }
 
             winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethodFor(method), requestUri };
             winrt::Windows::Web::Http::HttpMultipartFormDataContent requestContent{ boundary };
@@ -924,68 +1163,7 @@ namespace winrt::ReactNativeBlobUtil
 
             requestMessage.Content(requestContent);
 
-            winrt::Windows::Web::Http::HttpClient httpClient{ filter };
-            // Progress. SendRequestAsync reports both directions, so one handler
-            // covers upload and download. The config is looked up on every
-            // callback rather than once here, because fetch.js starts the
-            // request first and only then calls enableProgressReport() - at send
-            // time the entry does not exist yet. Android looks it up per chunk
-            // for the same reason. Windows sent no progress events at all before
-            // this: the only code that emitted them lives in ProcessRequestAsync,
-            // which nothing calls.
-            ProgressThrottle downloadThrottle, uploadThrottle;
-
-            auto sendOperation{ httpClient.SendRequestAsync(requestMessage) };
-            sendOperation.Progress([this, taskId, downloadThrottle, uploadThrottle](
-                auto const&, winrt::Windows::Web::Http::HttpProgress const& progress) mutable
-            {
-                const bool sending{ progress.Stage == winrt::Windows::Web::Http::HttpProgressStage::SendingContent };
-
-                // Only the two stages that move bytes. The others - resolving,
-                // connecting, negotiating TLS - would otherwise report zero-byte
-                // progress for every phase of the connection.
-                if (!sending && progress.Stage != winrt::Windows::Web::Http::HttpProgressStage::ReceivingContent)
-                {
-                    return;
-                }
-
-                {
-                    std::scoped_lock lock{ m_mutex };
-                    const auto& configs{ sending ? uploadProgressMap : downloadProgressMap };
-                    const auto entry{ configs.find(taskId) };
-                    if (entry == configs.end())
-                    {
-                        return;
-                    }
-
-                    (sending ? uploadThrottle : downloadThrottle).config = entry->second;
-                }
-
-                const uint64_t written{ sending ? progress.BytesSent : progress.BytesReceived };
-                const auto expected{ sending ? progress.TotalBytesToSend : progress.TotalBytesToReceive };
-                const int64_t total{ expected ? static_cast<int64_t>(expected.Value()) : -1 };
-
-                auto& throttle{ sending ? uploadThrottle : downloadThrottle };
-                if (!throttle.ShouldReport(written, total > 0 ? static_cast<uint64_t>(total) : 0))
-                {
-                    return;
-                }
-
-                // Numbers, matching what Android and iOS now emit, with -1 as
-                // the unknown-length sentinel they already use.
-                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit",
-                    sending ? L"ReactNativeBlobUtilProgress-upload" : L"ReactNativeBlobUtilProgress",
-                    winrt::Microsoft::ReactNative::JSValueObject{
-                        {"taskId", taskId},
-                        {"written", static_cast<int64_t>(written)},
-                        {"total", total},
-                        {"chunk", ""},
-                    });
-            });
-
-            auto response = co_await sendOperation;
-
-            co_await DeliverResponseAsync(response, config, taskId, callback);
+            co_await SendAndDeliverAsync(requestMessage, config, taskId, callback);
         }
         catch (const winrt::hresult_error& ex)
         {
@@ -1023,19 +1201,7 @@ namespace winrt::ReactNativeBlobUtil
                 co_return;
             }
 
-            winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter filter;
             ReactNativeBlobUtilConfig config{ optionsRef };
-            filter.AllowAutoRedirect(false);
-            if (config.trusty)
-            {
-                filter.IgnorableServerCertificateErrors().Append(Cryptography::Certificates::ChainValidationResult::Untrusted);
-            }
-            else
-            {
-                ConfigureServerTrust(filter, config, requestUri);
-            }
-
-            winrt::Windows::Web::Http::HttpClient httpClient{ filter };
 
             winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethodFor(method), requestUri };
 
@@ -1093,68 +1259,7 @@ namespace winrt::ReactNativeBlobUtil
                 requestMessage.Content(requestContent);
             }
 
-            // Send the request
-            // Progress. SendRequestAsync reports both directions, so one handler
-            // covers upload and download. The config is looked up on every
-            // callback rather than once here, because fetch.js starts the
-            // request first and only then calls enableProgressReport() - at send
-            // time the entry does not exist yet. Android looks it up per chunk
-            // for the same reason. Windows sent no progress events at all before
-            // this: the only code that emitted them lives in ProcessRequestAsync,
-            // which nothing calls.
-            ProgressThrottle downloadThrottle, uploadThrottle;
-
-            auto sendOperation{ httpClient.SendRequestAsync(requestMessage) };
-            sendOperation.Progress([this, taskId, downloadThrottle, uploadThrottle](
-                auto const&, winrt::Windows::Web::Http::HttpProgress const& progress) mutable
-            {
-                const bool sending{ progress.Stage == winrt::Windows::Web::Http::HttpProgressStage::SendingContent };
-
-                // Only the two stages that move bytes. The others - resolving,
-                // connecting, negotiating TLS - would otherwise report zero-byte
-                // progress for every phase of the connection.
-                if (!sending && progress.Stage != winrt::Windows::Web::Http::HttpProgressStage::ReceivingContent)
-                {
-                    return;
-                }
-
-                {
-                    std::scoped_lock lock{ m_mutex };
-                    const auto& configs{ sending ? uploadProgressMap : downloadProgressMap };
-                    const auto entry{ configs.find(taskId) };
-                    if (entry == configs.end())
-                    {
-                        return;
-                    }
-
-                    (sending ? uploadThrottle : downloadThrottle).config = entry->second;
-                }
-
-                const uint64_t written{ sending ? progress.BytesSent : progress.BytesReceived };
-                const auto expected{ sending ? progress.TotalBytesToSend : progress.TotalBytesToReceive };
-                const int64_t total{ expected ? static_cast<int64_t>(expected.Value()) : -1 };
-
-                auto& throttle{ sending ? uploadThrottle : downloadThrottle };
-                if (!throttle.ShouldReport(written, total > 0 ? static_cast<uint64_t>(total) : 0))
-                {
-                    return;
-                }
-
-                // Numbers, matching what Android and iOS now emit, with -1 as
-                // the unknown-length sentinel they already use.
-                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit",
-                    sending ? L"ReactNativeBlobUtilProgress-upload" : L"ReactNativeBlobUtilProgress",
-                    winrt::Microsoft::ReactNative::JSValueObject{
-                        {"taskId", taskId},
-                        {"written", static_cast<int64_t>(written)},
-                        {"total", total},
-                        {"chunk", ""},
-                    });
-            });
-
-            auto response = co_await sendOperation;
-
-            co_await DeliverResponseAsync(response, config, taskId, callback);
+            co_await SendAndDeliverAsync(requestMessage, config, taskId, callback);
         }
         catch (const winrt::hresult_error& ex)
         {

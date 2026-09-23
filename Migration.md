@@ -386,6 +386,16 @@ Apps that follow the README don't need to change anything.
 
 ## Windows
 
+- `fetch` reports the response: `res.info()` (and so `res.status`, `res.ok`,
+  `res.headers`, `res.url`) is filled as on Android and iOS, and the `stateChange`
+  event fires. Windows reported nothing, so `status` was undefined.
+- Redirects are followed (`followRedirect` defaults to `true`, as elsewhere); Windows
+  returned the 3xx response. Each hop gets its own trust decision, so `customCACerts`
+  and `pinnedHosts` apply per host, and `Authorization` is dropped on a move to another
+  host, as OkHttp does.
+- `timeout` is applied, in milliseconds, and a timeout rejects `ETIMEDOUT` with
+  `respInfo.timeout` true. It was read as seconds and never used.
+- `overwrite: false` appends to an existing file, as on Android and iOS; it was ignored.
 - `fetch` accepts every HTTP method. It rejected `PATCH`, `HEAD` and `OPTIONS` with
   `EINVAL` ("Method not supported").
 - Request bodies follow the rules under [Request bodies](#request-bodies). Before 1.0
