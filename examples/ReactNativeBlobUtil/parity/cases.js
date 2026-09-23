@@ -882,7 +882,21 @@ define('upload-explicit', async (ctx) => {
     await fs.createFile(file, 'explicit file ✓', 'utf8');
     const echo = async (method, headers, body) => echoSummary(await (await ReactNativeBlobUtil.fetch(method, ctx.url('/echo'), headers, body)).json());
     return {
-        textThatLooksLikeAFile: await settle(() => echo('POST', {'Content-Type': 'application/octet-stream'}, {text: `ReactNativeBlobUtil-file://${file}`})),
+        // The body names a real file, so the bytes sent depend on the absolute path
+        // (a new container UUID per iOS install, the home directory on CI): record
+        // that it went out as exactly that text, not the text itself.
+        textThatLooksLikeAFile: await settle(async () => {
+            const sent = `ReactNativeBlobUtil-file://${file}`;
+            const res = await ReactNativeBlobUtil.fetch('POST', ctx.url('/echo'), {'Content-Type': 'application/octet-stream'}, {text: sent});
+            const received = await res.json();
+            return {
+                method: received.method,
+                contentType: received.contentType,
+                textIsThePath: received.text === sent,
+                // The path is ASCII, so its length is its byte count.
+                bytesMatchText: received.bytes === sent.length,
+            };
+        }),
         base64WithoutType: await settle(() => echo('POST', {}, {base64: 'AAEC/w=='})),
         bytes: await settle(() => echo('POST', {'Content-Type': 'application/octet-stream'}, new Uint8Array([0, 1, 2, 255]))),
         file: await settle(() => echo('PUT', {'Content-Type': 'text/plain'}, {file})),

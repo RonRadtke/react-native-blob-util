@@ -1309,15 +1309,10 @@
     },
     "textThatLooksLikeAFile": {
       "resolved": {
-        "bytes": 108,
-        "contentLength": "108",
+        "bytesMatchText": true,
         "contentType": "application/octet-stream",
-        "custom": null,
         "method": "POST",
-        "parts": null,
-        "sha256": "f0b770050038b2b978298d3abd285b338cdf707aa3ab3784a42611f14e103d00",
-        "text": "ReactNativeBlobUtil-file://<DocumentDir>/parity/upload-explicit/explicit.txt",
-        "transferEncoding": null
+        "textIsThePath": true
       }
     }
   },
