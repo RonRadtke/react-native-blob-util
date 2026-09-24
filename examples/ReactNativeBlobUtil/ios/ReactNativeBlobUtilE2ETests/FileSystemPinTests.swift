@@ -194,6 +194,14 @@ final class FileSystemPinTests: XCTestCase {
         XCTAssertTrue(path.hasSuffix("/ReactNativeBlobUtil_tmp/ReactNativeBlobUtilTmp_task-1.bin"), path)
         // Application Support, not Documents: Documents is backed up to iCloud and
         // shown in the Files app.
+        // GHSA-5xf6-f6v8-jc8c: appendExt goes into this name, so a separator in it
+        // escaped the cache. The module rejects such an extension.
+        for bad in ["/../../Library/Preferences/x.plist", "a\\b", "C:x", "png\n"] {
+            XCTAssertFalse(ReactNativeBlobUtilFS.isSafeExtension(bad), bad)
+        }
+        for good in [nil, "", "png", "tar.gz", ".jpg", ".."] as [String?] {
+            XCTAssertTrue(ReactNativeBlobUtilFS.isSafeExtension(good), String(describing: good))
+        }
         let support = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true)[0]
         XCTAssertTrue(path.hasPrefix(support), path)
         XCTAssertFalse(path.contains("/Documents/"), path)

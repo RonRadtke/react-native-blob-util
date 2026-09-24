@@ -83,3 +83,21 @@ test('pinnedHosts are compared lower-case, without changing the caller\'s option
     assert.deepEqual(calls[0].options.pinnedHosts, ['api.example.com']);
     assert.deepEqual(options.pinnedHosts, ['API.Example.com']);
 });
+
+// GHSA-5xf6-f6v8-jc8c: appendExt is appended to a file name the library
+// generates in its cache. With a separator in it, "/../../shared_prefs/x.xml"
+// took the download out of the cache onto any file the app can write.
+test('an appendExt with a path separator rejects EINVAL without reaching native', async () => {
+    for (const appendExt of ['/../../shared_prefs/auth.xml', 'x\\..\\..\\y', 'C:evil', 'png\n', 42]) {
+        calls.length = 0;
+        const err = await rejection(config({fileCache: true, appendExt}).fetch('GET', 'https://example.com'));
+        assert.equal(err.code, 'EINVAL', String(appendExt));
+        assert.equal(calls.length, 0);
+    }
+    // Extensions, with or without dots, still work.
+    for (const appendExt of ['png', 'tar.gz', '.jpg', '']) {
+        calls.length = 0;
+        await config({fileCache: true, appendExt}).fetch('GET', 'https://example.com');
+        assert.equal(calls.length, 1, appendExt);
+    }
+});

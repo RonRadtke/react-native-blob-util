@@ -249,7 +249,9 @@ export interface ReactNativeBlobUtilConfig {
     fileCache?: boolean;
 
     /**
-     * The extension of the random file name `fileCache` creates.
+     * The extension of the random file name `fileCache` creates, e.g. "png" or
+     * "tar.gz". A value containing "/", "\\", ":" or a control character
+     * rejects EINVAL: it is appended to a file name, and must not make it a path.
      */
     appendExt?: string;
 

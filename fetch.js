@@ -5,7 +5,7 @@ import toByteCount from './utils/byteCount';
 import {normalizeConfig} from './utils/config';
 import {addCode} from './utils/errors';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
-import {escapeForm, invalidFormField, invalidHeader, nativeOptions, prepareBody} from './utils/request';
+import {escapeForm, invalidAppendExt, invalidFormField, invalidHeader, nativeOptions, prepareBody} from './utils/request';
 import getUUID from './utils/uuid';
 import type {ReactNativeBlobUtilConfig} from './types';
 
@@ -89,7 +89,8 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
 
     // Refused here, before any listener exists, so all platforms agree.
     const prepared = prepareBody(method, headers, body);
-    const invalid = prepared.error || invalidHeader(headers) || (Array.isArray(body) ? invalidFormField(body) : null);
+    const invalid = invalidAppendExt(options) || prepared.error || invalidHeader(headers)
+        || (Array.isArray(body) ? invalidFormField(body) : null);
     headers = prepared.headers;
     body = Array.isArray(prepared.body) ? escapeForm(prepared.body) : prepared.body;
     // The kind of a single body travels in the options; native no longer infers it.

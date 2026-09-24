@@ -79,6 +79,9 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     public func fetchBlobForm(_ options: [String: Any]?, taskId: String, method: String,
                               url: String, headers: [String: Any]?, form: [[String: Any]]?,
                               callback: @escaping RNBUCallbackNonNull) {
+        if !ReactNativeBlobUtilFS.isSafeExtension(options?[ReactNativeBlobUtilConst.configFileExt] as? String) {
+            return callback([["code": "EINVAL", "message": "appendExt must be a file extension, without path separators"]])
+        }
         ReactNativeBlobUtilReqBuilder.buildMultipartRequest(
             options, taskId: taskId, method: method, url: url, headers: headers, form: form
         ) { [weak self] req, bodyLength in
@@ -98,6 +101,9 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     public func fetchBlob(_ options: [String: Any]?, taskId: String, method: String,
                           url: String, headers: [String: Any]?, body: String?,
                           callback: @escaping RNBUCallbackNonNull) {
+        if !ReactNativeBlobUtilFS.isSafeExtension(options?[ReactNativeBlobUtilConst.configFileExt] as? String) {
+            return callback([["code": "EINVAL", "message": "appendExt must be a file extension, without path separators"]])
+        }
         if let missing = ReactNativeBlobUtilReqBuilder.missingFileBody(options, body: body) {
             return callback([["code": "ENOENT", "message": "No such file '\(missing)'"]])
         }

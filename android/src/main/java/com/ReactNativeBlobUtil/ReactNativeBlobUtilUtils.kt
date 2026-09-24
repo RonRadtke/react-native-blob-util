@@ -263,6 +263,15 @@ class ReactNativeBlobUtilUtils {
             return if (path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) path else null
         }
 
+        /**
+         * Whether appendExt can be appended to a generated cache file name: no
+         * separator, drive colon or control character (GHSA-5xf6-f6v8-jc8c). JS
+         * checks first; this covers a caller that reaches native directly.
+         */
+        @JvmStatic
+        fun isSafeExtension(ext: String?): Boolean =
+            ext == null || ext.none { it == '/' || it == '\\' || it == ':' || it.code < 0x20 }
+
         @JvmStatic
         fun isAsset(path: String?): Boolean =
             path != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)

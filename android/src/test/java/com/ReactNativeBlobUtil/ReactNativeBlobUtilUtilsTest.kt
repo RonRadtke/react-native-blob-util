@@ -76,6 +76,18 @@ class ReactNativeBlobUtilUtilsTest {
         assertNull(ReactNativeBlobUtilUtils.normalizePath("content://media/external/downloads/42"))
     }
 
+    // GHSA-5xf6-f6v8-jc8c: appendExt is appended to a generated cache file name,
+    // so a separator in it escaped the cache.
+    @Test
+    fun `isSafeExtension refuses separators, drive colons and control characters`() {
+        for (ext in listOf("/../../shared_prefs/auth.xml", "a\\b", "C:x", "png\n", "a\u0000")) {
+            assertFalse(ext, ReactNativeBlobUtilUtils.isSafeExtension(ext))
+        }
+        for (ext in listOf(null, "", "png", "tar.gz", ".jpg", "..")) {
+            assertTrue(ext.toString(), ReactNativeBlobUtilUtils.isSafeExtension(ext))
+        }
+    }
+
     @Test
     fun `normalizePath keeps plain paths, strips file URIs and keeps assets`() {
         assertEquals("/data/x.txt", ReactNativeBlobUtilUtils.normalizePath("/data/x.txt"))

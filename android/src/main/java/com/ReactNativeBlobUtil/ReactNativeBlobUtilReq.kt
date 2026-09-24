@@ -206,6 +206,12 @@ class ReactNativeBlobUtilReq(
 
     override fun run() {
         val appCtx = ReactNativeBlobUtilImpl.RCTContext.applicationContext
+        // appendExt ends up in a path; a separator in it escaped the cache.
+        if (!ReactNativeBlobUtilUtils.isSafeExtension(options.appendExt)) {
+            fail("EINVAL", "appendExt must be a file extension, without path separators")
+            releaseTaskResource()
+            return
+        }
         // use download manager instead of default HTTP implementation
         val downloads = options.addAndroidDownloads
         if (downloads != null && downloads.hasKey("useDownloadManager")) {

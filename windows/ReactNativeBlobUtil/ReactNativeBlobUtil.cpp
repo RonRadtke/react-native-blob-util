@@ -771,6 +771,16 @@ namespace
         }
     }
 
+    // Whether appendExt can be appended to a generated cache file name: no
+    // separator, drive colon or control character (GHSA-5xf6-f6v8-jc8c). JS
+    // checks first; this covers a caller that reaches native directly.
+    bool IsSafeExtension(std::string const& ext)
+    {
+        return std::none_of(ext.begin(), ext.end(), [](char c) {
+            return c == '/' || c == '\\' || c == ':' || static_cast<unsigned char>(c) < 0x20;
+        });
+    }
+
     // Where a response goes when the caller asked for a file. An explicit path
     // wins; otherwise the name matches Android's (ReactNativeBlobUtilTmp_<taskId>
     // plus appendExt), under the directory fs.dirs reports as CacheDir so JS can
@@ -1104,6 +1114,11 @@ namespace winrt::ReactNativeBlobUtil
 
             winrt::hstring boundary{ L"-----" };
             ReactNativeBlobUtilConfig config{ options };
+            if (!IsSafeExtension(config.appendExt))
+            {
+                callback(fetchError("EINVAL", "appendExt must be a file extension, without path separators"), std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
 
             winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethodFor(method), requestUri };
             winrt::Windows::Web::Http::HttpMultipartFormDataContent requestContent{ boundary };
@@ -1229,6 +1244,11 @@ namespace winrt::ReactNativeBlobUtil
             }
 
             ReactNativeBlobUtilConfig config{ optionsRef };
+            if (!IsSafeExtension(config.appendExt))
+            {
+                callback(fetchError("EINVAL", "appendExt must be a file extension, without path separators"), std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
 
             winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethodFor(method), requestUri };
 

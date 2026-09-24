@@ -87,6 +87,15 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
     @objc(getTempPath)
     public static func getTempPath() -> String { NSTemporaryDirectory() }
 
+    /// Whether appendExt can be appended to a generated cache file name: no
+    /// separator, drive colon or control character (GHSA-5xf6-f6v8-jc8c). JS
+    /// checks first; this covers a caller that reaches native directly.
+    @objc(isSafeExtension:)
+    public static func isSafeExtension(_ ext: String?) -> Bool {
+        guard let ext = ext else { return true }
+        return !ext.unicodeScalars.contains { $0 == "/" || $0 == "\\" || $0 == ":" || $0.value < 0x20 }
+    }
+
     /// Where fileCache and key responses are written. Application Support, not
     /// Documents: Documents is backed up to iCloud and shown in the Files app
     /// when file sharing is on. Not Caches either, which the system may empty

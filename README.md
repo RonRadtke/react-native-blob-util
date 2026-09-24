@@ -420,7 +420,7 @@ const res = await config({fileCache: true, timeout: 30000}).fetch('GET', url);
 | Option | Type | Description |
 |---|---|---|
 | `fileCache` | `boolean` | Write the response to a file with a random name in the cache directory. |
-| `appendExt` | `string` | Extension for the `fileCache` file name. |
+| `appendExt` | `string` | Extension for the `fileCache` file name, e.g. `png` or `tar.gz`. A value with `/`, `\`, `:` or a control character rejects `EINVAL`: it is a file extension, not a path. |
 | `path` | `string` | Write the response to this path. Overrides `fileCache` and `appendExt`. |
 | `overwrite` | `boolean` | Replace an existing file at `path` (default `true`). `false` appends the response to the existing file. |
 | `key` | `string` | Cache the response under this key: if a file downloaded with the same key exists, it is returned without a request. |

@@ -70,6 +70,27 @@ export function escapeForm(fields: Array<Object>): Array<Object> {
 }
 
 /**
+ * Why appendExt cannot be used, or null. It is appended to a file name the
+ * library generates in its cache (GHSA-5xf6-f6v8-jc8c): a separator in it,
+ * "/../../shared_prefs/x.xml", took the download out of the cache onto any
+ * file the app can write. A dot, "tar.gz" or ".jpg", is fine; "/", "\\", ":"
+ * and control characters are not. Native checks again.
+ * @param  {Object} options
+ * @return {?string}
+ */
+export function invalidAppendExt(options: Object): ?string {
+    const ext = options.appendExt;
+    if (ext === undefined || ext === null || ext === '') {
+        return null;
+    }
+    // eslint-disable-next-line no-control-regex
+    if (typeof ext !== 'string' || /[/\\:\u0000-\u001f]/.test(ext)) {
+        return 'appendExt must be a file extension, without path separators';
+    }
+    return null;
+}
+
+/**
  * The options as native needs them: pinnedHosts in lower case, because every
  * platform compares them with the host as its HTTP stack reports it, which is
  * lower case. The caller's object is left alone.
