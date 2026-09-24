@@ -256,6 +256,19 @@ fails. Do not route a release through it. To prepare one:
 4. Tag as `1.0.0` — no `v` prefix — and create a GitHub release with an
    empty title and a plain list of what changed.
 
+A release from a support line (`support/0.24`, `support/0.25`) is published from
+that branch with `npm publish --tag support-0.24` (or `-0.25`): without a tag it
+becomes `latest` and a plain install downgrades everyone. A dist-tag cannot look
+like a semver range, so `v0.24` is refused. Publish from the main checkout with
+the branch checked out, not from a second worktree.
+
+What ships is the `files` whitelist in `package.json`, not an ignore list, and
+`prepublishOnly` runs `tests/unit/package.test.js`, which fails if any packed
+file is not one of the package's own. When you add a shipped file, add it to
+both. A version number, once published, can never be reused even after an
+unpublish or deprecation: 1.0.0 went out from the wrong checkout, carrying local
+notes and `.claude/`, and is deprecated.
+
 Fixes sitting unreleased on `master` are worse than no fix: users install from
 npm, hit the bug, and file duplicates. A single unreleased Android fix produced
 five separate reports of the same crash. Release promptly, and keep an issue

@@ -3,9 +3,36 @@
     "version": "1.0.0",
     "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main": "index",
+    "files": [
+        "index.js",
+        "index.d.ts",
+        "index.web.js",
+        "android.js",
+        "ios.js",
+        "fetch.js",
+        "fs.js",
+        "media.js",
+        "mediacollection.js",
+        "open.js",
+        "types.js",
+        "app.plugin.js",
+        "class/",
+        "utils/",
+        "codegenSpecs/",
+        "plugin/",
+        "react-native-blob-util.podspec",
+        "ios/",
+        "android/build.gradle",
+        "android/gradle.properties",
+        "android/src/main/",
+        "windows/",
+        "NuGet.config",
+        "Migration.md"
+    ],
     "scripts": {
         "lint": "eslint \"*.js\" class utils",
         "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/unit/harness/register.mjs --test \"tests/unit/*.test.js\"",
+        "prepublishOnly": "node --test tests/unit/package.test.js",
         "test:android": "node tests/native/run-android-unit-tests.js",
         "test:ios": "node tests/native/run-ios-unit-tests.js",
         "e2e:certs": "node tests/e2e/certs/generate.js",
@@ -34,7 +61,8 @@
         "file system"
     ],
     "repository": {
-        "url": "https://github.com/RonRadtke/react-native-blob-util"
+        "type": "git",
+        "url": "git+https://github.com/RonRadtke/react-native-blob-util.git"
     },
     "author": {
         "name": "RonRadtke",

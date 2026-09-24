@@ -53,6 +53,34 @@ test('the tarball ships no tests', () => {
     assert.deepEqual(tests, []);
 });
 
+// 1.0.0 was packed from a checkout holding .claude/settings.local.json and five
+// local planning notes, and .npmignore, a list of what to leave out, let them
+// through. package.json's `files` now lists what goes in, but a directory entry
+// still takes whatever sits in it: an ios/build/ left by Xcode, say. So every
+// packed file has to match one of these, and prepublishOnly runs this file, which
+// makes `npm publish` fail instead of shipping a stray file.
+const SHIPPED = [
+    /^(index|index\.web|android|ios|fetch|fs|media|mediacollection|open|types|app\.plugin)\.js$/,
+    /^index\.d\.ts$/,
+    /^(package\.json|README\.md|LICENSE|Migration\.md|NuGet\.config|react-native-blob-util\.podspec)$/,
+    /^(class|utils|codegenSpecs)\/[\w.]+\.js$/,
+    /^plugin\/([\w]+\/)*[\w.]+\.(js|d\.ts)$/,
+    /^ios\/(ReactNativeBlobUtil\/)?[\w]+\.(swift|h|m|mm)$/,
+    /^ios\/PrivacyInfo\.xcprivacy$/,
+    /^android\/(build\.gradle|gradle\.properties)$/,
+    /^android\/src\/main\/AndroidManifest\.xml$/,
+    /^android\/src\/main\/java\/com\/ReactNativeBlobUtil\/([\w]+\/)*[\w]+\.(kt|java)$/,
+    /^android\/src\/main\/res\/(values|xml)\/[\w]+\.xml$/,
+    /^windows\/(README\.md|ExperimentalFeatures\.props|ReactNativeBlobUtil\.sln)$/,
+    /^windows\/ReactNativeBlobUtil\/[\w.]+\.(cpp|h|def|rc|idl|props|vcxproj|filters|config|json)$/,
+    /^windows\/ReactNativeBlobUtil\/codegen\/([\w.]+\.g\.h|\.clang-format)$/,
+];
+
+test('the tarball ships only package files', () => {
+    const stray = packedFiles().filter((file) => !SHIPPED.some((pattern) => pattern.test(file)));
+    assert.deepEqual(stray, [], 'not part of the package; delete it, or add it to `files` and to SHIPPED here');
+});
+
 // The README states the React Native floor; the peer dependency enforces it at
 // install time. The two are written in different files, like index.d.ts and
 // index.js.flow were, and drift the same way unless something ties them together.
