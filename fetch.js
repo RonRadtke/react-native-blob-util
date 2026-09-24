@@ -2,6 +2,7 @@ import {ReactNativeBlobUtilConfig} from './types';
 import URIUtil from './utils/uri';
 import fs from './fs';
 import getUUID from './utils/uuid';
+import invalidAppendExt from './utils/appendExt';
 import toByteCount from './utils/byteCount';
 import {NativeEventEmitter} from 'react-native';
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
@@ -166,6 +167,23 @@ export function fetch(...args: any): Promise {
     let subscription, subscriptionUpload, stateEvent, partEvent;
     let respInfo = {'uninit': true};
     let [method, url, headers, body] = [...args];
+
+    // appendExt is appended to a generated cache file name; a path separator in
+    // it wrote the download outside the cache. Refused before anything reaches
+    // native. The task methods stay callable, so a chained .progress() or
+    // .cancel() on the rejected task does not throw.
+    const invalidExt = invalidAppendExt(options);
+    if (invalidExt) {
+        const error = new Error(invalidExt);
+        error.code = 'EINVAL';
+        const failed = Promise.reject(error);
+        failed.taskId = taskId;
+        failed.progress = failed.uploadProgress = failed.stateChange = failed.part = failed.expire = () => failed;
+        failed.cancel = (fn) => {
+            if (typeof fn === 'function') fn();
+        };
+        return failed;
+    }
 
     // # 241 normalize null or undefined headers, in case nil or null string
     // pass to native context
