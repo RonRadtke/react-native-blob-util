@@ -57,3 +57,7 @@ android/keystores/debug.keystore
 /ios/ReactNativeBlobUtil.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 
 **/msbuild.binlog
+
+# Local agent settings and notes: personal, never committed or published
+.claude/
+CLAUDE.local.md
