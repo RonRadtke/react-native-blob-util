@@ -67,3 +67,7 @@ examples/ReactNativeBlobUtil/ios/ReactNativeBlobUtilE2E/test_ca.pem
 
 # Generated e2e CA copy for the Windows example app (tests/e2e/certs/generate.js)
 examples/ReactNativeBlobUtil/windows/ReactNativeBlobUtilWin/test_ca.pem
+
+# Local agent settings and notes: personal, never committed or published
+.claude/
+CLAUDE.local.md

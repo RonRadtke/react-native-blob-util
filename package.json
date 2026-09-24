@@ -3,9 +3,41 @@
     "version": "0.25.1",
     "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
     "main": "index",
+    "files": [
+        "Migration.md",
+        "NuGet.config",
+        "android.js",
+        "app.plugin.js",
+        "fetch.js",
+        "fs.js",
+        "index.d.ts",
+        "index.js",
+        "index.js.flow",
+        "index.web.js",
+        "ios.js",
+        "json-stream.js",
+        "mediacollection.js",
+        "react-native-blob-util.podspec",
+        "types.js",
+        "class/",
+        "components/",
+        "lib/",
+        "polyfill/",
+        "utils/",
+        "codegenSpecs/",
+        "plugin/",
+        "ios/",
+        "windows/",
+        "android/build.gradle",
+        "android/gradle.properties",
+        "android/src/main/",
+        "android/src/newarch/",
+        "android/src/oldarch/"
+    ],
     "scripts": {
         "lint": "eslint \"*.js\" class utils polyfill components",
         "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/unit/*.test.js\"",
+        "prepublishOnly": "node --test tests/unit/package.test.js",
         "e2e:certs": "node tests/e2e/certs/generate.js",
         "e2e:server": "node tests/e2e/server.js",
         "e2e:android": "node tests/e2e/run-all.js --platforms android",
@@ -32,7 +64,8 @@
         "file system"
     ],
     "repository": {
-        "url": "https://github.com/RonRadtke/react-native-blob-util"
+        "type": "git",
+        "url": "git+https://github.com/RonRadtke/react-native-blob-util.git"
     },
     "author": {
         "name": "RonRadtke",
