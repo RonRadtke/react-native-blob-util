@@ -1,6 +1,6 @@
 # Migrating to 1.0
 
-1.0.0 rewrites the native layers and cleans up the JavaScript API. Android moves from
+1.0 rewrites the native layers and cleans up the JavaScript API. Android moves from
 Java to Kotlin, and iOS from Objective-C++ to Swift; Windows stays C++. Before the old
 Android and iOS code was removed, the new code was checked call by call against
 recordings of how 0.25 behaved on the same device. On top of that, the JavaScript

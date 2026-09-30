@@ -12,7 +12,7 @@ The project will be continued in this repository. If you want to support the pro
 
 # Version Compatibility Warning
 
-react-native-blob-util version **1.0.0** and up supports the **New Architecture only** and is only compatible with react native **0.84** and up (Android `minSdk` 24, iOS 15.1). 1.0 also changes the JavaScript API: see [Migration.md](Migration.md) for what was removed, renamed or made consistent across platforms.
+react-native-blob-util version **1.0.1** and up supports the **New Architecture only** and is only compatible with react native **0.84** and up (Android `minSdk` 24, iOS 15.1). 1.0 also changes the JavaScript API: see [Migration.md](Migration.md) for what was removed, renamed or made consistent across platforms. (1.0.0 was published by mistake from an unfinished state and is deprecated; do not install it.)
 
 react-native-blob-util version **0.22.0** and up is only compatible with react native **0.76** and up.
 "0.22.0" -> 0.76 RN

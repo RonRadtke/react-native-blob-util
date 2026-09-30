@@ -87,7 +87,7 @@ test('the tarball ships only package files', () => {
 test('the react-native peer floor is the version the README promises', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
     const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-    const promised = readme.match(/version \*\*1\.0\.0\*\* and up[^\n]*?react native \*\*(\d+\.\d+)\*\* and up/);
+    const promised = readme.match(/version \*\*1\.0\.\d+\*\* and up[^\n]*?react native \*\*(\d+\.\d+)\*\* and up/);
     assert.ok(promised, 'README no longer states the 1.0 compatibility line');
     assert.equal(pkg.peerDependencies['react-native'], `>=${promised[1]}.0`);
 });
