@@ -1,12 +1,12 @@
-import {ReactNativeBlobUtilConfig} from './types';
-import URIUtil from './utils/uri';
-import fs from './fs';
-import getUUID from './utils/uuid';
-import invalidAppendExt from './utils/appendExt';
-import toByteCount from './utils/byteCount';
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
+import fs from './fs';
+import {ReactNativeBlobUtilConfig} from './types';
+import invalidAppendExt from './utils/appendExt';
+import toByteCount from './utils/byteCount';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
+import URIUtil from './utils/uri';
+import getUUID from './utils/uuid';
 
 /**
  * Calling this method will inject configurations into followed `fetch` method.
@@ -146,7 +146,7 @@ export function fetch(...args: any): Promise {
     // create task ID for receiving progress event
     let taskId = getUUID();
     let options = this || {};
-    let subscription, subscriptionUpload, stateEvent, partEvent;
+    let subscription, subscriptionUpload, stateEvent, partEvent, expireEvent;
     let respInfo = {'uninit': true};
     let [method, url, headers, body] = [...args];
 
@@ -211,7 +211,7 @@ export function fetch(...args: any): Promise {
             promise.onStateChange && promise.onStateChange(e);
         });
 
-        subscription = getEventEmitter().addListener('ReactNativeBlobUtilExpire', (e) => {
+        expireEvent = getEventEmitter().addListener('ReactNativeBlobUtilExpire', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onExpire) {
                 promise.onExpire(e);
@@ -252,6 +252,7 @@ export function fetch(...args: any): Promise {
             subscriptionUpload.remove();
             stateEvent.remove();
             partEvent.remove();
+            expireEvent.remove();
             delete promise.progress;
             delete promise.uploadProgress;
             delete promise.stateChange;
@@ -341,6 +342,8 @@ export function fetch(...args: any): Promise {
         subscription.remove();
         subscriptionUpload.remove();
         stateEvent.remove();
+        partEvent.remove();
+        expireEvent.remove();
         requireNativeModule().cancelRequest(taskId, fn);
         promiseReject(new CanceledFetchError('canceled'));
     };
