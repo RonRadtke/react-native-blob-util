@@ -1,22 +1,57 @@
+// The Flow types index.js exports for Flow-typed apps. index.d.ts is what
+// TypeScript reads; tests/unit/flowTypes.test.js checks that the types the two
+// share have the same shape, so a change to one has to be made in both.
 
+import type ReactNativeBlobUtilReadStream from './class/ReactNativeBlobUtilReadStream';
+
+/** The DownloadManager options of `config({android: {downloadManager}})`. */
+export type AddAndroidDownloads = {
+  useDownloadManager?: boolean,
+  title?: string,
+  description?: string,
+  path?: string,
+  mime?: string,
+  mediaScannable?: boolean,
+  storeInDownloads?: boolean,
+  notification?: boolean,
+  storeLocal?: boolean,
+};
+
+/** Options for `config()`. */
 export type ReactNativeBlobUtilConfig = {
   fileCache?: boolean,
-  path?: string,
   appendExt?: string,
+  path?: string,
   key?: string,
   session?: string,
   overwrite?: boolean,
   timeout?: number,
   followRedirect?: boolean,
+  transform?: boolean,
+  /** @deprecated use `transform` */
   transformFile?: boolean,
   trusty?: boolean,
   customCACerts?: Array<string>,
   pinnedHosts?: Array<string>,
   trustSystemCerts?: boolean,
-  // Android only
-  addAndroidDownloads?: Object,
+  auto?: boolean,
+  binaryContentTypes?: Array<string>,
+  android?: {
+    downloadManager?: AddAndroidDownloads,
+    wifiOnly?: boolean,
+    targetHostIp?: string,
+  },
+  ios?: {
+    backgroundTask?: boolean,
+  },
+  /** @deprecated use `android.wifiOnly` */
   wifiOnly?: boolean,
+  /** @deprecated use `android.targetHostIp` */
   targetHostIp?: string,
+  /** @deprecated use `android.downloadManager` */
+  addAndroidDownloads?: AddAndroidDownloads,
+  /** @deprecated use `ios.backgroundTask` */
+  IOSBackgroundTask?: boolean,
 };
 
 export type ReactNativeBlobUtilNative = {
@@ -54,25 +89,28 @@ export type ReactNativeBlobUtilNative = {
 };
 
 export type ReactNativeBlobUtilResponseInfo = {
-  taskId : string,
-  state : number,
-  headers : any,
-  status : number,
-  respType : 'text' | 'blob' | '' | 'json',
-  rnfbEncode : 'path' | 'base64' | 'ascii' | 'utf8'
-}
+  taskId: string,
+  state: string,
+  headers: {[name: string]: string},
+  status: number,
+  /** Every URL a redirect went through. */
+  redirects?: Array<string>,
+  respType: 'text' | 'blob' | '' | 'json',
+  rnfbEncode: 'path' | 'base64' | 'utf8',
+  timeout?: boolean,
+};
 
-export type ReactNativeBlobUtilStream = {
-  onData : () => void,
-  onError : () => void,
-  onEnd : () => void,
-  _onData : () => void,
-  _onEnd : () => void,
-  _onError : () => void,
-}
+/** @deprecated use ReactNativeBlobUtilReadStream */
+export type ReactNativeBlobUtilStream = ReactNativeBlobUtilReadStream;
 
-
-export type filedescriptor = { path: string, parentFolder: string, mimeType: string }
+/** A file in the Android MediaStore. */
+export type filedescriptor = {
+  name: string,
+  parentFolder?: string,
+  mime?: string,
+  /** @deprecated use `mime` */
+  mimeType?: string,
+};
 
 export type ReactNativeBlobUtilStat = {
   filename: string,
@@ -80,4 +118,4 @@ export type ReactNativeBlobUtilStat = {
   size: number,
   type: 'file' | 'directory' | 'asset',
   lastModified: number,
-}
+};
