@@ -41,5 +41,9 @@ export function normalizeConfig(options: Object): Object {
     delete out.transform;
     delete out.android;
     delete out.ios;
+    // iOS reads `auto` by its presence, Android by its value: only send it when set.
+    if (!out.auto) {
+        delete out.auto;
+    }
     return out;
 }

@@ -27,6 +27,10 @@ export interface ReactNativeBlobUtilStatic {
      * @param method HTTP method.
      * @param url Request URL.
      * @param headers Request headers. `null` and `undefined` values are sent as "".
+     *                `RNFB-Response: 'base64' | 'utf8'` is read by the library
+     *                rather than sent: it forces the form a body held in memory
+     *                takes (Android and iOS), instead of utf8 when the bytes decode
+     *                as UTF-8 and base64 otherwise.
      * @param body The request body. `{text}`, `{base64}`, `{file}` and bytes say
      *             what the body is. A plain string is read by the rule 0.x used: a
      *             `wrap(path)` string is a file, a Content-Type ending in `;base64`
@@ -318,6 +322,21 @@ export interface ReactNativeBlobUtilConfig {
      * Keep trusting the system's CAs alongside customCACerts. Default false.
      */
     trustSystemCerts?: boolean;
+
+    /**
+     * Write a binary response to a cache file, as `fileCache` does, and keep
+     * text and JSON in memory. On iOS, binary is any Content-Type other than
+     * `text/*` and `application/json`; on Android it is one listed in
+     * `binaryContentTypes`. Windows keeps every response in memory.
+     */
+    auto?: boolean;
+
+    /**
+     * Content-Type fragments, matched case-insensitively, that count as
+     * binary: `respType` is `blob` for them, and the response is written to a
+     * cache file with `auto` (Android) or always (iOS).
+     */
+    binaryContentTypes?: string[];
 
     /** Options only Android reads. */
     android?: {

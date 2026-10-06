@@ -78,13 +78,15 @@ async function network(): Promise<void> {
         customCACerts: ['my_ca'],
         pinnedHosts: ['example.test'],
         trustSystemCerts: true,
+        auto: true,
+        binaryContentTypes: ['application/x-custom'],
         wifiOnly: false,
         targetHostIp: '10.0.0.1',
         addAndroidDownloads: {useDownloadManager: true, title: 't', description: 'd', path: '/p', mime: 'text/plain', mediaScannable: true, storeInDownloads: false, notification: true, storeLocal: false},
         IOSBackgroundTask: false,
     };
 
-    const task = config(options).fetch('POST', 'https://example.test/upload', {'Content-Type': 'application/octet-stream', 'X-Empty': null}, wrap('/tmp/upload.bin'))
+    const task = config(options).fetch('POST', 'https://example.test/upload', {'Content-Type': 'application/octet-stream', 'X-Empty': null, 'RNFB-Response': 'base64'}, wrap('/tmp/upload.bin'))
         .progress((received: number, total: number, chunk?: string) => { void received; void total; void chunk; })
         .progress({count: 10, interval: 100}, (received: number, total: number) => { void received; void total; })
         .uploadProgress((sent: number, total: number) => { void sent; void total; })

@@ -210,6 +210,11 @@ Cookies set by other requests in the app (React Native's `fetch`, axios) are sen
 `text()`, `json()`, `base64()`, `array()`, `arrayBuffer()` and `flush()` always return a Promise,
 whether the body is in memory or in a file.
 
+A body held in memory (no `path`, `fileCache` or `key`) is kept as `'utf8'` when its bytes decode as
+UTF-8 and as `'base64'` otherwise; `res.type` says which. The request header `RNFB-Response` set to
+`'base64'` or `'utf8'` forces one form on Android and iOS; the library reads it and does not send it.
+Windows always keeps the body as text, so download binary data to a file there.
+
 ### Download to a file
 
 A large response should not pass through JS. With `fileCache: true` it is written to a file with
@@ -432,6 +437,8 @@ const res = await config({fileCache: true, timeout: 30000}).fetch('GET', url);
 | `customCACerts` | `string[]` | Trust these bundled CA certificates. See [Custom CA Certificates](#custom-ca-certificates). |
 | `pinnedHosts` | `string[]` | Apply `customCACerts` to these hosts only. |
 | `trustSystemCerts` | `boolean` | Keep trusting the system CAs alongside `customCACerts`. Default `false`. |
+| `auto` | `boolean` | Write a binary response to a cache file, as `fileCache` does, and keep text and JSON in memory. Binary is any Content-Type other than `text/*` and `application/json` on iOS, and one listed in `binaryContentTypes` on Android. Ignored on Windows. |
+| `binaryContentTypes` | `string[]` | Content-Type fragments that count as binary (`respType` is `blob`): the response is written to a cache file with `auto` on Android, and always on iOS. |
 | `android.downloadManager` | object | Download through Android's DownloadManager. See [below](#android-downloadmanager). |
 | `android.wifiOnly` | `boolean` | Only send the request over WiFi. Fails with `ENETUNREACH` without WiFi. |
 | `android.targetHostIp` | `string` | Send the request over the network interface that can reach this IP. |

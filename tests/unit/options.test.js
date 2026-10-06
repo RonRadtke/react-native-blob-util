@@ -100,3 +100,12 @@ test('config groups the platform options, and the old flat keys still work', asy
     assert.deepEqual(calls[0][1], expected);
     assert.deepEqual(calls[1][1], expected);
 });
+
+test('auto and binaryContentTypes reach native; a false auto is not sent, since iOS reads its presence', async () => {
+    await config({auto: true, binaryContentTypes: ['application/x-custom']}).fetch('GET', 'https://example.com');
+    await config({auto: false}).fetch('GET', 'https://example.com');
+    const [first, second] = calls.filter((c) => c[0] === 'fetchBlob').map((c) => c[1]);
+    assert.equal(first.auto, true);
+    assert.deepEqual(first.binaryContentTypes, ['application/x-custom']);
+    assert.equal('auto' in second, false);
+});

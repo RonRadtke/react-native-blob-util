@@ -49,6 +49,12 @@ import type {ReactNativeBlobUtilConfig} from './types';
  *                   Keep trusting the system certificates when customCACerts is set.
  *         @property {boolean} transformFile
  *                   Run the registered file transformer on the downloaded file.
+ *         @property {boolean} auto
+ *                   Write a binary response to a cache file and keep text and
+ *                   JSON in memory (Android: binary means a type listed in
+ *                   binaryContentTypes; iOS: anything but text/* and JSON).
+ *         @property {Array<string>} binaryContentTypes
+ *                   Content-Type fragments that count as binary.
  *
  * @return {function} This method returns a `fetch` method instance.
  */

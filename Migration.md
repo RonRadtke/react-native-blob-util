@@ -266,7 +266,9 @@ Promise that resolves once native has cancelled; the optional callback still wor
   the first two (use `task.progress({interval, count}, fn)`), and the iOS network
   activity indicator has not existed since iOS 13.
 - `task.expire(fn)` is gone. No platform ever emitted the event it listened for.
-- `key` is now declared in the config types; it was always honoured.
+- `key` is now declared in the config types; it was always honoured. So are `auto` and
+  `binaryContentTypes` (1.0.2), honoured on Android and iOS, and the `RNFB-Response`
+  request header, which forces the form a body held in memory takes.
 - `media.addDownload` takes `notification` (1.0.2), the key the DownloadManager config
   uses for the same thing; `showNotification` still works and warns once.
 - `URIUtil.isFileURI` and `URIUtil.unwrapFileURI` recognise the
