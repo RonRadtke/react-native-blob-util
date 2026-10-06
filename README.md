@@ -82,11 +82,15 @@ diagrams, and keeps the pages that describe the API before 1.0.
 npm install --save react-native-blob-util
 ```
 
-**iOS**: run `pod install` from the `ios` directory. CocoaPods is the only supported way to add the library.
+**iOS**: run `pod install` from the `ios` directory.
 
 ```sh
 cd ios; pod install; cd ..
 ```
+
+On React Native 0.87 and newer, Swift Package Manager autolinking works as well: the library ships
+a `Package.swift`, and an app set up with `react-native spm` picks it up with nothing to configure.
+CocoaPods stays the source of truth for the pod build; the bundled Xcode project of 0.x is gone.
 
 **Android**: autolinking picks the library up; there is nothing to link by hand. The library uses the OkHttp that ships with React Native (or the one your app uses).
 

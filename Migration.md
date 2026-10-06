@@ -20,7 +20,7 @@ Most apps only need to meet the new requirements below and check the removed API
 | Android build | Java 8 bytecode | Java 17 bytecode, Kotlin compiled with the app's Kotlin setup |
 | iOS deployment target | 11.0 | 15.1 |
 | Xcode | | 16.1 or newer |
-| iOS integration | CocoaPods or the bundled Xcode project | CocoaPods only |
+| iOS integration | CocoaPods or the bundled Xcode project | CocoaPods, or SwiftPM autolinking on React Native 0.87 and newer (1.1.0) |
 
 If your app still runs on the Old Architecture, stay on 0.25 until it moves to the New
 Architecture.
@@ -184,7 +184,7 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `android.getContentIntent` when the user cancels | never settled | resolves `null`; a second call while the picker is open rejects `EBUSY` |
 | `android.actionViewIntent` | resolved `true`, then `null` again on resume | settles once; resolves `undefined`, like `open.file` it forwards to |
 | `respInfo.respType` on Android | `""` for every text response (a broken header check) | `text`, `json` or `blob` by Content-Type, as on iOS |
-| `config({auto: true})` on Android | wrote only a type listed in `binaryContentTypes` to a file (the same broken check) | writes every response that is not `text/*` or `application/json` to a file, as on iOS (1.0.2) |
+| `config({auto: true})` on Android | wrote only a type listed in `binaryContentTypes` to a file (the same broken check) | writes every response that is not `text/*` or `application/json` to a file, as on iOS (1.1.0) |
 | An upload on Android whose source cannot be read (a revoked `content://` URI, a missing asset, a read error mid-way) | sent an empty or cut-off body, and either resolved or failed with "unexpected end of stream" | rejects with the source's own error (`EUNSPECIFIED`) |
 | `appendExt` containing `/`, `\`, `:` or a control character (GHSA-5xf6-f6v8-jc8c) | appended to the generated cache file name as it was, so `"/../../shared_prefs/x.xml"` wrote the download over any file the app can write | rejects `EINVAL` on every platform; an extension such as `png`, `tar.gz` or `.jpg` is unaffected |
 | A header name or value containing CR, LF or NUL | sent as it was: rejected by OkHttp on Android, and on Windows it started a new header on the wire | rejects `EINVAL` before the request starts, on every platform |
@@ -268,12 +268,12 @@ Promise that resolves once native has cancelled; the optional callback still wor
   activity indicator has not existed since iOS 13.
 - `task.expire(fn)` is gone. No platform ever emitted the event it listened for.
 - `key` is now declared in the config types; it was always honoured. So are `auto` and
-  `binaryContentTypes` (1.0.2), honoured on Android and iOS, and the `RNFB-Response`
+  `binaryContentTypes` (1.1.0), honoured on Android and iOS, and the `RNFB-Response`
   request header, which forces the form a body held in memory takes.
-- `media.addDownload` takes `notification` (1.0.2), the key the DownloadManager config
+- `media.addDownload` takes `notification` (1.1.0), the key the DownloadManager config
   uses for the same thing; `showNotification` still works and warns once.
 - `URIUtil.isFileURI` and `URIUtil.unwrapFileURI` recognise the
-  `ReactNativeBlobUtil-content://` prefix `wrap()` gives a content URI (1.0.2); they
+  `ReactNativeBlobUtil-content://` prefix `wrap()` gives a content URI (1.1.0); they
   only knew the file prefix.
 - `fs.readStream` reads 12288 bytes per chunk by default (a multiple of 3, so base64
   chunks concatenate) instead of 10240, and `tick` defaults to 10 ms in both the
