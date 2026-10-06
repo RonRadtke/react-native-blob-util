@@ -101,6 +101,9 @@ class ReactNativeBlobUtilReq(
     private var responseFormat = ResponseFormat.Auto
     private var respInfo: WritableMap? = null
     private var timeout = false
+    // The file-writing body this request creates. An application interceptor outside this
+    // request's own can wrap it again, so the response's top-level body is not necessarily it.
+    private var fileResponse: ReactNativeBlobUtilFileResp? = null
     private val redirects = ArrayList<String>()
     private var callbackfired = false
 
@@ -659,7 +662,7 @@ class ReactNativeBlobUtilReq(
                     response.body!!,
                     destPath,
                     options.overwrite!!,
-                )
+                ).also { fileResponse = it }
             }
             return response.newBuilder().body(extended).build()
         } catch (e: SocketException) {
@@ -797,7 +800,7 @@ class ReactNativeBlobUtilReq(
                 }
 
                 val fileResp = try {
-                    responseBody as ReactNativeBlobUtilFileResp?
+                    fileResponse ?: (responseBody as ReactNativeBlobUtilFileResp?)
                 } catch (ex: ClassCastException) {
                     // unexpected response type
                     if (responseBody != null) {
