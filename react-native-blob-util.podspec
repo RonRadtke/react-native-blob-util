@@ -16,10 +16,12 @@ Pod::Spec.new do |s|
   # Only headers that do not import React may be public: the umbrella this
   # generates is what Swift imports as the underlying module, and a React
   # header inside it is not modular from Swift's point of view.
-  s.public_header_files = [
-    'ios/ReactNativeBlobUtilExceptionCatch.h',
-    'ios/ReactNativeBlobUtilFileTransformer.h',
-  ]
+  #
+  # ios/ReactNativeBlobUtilObjC/ is exactly that set - the React-free leaf the
+  # Swift core and the adapter both build against. Package.swift compiles it as
+  # its own target for the same reason, and tests/unit/packageSwift.test.js
+  # keeps a React import from creeping in.
+  s.public_header_files = 'ios/ReactNativeBlobUtilObjC/*.h'
 
   s.resource_bundles = {
     'ReactNativeBlobUtilPrivacyInfo' => ['ios/PrivacyInfo.xcprivacy'],

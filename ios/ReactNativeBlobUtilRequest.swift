@@ -18,6 +18,15 @@ import Foundation
 import CommonCrypto
 import UIKit
 
+// Under SwiftPM the Objective-C leaf (the file transformer, the exception
+// boundary and the event-sink protocol) is a separate module; under CocoaPods
+// it arrives through the pod's umbrella with no import at all. canImport keeps
+// one source tree building both ways.
+#if canImport(ReactNativeBlobUtilObjC)
+import ReactNativeBlobUtilObjC
+#endif
+
+
 private enum ResponseFormat {
     case utf8
     case base64

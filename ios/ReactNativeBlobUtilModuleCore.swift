@@ -16,6 +16,15 @@ import Foundation
 import UIKit
 import Photos
 
+// Under SwiftPM the Objective-C leaf (the file transformer, the exception
+// boundary and the event-sink protocol) is a separate module; under CocoaPods
+// it arrives through the pod's umbrella with no import at all. canImport keeps
+// one source tree building both ways.
+#if canImport(ReactNativeBlobUtilObjC)
+import ReactNativeBlobUtilObjC
+#endif
+
+
 @objc(ReactNativeBlobUtilModuleCore)
 public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionControllerDelegate {
 
@@ -48,6 +57,20 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
 
     /// Android-only keys are present and empty, because the New Architecture
     /// uses one spec for both platforms and a missing key is a type error.
+    /// The instance spelling the adapter reaches through
+    /// ReactNativeBlobUtilModuleCoreBridge. It holds an instance, not the class,
+    /// because under SwiftPM it cannot name this class at all.
+    @objc public func constantsToExport() -> [String: Any] {
+        return ReactNativeBlobUtilModuleCore.constantsToExport()
+    }
+
+    /// Injects the adapter's RCTLogWarn shim. Routed through the bridge for the
+    /// same reason: ReactNativeBlobUtilLog is a Swift type the adapter cannot see.
+    @objc(setWarningHandler:)
+    public func setWarningHandler(_ handler: ((String) -> Void)?) {
+        ReactNativeBlobUtilLog.warningHandler = handler
+    }
+
     @objc public static func constantsToExport() -> [String: Any] {
         return [
             "CacheDir": ReactNativeBlobUtilFS.getCacheDir(),
@@ -795,3 +818,16 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         reject("ENOT_SUPPORTED", "This method is not supported on iOS", nil)
     }
 }
+
+// MARK: - the SwiftPM seam
+
+// Only under SwiftPM, and deliberately: declaring this on the class above would
+// name an Objective-C protocol in the class's generated ObjC interface, and the
+// pod build then fails on an umbrella header CocoaPods does not generate.
+// Conforming here still gets the checking where it is needed - under SwiftPM the
+// adapter cannot see this class at all, so the protocol is the only thing
+// keeping the two sides' signatures in step, and a drift is a compile error in
+// the SwiftPM CI job rather than a runtime crash.
+#if canImport(ReactNativeBlobUtilObjC)
+extension ReactNativeBlobUtilModuleCore: ReactNativeBlobUtilModuleCoreBridge {}
+#endif

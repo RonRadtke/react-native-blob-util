@@ -280,6 +280,76 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
+  # The same throwaway app, autolinked through Swift Package Manager instead of
+  # CocoaPods. React Native >= 0.87 can link native modules with SwiftPM, and its
+  # autolinker refuses a library whose sources look like mixed Swift and
+  # Objective-C unless the library ships its own Package.swift - which this one
+  # does, with three single-language targets. Nothing in the CocoaPods legs
+  # exercises that manifest, so a source file added without updating it, or a
+  # React import creeping into the Objective-C leaf, would only surface here.
+  #
+  # Packed rather than linked, so the manifest also has to be in the published
+  # file list: a Package.swift missing from package.json `files` fails this job.
+  latest-ios-spm:
+    name: Newest RN, iOS (SwiftPM autolinking)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: react-native-blob-util
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pack the library
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+        working-directory: react-native-blob-util
+
+      - name: Create an app from the newest template
+        run: >
+          npx --yes @react-native-community/cli@latest init SpmApp
+          --version latest
+          --pm npm
+          --skip-git-init
+          --install-pods false
+
+      - name: Install the packed library
+        run: npm install "$RUNNER_TEMP"/react-native-blob-util-*.tgz
+        working-directory: SpmApp
+
+      # --deintegrate because the template ships a Podfile and the generator
+      # refuses to convert a CocoaPods-integrated project without it. This also
+      # downloads React Native's prebuilt xcframeworks, which is most of the time
+      # the job takes.
+      - name: Enable SwiftPM autolinking
+        run: npx react-native spm add --yes --deintegrate
+        working-directory: SpmApp
+
+      # The library has to come through as self-managed. Were it not, the
+      # autolinker would have failed the step above with its mixed-language
+      # error, but assert it rather than infer it from a green build.
+      - name: Check the library autolinked from its own manifest
+        working-directory: SpmApp
+        run: |
+          test -L ios/build/generated/autolinking/libs/ReactNativeBlobUtil
+          grep -q 'libs/ReactNativeBlobUtil' ios/build/generated/autolinking/Package.swift
+
+      # An .xcodeproj, not a workspace: SwiftPM setup removes the CocoaPods one.
+      - name: xcodebuild
+        working-directory: SpmApp/ios
+        run: >
+          xcodebuild
+          -project SpmApp.xcodeproj
+          -scheme SpmApp
+          -configuration Debug
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO
+          build
+
   # An Expo app that adds a custom CA through the library's config plugin, then
   # builds Android and checks that prebuild put the certificate where the native
   # code looks for it on both platforms.

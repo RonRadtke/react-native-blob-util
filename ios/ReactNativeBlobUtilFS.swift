@@ -15,6 +15,15 @@ import Foundation
 import Photos
 import CommonCrypto
 
+// Under SwiftPM the Objective-C leaf (the file transformer, the exception
+// boundary and the event-sink protocol) is a separate module; under CocoaPods
+// it arrives through the pod's umbrella with no import at all. canImport keeps
+// one source tree building both ways.
+#if canImport(ReactNativeBlobUtilObjC)
+import ReactNativeBlobUtilObjC
+#endif
+
+
 /// The block shapes React passes in. Declared here rather than imported so this
 /// file does not depend on React; the signatures match RCTPromiseResolveBlock,
 /// RCTPromiseRejectBlock and RCTResponseSenderBlock as Swift sees them.

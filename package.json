@@ -21,6 +21,7 @@
         "codegenSpecs/",
         "plugin/",
         "react-native-blob-util.podspec",
+        "Package.swift",
         "ios/",
         "android/build.gradle",
         "android/gradle.properties",

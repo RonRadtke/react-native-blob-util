@@ -40,7 +40,9 @@ test('the tarball ships the JS, the spec and the three native modules', () => {
         'codegenSpecs/NativeBlobUtils.js',
         'android/build.gradle',
         'react-native-blob-util.podspec',
+        'Package.swift',
         'ios/ReactNativeBlobUtil/ReactNativeBlobUtil.mm',
+        'ios/ReactNativeBlobUtilObjC/ReactNativeBlobUtilFileTransformer.h',
         'windows/ReactNativeBlobUtil/ReactNativeBlobUtil.cpp',
     ]) {
         assert.ok(files.includes(file), `${file} is missing from the tarball`);
@@ -63,9 +65,10 @@ const SHIPPED = [
     /^(index|index\.web|android|ios|fetch|fs|media|mediacollection|open|types|app\.plugin)\.js$/,
     /^index\.d\.ts$/,
     /^(package\.json|README\.md|LICENSE|Migration\.md|NuGet\.config|react-native-blob-util\.podspec)$/,
+    /^Package\.swift$/,
     /^(class|utils|codegenSpecs)\/[\w.]+\.js$/,
     /^plugin\/([\w]+\/)*[\w.]+\.(js|d\.ts)$/,
-    /^ios\/(ReactNativeBlobUtil\/)?[\w]+\.(swift|h|m|mm)$/,
+    /^ios\/(ReactNativeBlobUtil(ObjC)?\/)?[\w]+\.(swift|h|m|mm)$/,
     /^ios\/PrivacyInfo\.xcprivacy$/,
     /^android\/(build\.gradle|gradle\.properties)$/,
     /^android\/src\/main\/AndroidManifest\.xml$/,

@@ -13,16 +13,21 @@
 
 #import "ReactNativeBlobUtil.h"
 
-#if __has_include(<react_native_blob_util/react_native_blob_util-Swift.h>)
-#import <react_native_blob_util/react_native_blob_util-Swift.h>
+// The seam, not the Swift module. Under SwiftPM this file compiles in its own
+// target and cannot see the Swift core's generated -Swift.h, so it names a
+// protocol that originates in the Objective-C leaf and resolves the
+// implementation at runtime. The angle-bracket spelling is SwiftPM's (the leaf
+// is a module there); the quoted one is CocoaPods' header map.
+#if __has_include(<ReactNativeBlobUtilObjC/ReactNativeBlobUtilModuleCoreBridge.h>)
+#import <ReactNativeBlobUtilObjC/ReactNativeBlobUtilModuleCoreBridge.h>
 #else
-#import "react_native_blob_util-Swift.h"
+#import "ReactNativeBlobUtilModuleCoreBridge.h"
 #endif
 
 dispatch_queue_t commonTaskQueue;
 
 @interface ReactNativeBlobUtil () <ReactNativeBlobUtilEventSink>
-@property (nonatomic, strong) ReactNativeBlobUtilModuleCore *core;
+@property (nonatomic, strong) id<ReactNativeBlobUtilModuleCoreBridge> core;
 @end
 
 @implementation ReactNativeBlobUtil
@@ -34,16 +39,22 @@ RCT_EXPORT_MODULE();
 - (id) init {
     self = [super init];
     if (self) {
-        _core = [[ReactNativeBlobUtilModuleCore alloc] init];
+        // Resolved by name: naming the class would need the Swift header.
+        // A nil here means the Swift half did not link, which is worth saying
+        // out loud rather than failing later as an unexplained no-op.
+        Class coreClass = NSClassFromString(@"ReactNativeBlobUtilModuleCore");
+        NSAssert(coreClass != nil,
+                 @"ReactNativeBlobUtilModuleCore is missing from the binary - the Swift half did not link.");
+        _core = [[coreClass alloc] init];
         _core.eventSink = self;
         // Plain UIKit rather than a React helper, but only the adapter is in a
         // position to reach for it, so the Swift takes it as a provider.
         // Native warnings belong in the JS console, where the developer who
         // caused them is looking. Swift cannot import React, so the handler is
         // injected here once.
-        ReactNativeBlobUtilLog.warningHandler = ^(NSString *message) {
+        [_core setWarningHandler:^(NSString *message) {
             RCTLogWarn(@"%@", message);
-        };
+        }];
         _core.presentingViewController = ^UIViewController * _Nullable {
             return [[[[UIApplication sharedApplication] delegate] window] rootViewController];
         };
@@ -75,8 +86,8 @@ RCT_EXPORT_MODULE();
 
 + (BOOL)requiresMainQueueSetup { return NO; }
 
-- (NSDictionary *)getConstants { return [ReactNativeBlobUtilModuleCore constantsToExport]; }
-- (NSDictionary *)constantsToExport { return [ReactNativeBlobUtilModuleCore constantsToExport]; }
+- (NSDictionary *)getConstants { return [self.core constantsToExport]; }
+- (NSDictionary *)constantsToExport { return [self.core constantsToExport]; }
 
 #pragma mark - events
 
