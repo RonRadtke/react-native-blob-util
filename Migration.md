@@ -184,6 +184,7 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `android.getContentIntent` when the user cancels | never settled | resolves `null`; a second call while the picker is open rejects `EBUSY` |
 | `android.actionViewIntent` | resolved `true`, then `null` again on resume | settles once; resolves `undefined`, like `open.file` it forwards to |
 | `respInfo.respType` on Android | `""` for every text response (a broken header check) | `text`, `json` or `blob` by Content-Type, as on iOS |
+| `config({auto: true})` on Android | wrote only a type listed in `binaryContentTypes` to a file (the same broken check) | writes every response that is not `text/*` or `application/json` to a file, as on iOS (1.0.2) |
 | An upload on Android whose source cannot be read (a revoked `content://` URI, a missing asset, a read error mid-way) | sent an empty or cut-off body, and either resolved or failed with "unexpected end of stream" | rejects with the source's own error (`EUNSPECIFIED`) |
 | `appendExt` containing `/`, `\`, `:` or a control character (GHSA-5xf6-f6v8-jc8c) | appended to the generated cache file name as it was, so `"/../../shared_prefs/x.xml"` wrote the download over any file the app can write | rejects `EINVAL` on every platform; an extension such as `png`, `tar.gz` or `.jpg` is unaffected |
 | A header name or value containing CR, LF or NUL | sent as it was: rejected by OkHttp on Android, and on Windows it started a new header on the wire | rejects `EINVAL` before the request starts, on every platform |

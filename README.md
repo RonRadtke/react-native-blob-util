@@ -438,7 +438,7 @@ const res = await config({fileCache: true, timeout: 30000}).fetch('GET', url);
 | `customCACerts` | `string[]` | Trust these bundled CA certificates. See [Custom CA Certificates](#custom-ca-certificates). |
 | `pinnedHosts` | `string[]` | Apply `customCACerts` to these hosts only. |
 | `trustSystemCerts` | `boolean` | Keep trusting the system CAs alongside `customCACerts`. Default `false`. |
-| `auto` | `boolean` | Write a binary response to a cache file, as `fileCache` does, and keep text and JSON in memory. Binary is any Content-Type other than `text/*` and `application/json` on iOS, and one listed in `binaryContentTypes` on Android. Ignored on Windows. |
+| `auto` | `boolean` | Write a binary response to a cache file, as `fileCache` does, and keep text and JSON in memory. Binary is any Content-Type other than `text/*` and `application/json`, or one listed in `binaryContentTypes`. Ignored on Windows. |
 | `binaryContentTypes` | `string[]` | Content-Type fragments that count as binary (`respType` is `blob`): the response is written to a cache file with `auto` on Android, and always on iOS. |
 | `android.downloadManager` | object | Download through Android's DownloadManager. See [below](#android-downloadmanager). |
 | `android.wifiOnly` | `boolean` | Only send the request over WiFi. Fails with `ENETUNREACH` without WiFi. |

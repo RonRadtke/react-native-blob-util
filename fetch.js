@@ -51,8 +51,8 @@ import type {ReactNativeBlobUtilConfig} from './types';
  *                   Run the registered file transformer on the downloaded file.
  *         @property {boolean} auto
  *                   Write a binary response to a cache file and keep text and
- *                   JSON in memory (Android: binary means a type listed in
- *                   binaryContentTypes; iOS: anything but text/* and JSON).
+ *                   JSON in memory; binary is anything but text/* and JSON, or
+ *                   a type listed in binaryContentTypes (Android and iOS).
  *         @property {Array<string>} binaryContentTypes
  *                   Content-Type fragments that count as binary.
  *

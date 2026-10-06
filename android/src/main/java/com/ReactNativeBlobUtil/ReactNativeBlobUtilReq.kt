@@ -880,23 +880,8 @@ class ReactNativeBlobUtilReq(
      * @param resp OkHttp response.
      * @return If the response data contains binary bytes
      */
-    private fun isBlobResponse(resp: Response): Boolean {
-        val h = resp.headers
-        val ctype = getHeaderIgnoreCases(h, "Content-Type")
-        val isText = !ctype.equals("text/", ignoreCase = true)
-        val isJSON = !ctype.equals("application/json", ignoreCase = true)
-        var isCustomBinary = false
-        val binaryContentTypes = options.binaryContentTypes
-        if (binaryContentTypes != null) {
-            for (i in 0 until binaryContentTypes.size()) {
-                if (ctype.lowercase(Locale.ROOT).contains(binaryContentTypes.getString(i)!!.lowercase(Locale.ROOT))) {
-                    isCustomBinary = true
-                    break
-                }
-            }
-        }
-        return (!(isJSON || isText)) || isCustomBinary
-    }
+    private fun isBlobResponse(resp: Response): Boolean =
+        isBinaryContentType(getHeaderIgnoreCases(resp.headers, "Content-Type"), options.binaryContentTypes)
 
     private fun getHeaderIgnoreCases(headers: Headers, field: String): String {
         val value = headers[field]
@@ -1102,6 +1087,28 @@ class ReactNativeBlobUtilReq(
         fun getReportUploadProgress(taskId: String?): ReactNativeBlobUtilProgressConfig? {
             if (!uploadProgressReport.containsKey(taskId)) return null
             return uploadProgressReport[taskId]
+        }
+
+        /**
+         * Whether a response counts as binary: respType reports it as "blob" and `auto`
+         * writes it to a file. A Content-Type listed in binaryContentTypes is binary, and
+         * so is any other than a text type (text/...) and application/json; no Content-Type is text. The
+         * same rule as iOS. The old check compared the whole header with "text/" and
+         * "application/json" using equals, so only a listed type ever counted as binary
+         * and `auto` did nothing without binaryContentTypes.
+         */
+        @JvmStatic
+        internal fun isBinaryContentType(contentType: String, binaryContentTypes: ReadableArray?): Boolean {
+            val ctype = contentType.lowercase(Locale.ROOT)
+            if (binaryContentTypes != null) {
+                for (i in 0 until binaryContentTypes.size()) {
+                    val listed = binaryContentTypes.getString(i)
+                    if (listed != null && ctype.contains(listed.lowercase(Locale.ROOT))) {
+                        return true
+                    }
+                }
+            }
+            return ctype.isNotEmpty() && !ctype.contains("text/") && !ctype.contains("application/json")
         }
 
         /**

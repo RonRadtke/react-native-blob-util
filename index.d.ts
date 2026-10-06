@@ -325,9 +325,9 @@ export interface ReactNativeBlobUtilConfig {
 
     /**
      * Write a binary response to a cache file, as `fileCache` does, and keep
-     * text and JSON in memory. On iOS, binary is any Content-Type other than
-     * `text/*` and `application/json`; on Android it is one listed in
-     * `binaryContentTypes`. Windows keeps every response in memory.
+     * text and JSON in memory. Binary is any Content-Type other than `text/*`
+     * and `application/json`, or one listed in `binaryContentTypes`. Android
+     * and iOS; Windows keeps every response in memory.
      */
     auto?: boolean;
 
