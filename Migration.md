@@ -267,6 +267,9 @@ Promise that resolves once native has cancelled; the optional callback still wor
   activity indicator has not existed since iOS 13.
 - `task.expire(fn)` is gone. No platform ever emitted the event it listened for.
 - `key` is now declared in the config types; it was always honoured.
+- `URIUtil.isFileURI` and `URIUtil.unwrapFileURI` recognise the
+  `ReactNativeBlobUtil-content://` prefix `wrap()` gives a content URI (1.0.2); they
+  only knew the file prefix.
 - `fs.readStream` reads 12288 bytes per chunk by default (a multiple of 3, so base64
   chunks concatenate) instead of 10240, and `tick` defaults to 10 ms in both the
   wrapper and the stream.

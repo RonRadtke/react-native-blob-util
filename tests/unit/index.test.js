@@ -65,3 +65,13 @@ test('wrap() prefixes a path the way native expects', () => {
     assert.equal(entry.default.wrap('/docs/a.txt'), 'ReactNativeBlobUtil-file:///docs/a.txt');
     assert.equal(entry.default.wrap('content://media/1'), 'ReactNativeBlobUtil-content://content://media/1');
 });
+
+test('URIUtil recognises and unwraps both prefixes wrap() produces', () => {
+    const {URIUtil} = entry;
+    assert.equal(URIUtil.isFileURI(entry.default.wrap('/docs/a.txt')), true);
+    assert.equal(URIUtil.isFileURI(entry.default.wrap('content://media/1')), true);
+    assert.equal(URIUtil.isFileURI('content://media/1'), false);
+    assert.equal(URIUtil.isFileURI('/docs/a.txt'), false);
+    assert.equal(URIUtil.unwrapFileURI(entry.default.wrap('/docs/a.txt')), '/docs/a.txt');
+    assert.equal(URIUtil.unwrapFileURI(entry.default.wrap('content://media/1')), 'content://media/1');
+});

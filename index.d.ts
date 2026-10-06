@@ -923,9 +923,9 @@ export interface MediaCollection {
 }
 
 export declare const URIUtil: {
-    /** Whether a string is a `wrap(path)` reference. */
+    /** Whether a string is a `wrap(path)` reference, to a file or to a content URI. */
     isFileURI(uri: string): boolean;
-    /** Strip the `ReactNativeBlobUtil-file://` prefix. */
+    /** Strip the `ReactNativeBlobUtil-file://` or `ReactNativeBlobUtil-content://` prefix. */
     unwrapFileURI(uri: string): string;
     /** Strip `iterations` URI schemes (default 1). */
     removeURIScheme(uri: string, iterations?: number): string;
