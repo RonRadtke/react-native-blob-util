@@ -88,3 +88,24 @@ test('every media call rejects with ENOTSUP on iOS and Windows', async () => {
     }
     assert.deepEqual(calls, []);
 });
+
+test('addDownload takes notification, as the DownloadManager config does; showNotification still works and warns once', async () => {
+    const warnings = [];
+    const originalWarn = console.warn;
+    console.warn = (...args) => warnings.push(args.join(' '));
+    try {
+        await media.addDownload({title: 't', path: '/p', mime: 'text/plain', notification: true});
+        await media.addDownload({title: 't', path: '/p', mime: 'text/plain', showNotification: false});
+        await media.addDownload({title: 't', path: '/p', mime: 'text/plain', showNotification: true});
+    } finally {
+        console.warn = originalWarn;
+    }
+    // Native reads showNotification; the 1.0 key is mapped onto it.
+    assert.deepEqual(calls.map((c) => c[1]), [
+        {title: 't', path: '/p', mime: 'text/plain', showNotification: true},
+        {title: 't', path: '/p', mime: 'text/plain', showNotification: false},
+        {title: 't', path: '/p', mime: 'text/plain', showNotification: true},
+    ]);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /showNotification.*"notification"/);
+});

@@ -1109,7 +1109,7 @@ await media.addDownload({
     description: 'The monthly report',
     mime: 'application/pdf',
     path: localPath,
-    showNotification: true,
+    notification: true,
 });
 ```
 

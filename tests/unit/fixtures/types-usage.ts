@@ -46,6 +46,7 @@ async function capabilities(): Promise<void> {
     const internal: string = await MediaCollection.copyToInternal(uri, '/p/copy.png');
     const bytes: number[] = await media.read(uri, 'ascii');
     const text: string = await media.read(uri);
+    await media.addDownload({title: 't', description: 'd', mime: 'text/plain', path: '/p', notification: true});
     await media.addDownload({title: 't', description: 'd', mime: 'text/plain', path: '/p', showNotification: true});
     await media.scan([{path: '/p/a.jpg'}]);
     const sd: string = await fs.sdCardDir();

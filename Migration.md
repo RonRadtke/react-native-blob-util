@@ -267,6 +267,8 @@ Promise that resolves once native has cancelled; the optional callback still wor
   activity indicator has not existed since iOS 13.
 - `task.expire(fn)` is gone. No platform ever emitted the event it listened for.
 - `key` is now declared in the config types; it was always honoured.
+- `media.addDownload` takes `notification` (1.0.2), the key the DownloadManager config
+  uses for the same thing; `showNotification` still works and warns once.
 - `URIUtil.isFileURI` and `URIUtil.unwrapFileURI` recognise the
   `ReactNativeBlobUtil-content://` prefix `wrap()` gives a content URI (1.0.2); they
   only knew the file prefix.

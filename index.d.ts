@@ -854,8 +854,10 @@ export interface AndroidDownloadOption {
     mime: string;
     /** Path of the file. */
     path: string;
-    /** Show a notification. */
-    showNotification: boolean;
+    /** Show a notification, as `android.downloadManager.notification` does. */
+    notification?: boolean;
+    /** @deprecated use `notification` */
+    showNotification?: boolean;
 }
 
 export type Mediatype = 'Audio' | 'Image' | 'Video' | 'Download';

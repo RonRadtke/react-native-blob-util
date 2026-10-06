@@ -2,6 +2,7 @@
 // app and the media scanner. Every call rejects with ENOTSUP elsewhere.
 
 import {toUnsignedBytes} from './utils/bytes';
+import {warnOnce} from './utils/deprecate';
 import {addCode} from './utils/errors';
 import {requireNativeModule} from './utils/nativeModule';
 import {platformOnly} from './utils/platform';
@@ -82,12 +83,33 @@ const read = androidOnly('read', (uri: string, encodingOrOptions: any = 'utf8') 
 });
 
 /**
+ * The download options as native reads them: `notification`, the key the
+ * DownloadManager config uses for the same thing, stands in for native's
+ * `showNotification`. The old key still works and warns once.
+ */
+function withShowNotification(options: Object): Object {
+    if (!options || typeof options !== 'object') {
+        return options;
+    }
+    const out = {...options};
+    if ('showNotification' in out) {
+        warnOnce('media.addDownload.showNotification',
+            'ReactNativeBlobUtil.media.addDownload option "showNotification" is deprecated and will be removed; use "notification"');
+    }
+    if (out.notification !== undefined) {
+        out.showNotification = out.notification;
+    }
+    delete out.notification;
+    return out;
+}
+
+/**
  * Register a finished download with the Downloads app.
- * @param  {{title, description, mime, path, showNotification}} options
+ * @param  {{title, description, mime, path, notification}} options
  * @return {Promise<void>}
  */
 const addDownload = androidOnly('addDownload', (options: Object) => {
-    return requireNativeModule().addCompleteDownload(options).then(() => undefined);
+    return requireNativeModule().addCompleteDownload(withShowNotification(options)).then(() => undefined);
 });
 
 /**
