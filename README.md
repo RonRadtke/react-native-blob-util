@@ -36,7 +36,8 @@ react-native-blob-util version **0.10.16** and up is only compatible with react 
 - Android, iOS and Windows
 
 This README and [index.d.ts](index.d.ts) are the reference for the 1.0 API. The
-[wiki](https://github.com/RonRadtke/react-native-blob-util/wiki) describes the API before 1.0.
+[wiki](https://github.com/RonRadtke/react-native-blob-util/wiki) explains how it works, with
+diagrams, and keeps the pages that describe the API before 1.0.
 
 ## Table of contents
 
