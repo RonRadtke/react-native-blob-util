@@ -133,6 +133,9 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
     ResponseFormat responseFormat = ResponseFormat.Auto;
     WritableMap respInfo;
     boolean timeout = false;
+    // The file-writing body this request creates. An application interceptor outside this
+    // request's own can wrap it again, so the response's top-level body is not necessarily it.
+    ReactNativeBlobUtilFileResp fileResponse;
     ArrayList<String> redirects = new ArrayList<>();
     OkHttpClient client;
     boolean callbackfired;
@@ -584,12 +587,13 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                                         options.increment);
                                 break;
                             case FileStorage:
-                                extended = new ReactNativeBlobUtilFileResp(
+                                fileResponse = new ReactNativeBlobUtilFileResp(
                                         ReactNativeBlobUtilImpl.RCTContext,
                                         taskId,
                                         originalResponse.body(),
                                         destPath,
                                         options.overwrite);
+                                extended = fileResponse;
                                 break;
                             default:
                                 extended = new ReactNativeBlobUtilDefaultResp(
@@ -815,7 +819,9 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                 ReactNativeBlobUtilFileResp ReactNativeBlobUtilFileResp;
 
                 try {
-                    ReactNativeBlobUtilFileResp = (ReactNativeBlobUtilFileResp) responseBody;
+                    ReactNativeBlobUtilFileResp = fileResponse != null
+                            ? fileResponse
+                            : (ReactNativeBlobUtilFileResp) responseBody;
                 } catch (ClassCastException ex) {
                     // unexpected response type
                     if (responseBody != null) {
