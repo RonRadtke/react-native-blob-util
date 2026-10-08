@@ -1,13 +1,13 @@
-import {ReactNativeBlobUtilConfig} from './types';
-import URIUtil from './utils/uri';
-import fs from './fs';
-import getUUID from './utils/uuid';
-import invalidAppendExt from './utils/appendExt';
-import toByteCount from './utils/byteCount';
 import {NativeEventEmitter} from 'react-native';
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
 import ReactNativeBlobUtil from './codegenSpecs/NativeBlobUtils';
+import fs from './fs';
+import {ReactNativeBlobUtilConfig} from './types';
+import invalidAppendExt from './utils/appendExt';
+import toByteCount from './utils/byteCount';
+import URIUtil from './utils/uri';
+import getUUID from './utils/uuid';
 
 const eventEmitter = new NativeEventEmitter(ReactNativeBlobUtil);
 
@@ -164,7 +164,7 @@ export function fetch(...args: any): Promise {
     // create task ID for receiving progress event
     let taskId = getUUID();
     let options = this || {};
-    let subscription, subscriptionUpload, stateEvent, partEvent;
+    let subscription, subscriptionUpload, stateEvent, partEvent, expireEvent;
     let respInfo = {'uninit': true};
     let [method, url, headers, body] = [...args];
 
@@ -229,7 +229,7 @@ export function fetch(...args: any): Promise {
             promise.onStateChange && promise.onStateChange(e);
         });
 
-        subscription = eventEmitter.addListener('ReactNativeBlobUtilExpire', (e) => {
+        expireEvent = eventEmitter.addListener('ReactNativeBlobUtilExpire', (e) => {
             if (typeof e === 'string') e = JSON.parse(e);
             if (e.taskId === taskId && promise.onExpire) {
                 promise.onExpire(e);
@@ -270,6 +270,7 @@ export function fetch(...args: any): Promise {
             subscriptionUpload.remove();
             stateEvent.remove();
             partEvent.remove();
+            expireEvent.remove();
             delete promise.progress;
             delete promise.uploadProgress;
             delete promise.stateChange;
@@ -359,6 +360,8 @@ export function fetch(...args: any): Promise {
         subscription.remove();
         subscriptionUpload.remove();
         stateEvent.remove();
+        partEvent.remove();
+        expireEvent.remove();
         ReactNativeBlobUtil.cancelRequest(taskId, fn);
         promiseReject(new CanceledFetchError('canceled'));
     };
