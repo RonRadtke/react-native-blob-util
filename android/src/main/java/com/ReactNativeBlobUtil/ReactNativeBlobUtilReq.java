@@ -112,7 +112,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
     public static HashMap<String, Long> androidDownloadManagerTaskTable = new HashMap<>();
     static HashMap<String, ReactNativeBlobUtilProgressConfig> progressReport = new HashMap<>();
     static HashMap<String, ReactNativeBlobUtilProgressConfig> uploadProgressReport = new HashMap<>();
-    static ConnectionPool pool = new ConnectionPool();
+    static ConnectionPool pool = newConnectionPool();
 
     ReactNativeBlobUtilConfig options;
     String taskId;
@@ -1031,6 +1031,20 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
      */
     static boolean mayResend(String method) {
         return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
+    }
+
+    /**
+     * The pool every request shares. It keeps an idle connection for 4s instead of
+     * OkHttp's default 5 minutes. OkHttp checks that a pooled connection is still
+     * open before a request other than GET only once it has been idle for 10s, and
+     * mayResend no longer lets it send such a request again on a new connection.
+     * A server that closes idle connections after 5s, as Node's http server and
+     * uvicorn do by default, would otherwise get a POST sent 5 to 10s after the
+     * previous request on a connection it had already closed, and the call would
+     * fail with "unexpected end of stream" although the server never saw it (#504).
+     */
+    static ConnectionPool newConnectionPool() {
+        return new ConnectionPool(5, 4, TimeUnit.SECONDS);
     }
 
     /** Turns the response of a request into the one the interceptor returns. */
