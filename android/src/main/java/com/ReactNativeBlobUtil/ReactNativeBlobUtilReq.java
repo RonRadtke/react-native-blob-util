@@ -47,7 +47,6 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 import java.net.Proxy;
-import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -113,7 +112,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
     public static HashMap<String, Long> androidDownloadManagerTaskTable = new HashMap<>();
     static HashMap<String, ReactNativeBlobUtilProgressConfig> progressReport = new HashMap<>();
     static HashMap<String, ReactNativeBlobUtilProgressConfig> uploadProgressReport = new HashMap<>();
-    static ConnectionPool pool = new ConnectionPool();
+    static ConnectionPool pool = newConnectionPool();
 
     ReactNativeBlobUtilConfig options;
     String taskId;
@@ -132,7 +131,6 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
     ResponseType responseType;
     ResponseFormat responseFormat = ResponseFormat.Auto;
     WritableMap respInfo;
-    boolean timeout = false;
     // The file-writing body this request creates. An application interceptor outside this
     // request's own can wrap it again, so the response's top-level body is not necessarily it.
     ReactNativeBlobUtilFileResp fileResponse;
@@ -566,7 +564,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                 @Override
                 public Response intercept(@NonNull Chain chain) throws IOException {
                     redirects.add(chain.request().url().toString());
-                    return chain.proceed(chain.request());
+                    return withoutRetryAfter(chain.proceed(chain.request()));
                 }
             });
             // Add request interceptor for upload progress event
@@ -574,9 +572,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                 @NonNull
                 @Override
                 public Response intercept(@NonNull Chain chain) throws IOException {
-                    Response originalResponse = null;
-                    try {
-                        originalResponse = chain.proceed(req);
+                    return proceedOnce(chain, req, originalResponse -> {
                         ResponseBody extended;
                         switch (responseType) {
                             case KeepInMemory:
@@ -604,24 +600,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                                 break;
                         }
                         return originalResponse.newBuilder().body(extended).build();
-                    } catch (SocketException e) {
-                        timeout = true;
-                        if (originalResponse != null) {
-                            originalResponse.close();
-                        }
-                    } catch (SocketTimeoutException e) {
-                        timeout = true;
-                        if (originalResponse != null) {
-                            originalResponse.close();
-                        }
-                        //ReactNativeBlobUtilUtils.emitWarningEvent("ReactNativeBlobUtil error when sending request : " + e.getLocalizedMessage());
-                    } catch (Exception ex) {
-                        if (originalResponse != null) {
-                            originalResponse.close();
-                        }
-                    }
-
-                    return chain.proceed(chain.request());
+                    });
                 }
             });
 
@@ -640,10 +619,9 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
             }
 
             clientBuilder.connectionPool(pool);
-            clientBuilder.retryOnConnectionFailure(false);
             clientBuilder.followRedirects(options.followRedirect);
             clientBuilder.followSslRedirects(options.followRedirect);
-            clientBuilder.retryOnConnectionFailure(true);
+            clientBuilder.retryOnConnectionFailure(mayResend(method));
 
             OkHttpClient client = enableTls12OnPreLollipop(clientBuilder).build();
 
@@ -897,7 +875,8 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
         info.putInt("status", resp.code());
         info.putString("state", "2");
         info.putString("taskId", this.taskId);
-        info.putBoolean("timeout", timeout);
+        // A request that times out fails through onFailure and never gets here.
+        info.putBoolean("timeout", false);
         WritableMap headers = Arguments.createMap();
         for (int i = 0; i < resp.headers().size(); i++) {
             headers.putString(resp.headers().name(i), resp.headers().value(i));
@@ -1039,6 +1018,77 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
 
             }
         }
+    }
+
+    /**
+     * Whether OkHttp may send a request again after a connection failure, when the
+     * server may already have received it. Only GET and HEAD: OkHttp resends after a
+     * reset or "unexpected end of stream" on a pooled connection even once the body
+     * was sent, and a POST the server acted on would be acted on twice (#504). Other
+     * methods also lose OkHttp's recovery from failures before the request went out
+     * (next route, refused HTTP/2 stream, stale pooled socket); those now fail, and
+     * the server never saw the request.
+     */
+    static boolean mayResend(String method) {
+        return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
+    }
+
+    /**
+     * The pool every request shares. It keeps an idle connection for 4s instead of
+     * OkHttp's default 5 minutes. OkHttp checks that a pooled connection is still
+     * open before a request other than GET only once it has been idle for 10s, and
+     * mayResend no longer lets it send such a request again on a new connection.
+     * A server that closes idle connections after 5s, as Node's http server and
+     * uvicorn do by default, would otherwise get a POST sent 5 to 10s after the
+     * previous request on a connection it had already closed, and the call would
+     * fail with "unexpected end of stream" although the server never saw it (#504).
+     */
+    static ConnectionPool newConnectionPool() {
+        return new ConnectionPool(5, 4, TimeUnit.SECONDS);
+    }
+
+    /** Turns the response of a request into the one the interceptor returns. */
+    interface ResponseWrapper {
+        Response wrap(Response response) throws IOException;
+    }
+
+    /**
+     * Proceeds with the request once and passes the response to wrap. A failure is
+     * rethrown for OkHttp to report through onFailure. The interceptor used to catch
+     * it, a read timeout included, and proceed again, so the request went out a
+     * second time after the JS side had already seen it fail (#504). Anything other
+     * than an IOException is wrapped in one: OkHttp rethrows other exceptions on its
+     * dispatcher thread after onFailure, which crashes the app.
+     */
+    static Response proceedOnce(Interceptor.Chain chain, Request request, ResponseWrapper wrap) throws IOException {
+        Response response = null;
+        try {
+            response = chain.proceed(request);
+            return wrap.wrap(response);
+        } catch (IOException e) {
+            if (response != null) {
+                response.close();
+            }
+            throw e;
+        } catch (Exception e) {
+            if (response != null) {
+                response.close();
+            }
+            throw new IOException(e);
+        }
+    }
+
+    /**
+     * OkHttp sends a request again after a 503 with Retry-After: 0, whatever
+     * retryOnConnectionFailure says, and does not without the header. For a method
+     * mayResend refuses, the network interceptor drops the header (#504), so it
+     * does not reach JS either.
+     */
+    static Response withoutRetryAfter(Response response) {
+        if (response.code() == 503 && !mayResend(response.request().method())) {
+            return response.newBuilder().removeHeader("Retry-After").build();
+        }
+        return response;
     }
 
     public static OkHttpClient.Builder enableTls12OnPreLollipop(OkHttpClient.Builder client) {
