@@ -30,7 +30,7 @@ const fakeModules = {
                 return { remove: () => set.delete(callback) };
             }
         });
-        const request = (...args) => requests.push({id: args[1], callback: args[6]});
+        const request = (...args) => requests.push({id: args[1], headers: args[4], callback: args[6]});
         export const requireNativeModule = () => ({
             fetchBlob: request,
             fetchBlobForm: request,
@@ -129,4 +129,21 @@ test('settling one task preserves another task and its progress/expiry callbacks
     complete(native.requests[1]);
     await second;
     assert.equal(native.listenerCount(), 0);
+});
+
+// An object as a header value crashed the app on Android when native read it
+// as a string (#472). It is refused before native sees the request, so the
+// task registers no listener either.
+test('a header value that is an object rejects EINVAL without reaching native', async () => {
+    const task = fetch('POST', 'https://example.test/upload', {'X-Test': {value: 'a'}}, 'text');
+    await assert.rejects(task, {code: 'EINVAL', message: /"X-Test" must be a string/});
+    assert.equal(native.requests.length, 0);
+    assert.equal(native.listenerCount(), 0);
+});
+
+test('a header value that is a number or a boolean is sent as its text', async () => {
+    const task = fetch('POST', 'https://example.test/upload', {'X-Count': 42, 'X-Flag': true, 'X-Null': null}, 'text');
+    assert.deepEqual(native.requests[0].headers, {'X-Count': '42', 'X-Flag': 'true', 'X-Null': ''});
+    complete(native.requests[0]);
+    await task;
 });

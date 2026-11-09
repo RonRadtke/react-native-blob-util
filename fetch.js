@@ -4,6 +4,7 @@ import fs from './fs';
 import {ReactNativeBlobUtilConfig} from './types';
 import invalidAppendExt from './utils/appendExt';
 import toByteCount from './utils/byteCount';
+import {headerValues} from './utils/headerValues';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
 import URIUtil from './utils/uri';
 import getUUID from './utils/uuid';
@@ -130,6 +131,26 @@ function fetchFile(options = {}, method, url, headers = {}, body): Promise {
 }
 
 /**
+ * A task refused before anything reached native: it rejects with EINVAL. The
+ * task methods stay callable, so a chained .progress() or .cancel() on it does
+ * not throw.
+ * @param  {string} taskId
+ * @param  {string} message Why the request was refused.
+ * @return {Promise}
+ */
+function rejectedTask(taskId, message): Promise {
+    const error = new Error(message);
+    error.code = 'EINVAL';
+    const failed = Promise.reject(error);
+    failed.taskId = taskId;
+    failed.progress = failed.uploadProgress = failed.stateChange = failed.part = failed.expire = () => failed;
+    failed.cancel = (fn) => {
+        if (typeof fn === 'function') fn();
+    };
+    return failed;
+}
+
+/**
  * Create a HTTP request by settings, the `this` context is a `ReactNativeBlobUtilConfig` object.
  * @param  {string} method HTTP method, should be `GET`, `POST`, `PUT`, `DELETE`
  * @param  {string} url Request target url string.
@@ -156,15 +177,7 @@ export function fetch(...args: any): Promise {
     // .cancel() on the rejected task does not throw.
     const invalidExt = invalidAppendExt(options);
     if (invalidExt) {
-        const error = new Error(invalidExt);
-        error.code = 'EINVAL';
-        const failed = Promise.reject(error);
-        failed.taskId = taskId;
-        failed.progress = failed.uploadProgress = failed.stateChange = failed.part = failed.expire = () => failed;
-        failed.cancel = (fn) => {
-            if (typeof fn === 'function') fn();
-        };
-        return failed;
+        return rejectedTask(taskId, invalidExt);
     }
 
     // # 241 normalize null or undefined headers, in case nil or null string
@@ -178,6 +191,13 @@ export function fetch(...args: any): Promise {
     if (URIUtil.isFileURI(url)) {
         return fetchFile(options, method, url, headers, body);
     }
+
+    // Native reads every header value as a string (#472).
+    const sendable = headerValues(headers);
+    if (sendable.error) {
+        return rejectedTask(taskId, sendable.error);
+    }
+    headers = sendable.headers;
 
     let promiseResolve;
     let promiseReject;
