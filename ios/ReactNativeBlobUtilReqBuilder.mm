@@ -197,12 +197,22 @@
             NSString * name = [field valueForKey:@"name"];
             __block NSString * content = [field valueForKey:@"data"];
             NSString * contentType = [field valueForKey:@"type"];
-            // skip when the form field `name` or `data` is empty
+            // skip when the form field `name` or `data` is empty. The next
+            // index is checked first: a form whose last field was like this
+            // raised NSRangeException and ended the app (#197).
             if(content == nil || name == nil)
             {
-                i++;
-                getFieldData([form objectAtIndex:i]);
                 RCTLogWarn(@"ReactNativeBlobUtil multipart request builder has found a field without `data` or `name` property, the field will be removed implicitly.");
+                i++;
+                if(i < count)
+                {
+                    getFieldData([form objectAtIndex:i]);
+                }
+                else
+                {
+                    onComplete(formData, NO);
+                    getFieldData = nil;
+                }
                 return;
             }
 
@@ -293,8 +303,18 @@
             }
 
         };
-        __block NSDictionary * nextField = [form objectAtIndex:i];
-        getFieldData(nextField);
+        // An empty form has no field 0: reading it raised NSRangeException and
+        // ended the app (#197). It sends the closing delimiter alone.
+        if(count == 0)
+        {
+            onComplete(formData, NO);
+            getFieldData = nil;
+        }
+        else
+        {
+            __block NSDictionary * nextField = [form objectAtIndex:i];
+            getFieldData(nextField);
+        }
     }
 }
 
