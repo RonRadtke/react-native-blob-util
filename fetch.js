@@ -180,6 +180,13 @@ export function fetch(...args: any): Promise {
         return rejectedTask(taskId, invalidExt);
     }
 
+    // A body passed in the headers' place (#334) was copied key by key below:
+    // one header per character, and for a long string more properties than
+    // Hermes allows, which threw from fetch itself.
+    if (headers != null && (typeof headers !== 'object' || Array.isArray(headers))) {
+        return rejectedTask(taskId, 'headers must be an object of header names and values');
+    }
+
     // # 241 normalize null or undefined headers, in case nil or null string
     // pass to native context
     headers = headers && Object.keys(headers).reduce((result, key) => {

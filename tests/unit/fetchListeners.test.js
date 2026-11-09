@@ -147,3 +147,15 @@ test('a header value that is a number or a boolean is sent as its text', async (
     complete(native.requests[0]);
     await task;
 });
+
+// A body passed in the headers' place (#334) became one header per character,
+// and a long one exceeded Hermes' property limit and threw from fetch itself.
+test('headers that are not an object reject EINVAL without reaching native', async () => {
+    for (const headers of ['aGVsbG8=', ['X-Test', 'a'], 42]) {
+        native.reset();
+        const task = fetch('POST', 'https://example.test/upload', headers, 'text');
+        await assert.rejects(task, {code: 'EINVAL', message: /headers/});
+        assert.equal(native.requests.length, 0);
+        assert.equal(native.listenerCount(), 0);
+    }
+});
