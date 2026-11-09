@@ -117,6 +117,10 @@ class ReactNativeBlobUtilImpl {
 
             if (chooserTitle != null) {
                 intent = Intent.createChooser(intent, chooserTitle);
+                // The chooser is a new intent without the flag set above, and starting
+                // one from the application context without it throws, so every call
+                // with a title rejected (#486).
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             }
 
             try {
