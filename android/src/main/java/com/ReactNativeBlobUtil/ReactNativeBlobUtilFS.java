@@ -33,6 +33,7 @@ import java.io.ByteArrayOutputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -654,10 +655,13 @@ class ReactNativeBlobUtilFS {
                 promise.reject("ENOTDIR", "Not a directory '" + path + "'");
                 return;
             }
+            // list() is null for a directory that cannot be read, too (#425).
             String[] files = new File(path).list();
+            if (files == null) {
+                promise.reject("EUNSPECIFIED", "Cannot read directory '" + path + "'");
+                return;
+            }
             WritableArray arg = Arguments.createArray();
-            // File => list(): "If this abstract pathname does not denote a directory, then this method returns null."
-            // We excluded that possibility above - ignore the "can produce NullPointerException" warning of the IDE.
             for (String i : files) {
                 arg.pushString(i);
             }
@@ -726,30 +730,48 @@ class ReactNativeBlobUtilFS {
         new AsyncTask<String, Integer, Integer>() {
             @Override
             protected Integer doInBackground(String... args) {
-                WritableArray res = Arguments.createArray();
-                if (args[0] == null) {
-                    callback.invoke("the path specified for lstat is either `null` or `undefined`.");
-                    return 0;
+                try {
+                    lstatIn(args[0], callback);
+                } catch (Exception e) {
+                    // Thrown here, on AsyncTask's thread, an exception ended the app.
+                    callback.invoke(e.getLocalizedMessage());
                 }
-                File src = new File(args[0]);
-                if (!src.exists()) {
-                    callback.invoke("failed to lstat path `" + args[0] + "` because it does not exist or it is not a folder");
-                    return 0;
-                }
-                if (src.isDirectory()) {
-                    String[] files = src.list();
-                    // File => list(): "If this abstract pathname does not denote a directory, then this method returns null."
-                    // We excluded that possibility above - ignore the "can produce NullPointerException" warning of the IDE.
-                    for (String p : files) {
-                        res.pushMap(statFile(src.getPath() + "/" + p));
-                    }
-                } else {
-                    res.pushMap(statFile(src.getAbsolutePath()));
-                }
-                callback.invoke(null, res);
                 return 0;
             }
         }.execute(path);
+    }
+
+    /** lstat's work, off AsyncTask so a test can reach it. */
+    static void lstatIn(String target, Callback callback) {
+        if (target == null) {
+            callback.invoke("the path specified for lstat is either `null` or `undefined`.");
+            return;
+        }
+        File src = new File(target);
+        if (!src.exists()) {
+            callback.invoke("failed to lstat path `" + target + "` because it does not exist or it is not a folder");
+            return;
+        }
+        List<String> paths = new ArrayList<>();
+        if (src.isDirectory()) {
+            // list() is null for a directory that cannot be read, too; iterating it threw
+            // on AsyncTask's thread and ended the app (#425).
+            String[] files = src.list();
+            if (files == null) {
+                callback.invoke("failed to lstat path `" + target + "` because the folder cannot be read");
+                return;
+            }
+            for (String p : files) {
+                paths.add(src.getPath() + "/" + p);
+            }
+        } else {
+            paths.add(src.getAbsolutePath());
+        }
+        WritableArray res = Arguments.createArray();
+        for (String p : paths) {
+            res.pushMap(statFile(p));
+        }
+        callback.invoke(null, res);
     }
 
     /**
