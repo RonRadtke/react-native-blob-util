@@ -10,6 +10,7 @@
 #import "ReactNativeBlobUtilConst.h"
 #import "ReactNativeBlobUtilReqBuilder.h"
 #import "ReactNativeBlobUtilProgress.h"
+#import <React/RCTUtils.h>
 
 #if RCT_NEW_ARCH_ENABLED
 #import <ReactNativeBlobUtilSpec/ReactNativeBlobUtilSpec.h>
@@ -817,12 +818,14 @@ RCT_EXPORT_METHOD(presentOptionsMenu:(NSString*)uri scheme:(NSString *)scheme re
     NSURL * url = [[NSURL alloc] initWithString:utf8uri];
     // NSURL * url = [[NSURL alloc] initWithString:uri];
     documentController = [UIDocumentInteractionController interactionControllerWithURL:url];
-    UIViewController *rootCtrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
     documentController.delegate = self;
     if(scheme == nil || [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:scheme]]) {
       CGRect rect = CGRectMake(0.0, 0.0, 0.0, 0.0);
       dispatch_sync(dispatch_get_main_queue(), ^{
-          [documentController  presentOptionsMenuFromRect:rect inView:rootCtrl.view animated:YES];
+          // The controller on top, through the key window's scene: with the UIScene life
+          // cycle the app delegate has no window (#498), and UIKit does not present from
+          // a controller that is already presenting a modal (#311).
+          [documentController  presentOptionsMenuFromRect:rect inView:RCTPresentedViewController().view animated:YES];
       });
         resolve(@[[NSNull null]]);
     } else {
@@ -846,12 +849,14 @@ RCT_EXPORT_METHOD(presentOpenInMenu:(NSString*)uri scheme:(NSString *)scheme res
     NSString * utf8uri = [uri stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
     NSURL * url = [[NSURL alloc] initWithString:utf8uri];
     documentController = [UIDocumentInteractionController interactionControllerWithURL:url];
-    UIViewController *rootCtrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
     documentController.delegate = self;
     if(scheme == nil || [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:scheme]]) {
       CGRect rect = CGRectMake(0.0, 0.0, 0.0, 0.0);
       dispatch_sync(dispatch_get_main_queue(), ^{
-          [documentController  presentOpenInMenuFromRect:rect inView:rootCtrl.view animated:YES];
+          // The controller on top, through the key window's scene: with the UIScene life
+          // cycle the app delegate has no window (#498), and UIKit does not present from
+          // a controller that is already presenting a modal (#311).
+          [documentController  presentOpenInMenuFromRect:rect inView:RCTPresentedViewController().view animated:YES];
       });
         resolve(@[[NSNull null]]);
     } else {
@@ -922,8 +927,7 @@ RCT_EXPORT_METHOD(df:(RCTResponseSenderBlock)callback)
 
 - (UIViewController *)documentInteractionControllerViewControllerForPreview: (UIDocumentInteractionController *) controller
 {
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    return window.rootViewController;
+    return RCTPresentedViewController();
 }
 
 # pragma mark - Android Only methods
