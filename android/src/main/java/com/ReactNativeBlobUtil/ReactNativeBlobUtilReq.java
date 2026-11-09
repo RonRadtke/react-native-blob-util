@@ -55,6 +55,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import java.util.UUID;
 
@@ -605,18 +607,7 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
             });
 
 
-            if (options.timeout >= 0) {
-                clientBuilder.connectTimeout(options.timeout, TimeUnit.MILLISECONDS);
-            }
-            // For file-to-disk downloads use no read timeout: the 60-second default
-            // can fire on slow connections before a large file finishes transferring.
-            // Individual socket reads on a healthy connection take milliseconds, so
-            // there is no risk of hanging indefinitely; the user can always cancel().
-            if (responseType == ResponseType.FileStorage) {
-                clientBuilder.readTimeout(0, TimeUnit.MILLISECONDS);
-            } else if (options.timeout >= 0) {
-                clientBuilder.readTimeout(options.timeout, TimeUnit.MILLISECONDS);
-            }
+            applyTimeouts(clientBuilder, options.timeout, responseType == ResponseType.FileStorage);
 
             clientBuilder.connectionPool(pool);
             clientBuilder.followRedirects(options.followRedirect);
@@ -662,8 +653,17 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
                             scannable = notifyConfig.getBoolean("mediaScannable");
                         if (notifyConfig.hasKey("notification"))
                             notification = notifyConfig.getBoolean("notification");
-                        DownloadManager dm = (DownloadManager) ReactNativeBlobUtilImpl.RCTContext.getSystemService(ReactNativeBlobUtilImpl.RCTContext.DOWNLOAD_SERVICE);
-                        dm.addCompletedDownload(title, desc, scannable, mime, destPath, contentLength, notification);
+                        CompletedDownload download = completedDownload(title, desc, mime, destPath);
+                        if (download != null) {
+                            try {
+                                DownloadManager dm = (DownloadManager) ReactNativeBlobUtilImpl.RCTContext.getSystemService(ReactNativeBlobUtilImpl.RCTContext.DOWNLOAD_SERVICE);
+                                dm.addCompletedDownload(download.title, download.description, scannable, download.mime, download.path, contentLength, notification);
+                            } catch (Exception e) {
+                                // Only the entry in the Downloads app failed; the response itself is fine.
+                                // Thrown here, on OkHttp's thread, it ended the app (#390).
+                                ReactNativeBlobUtilUtils.emitWarningEvent("ReactNativeBlobUtil could not add the download to the Downloads app: " + e.getMessage());
+                            }
+                        }
                     }
 
                     done(response);
@@ -878,8 +878,8 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
         // A request that times out fails through onFailure and never gets here.
         info.putBoolean("timeout", false);
         WritableMap headers = Arguments.createMap();
-        for (int i = 0; i < resp.headers().size(); i++) {
-            headers.putString(resp.headers().name(i), resp.headers().value(i));
+        for (Map.Entry<String, String> field : headerFields(resp.headers()).entrySet()) {
+            headers.putString(field.getKey(), field.getValue());
         }
         WritableArray redirectList = Arguments.createArray();
         for (String r : redirects) {
@@ -1018,6 +1018,85 @@ public class ReactNativeBlobUtilReq extends BroadcastReceiver implements Runnabl
 
             }
         }
+    }
+
+    /**
+     * Applies the `timeout` option, in milliseconds; a negative one leaves the
+     * base client's timeouts. It bounds connecting and each write, so an upload
+     * whose body the server stops reading fails. The write timeout used to be left
+     * alone, and React Native's base client has none, so such an upload hung for
+     * good (#384). It bounds each read too, except for a download to a file: the
+     * 60-second default fired on slow connections before a large file finished, so
+     * a file download has no read timeout and cancel() ends one that stalls.
+     */
+    static OkHttpClient.Builder applyTimeouts(OkHttpClient.Builder builder, long timeout, boolean toFile) {
+        if (timeout >= 0) {
+            builder.connectTimeout(timeout, TimeUnit.MILLISECONDS);
+            builder.writeTimeout(timeout, TimeUnit.MILLISECONDS);
+        }
+        if (toFile) {
+            builder.readTimeout(0, TimeUnit.MILLISECONDS);
+        } else if (timeout >= 0) {
+            builder.readTimeout(timeout, TimeUnit.MILLISECONDS);
+        }
+        return builder;
+    }
+
+    /**
+     * The response headers as JS gets them: one entry per name, with a repeated
+     * field's values joined by ", ", as iOS's allHeaderFields and fetch's
+     * Headers.get do. Each repetition used to replace the one before, so of two
+     * Set-Cookie headers only the last reached JS (#377).
+     */
+    static Map<String, String> headerFields(Headers headers) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        for (String name : headers.names()) {
+            StringBuilder joined = new StringBuilder();
+            for (String value : headers.values(name)) {
+                if (joined.length() > 0) {
+                    joined.append(", ");
+                }
+                joined.append(value);
+            }
+            fields.put(name, joined.toString());
+        }
+        return fields;
+    }
+
+    /** What a finished download is listed under in the Downloads app. */
+    static final class CompletedDownload {
+        final String title;
+        final String description;
+        final String mime;
+        final String path;
+
+        CompletedDownload(String title, String description, String mime, String path) {
+            this.title = title;
+            this.description = description;
+            this.mime = mime;
+            this.path = path;
+        }
+    }
+
+    /**
+     * The Downloads-app entry for `addAndroidDownloads` without the DownloadManager,
+     * or null when the response went to no file. DownloadManager.addCompletedDownload
+     * refuses an empty title, description, MIME type or path with
+     * IllegalArgumentException; title and description defaulted to "", so the call
+     * threw for every config that left them out and ended the app (#390). They
+     * default to the file's name now.
+     */
+    static CompletedDownload completedDownload(String title, String description, String mime, String path) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        String name = new File(path).getName();
+        String shownTitle = title == null || title.isEmpty() ? name : title;
+        return new CompletedDownload(
+            shownTitle,
+            description == null || description.isEmpty() ? shownTitle : description,
+            mime == null || mime.isEmpty() ? "text/plain" : mime,
+            path);
     }
 
     /**
