@@ -381,7 +381,12 @@ export interface AddAndroidDownloads {
     title?: string;
     /** Description shown in the Downloads app. */
     description?: string;
-    /** Destination path; must be on external storage (e.g. DCIMDir). */
+    /**
+     * Destination path on external storage (e.g. `fs.dirs.DownloadDir + '/report.pdf'`).
+     * A file already there is replaced, unless `overwrite` is false: then the
+     * download goes to a new name (`report-1.pdf`), which `res.path()` returns.
+     * Without a destination, `res.path()` is a `content://` URI.
+     */
     path?: string;
     /** MIME type of the file. Default text/plain. */
     mime?: string;
@@ -391,7 +396,7 @@ export interface AddAndroidDownloads {
     storeInDownloads?: boolean;
     /** Show a notification while downloading and when complete. */
     notification?: boolean;
-    /** Store the file in the app's own download directory. */
+    /** Store the file in the app's own download directory (`fs.dirs.DownloadDir`), under a generated name. */
     storeLocal?: boolean;
 }
 

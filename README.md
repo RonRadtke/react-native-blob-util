@@ -467,7 +467,10 @@ progress in a notification and makes the file visible in the Downloads app.
 
 With `downloadManager`, `fileCache` and `path` do not apply: set the destination with
 `downloadManager.path`. The DownloadManager only makes `GET` requests. When it completes,
-`res.path()` is the downloaded file.
+`res.path()` is the file the DownloadManager wrote: the destination you set, or without
+one a `content://` URI that `fs.readFile`, `fs.cp` and `media.copyToMediaStore` read.
+A file already at `downloadManager.path` is replaced; with `overwrite: false` it is kept,
+the download goes to a new name such as `report-1.pdf`, and `res.path()` returns that name.
 
 ```js
 import {config} from 'react-native-blob-util';
@@ -494,12 +497,12 @@ console.log(res.path());
 |---|---|
 | `useDownloadManager` | Download through the DownloadManager. Required for the other options. |
 | `title`, `description` | Shown in the notification and the Downloads app. |
-| `path` | Destination; must be on external storage. |
+| `path` | Destination on external storage, such as `fs.dirs.DownloadDir + '/report.pdf'`. One the DownloadManager does not accept rejects `EACCES`. |
 | `mime` | MIME type of the file. Default `text/plain`. |
 | `mediaScannable` | Let the media scanner index the file. |
 | `notification` | Show a notification while downloading and when complete. |
 | `storeInDownloads` | Android 10+: store the file in the Downloads collection (may override `path`). |
-| `storeLocal` | Store the file in the app's own download directory. |
+| `storeLocal` | Store the file in the app's own download directory (`fs.dirs.DownloadDir`), under a generated name. |
 
 <img src="img/android-notification1.png" width="256">
 <img src="img/android-notification2.png" width="256">

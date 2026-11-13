@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
-import android.provider.MediaStore
 import android.util.Base64
 import android.webkit.CookieManager
 import com.ReactNativeBlobUtil.Response.ReactNativeBlobUtilDefaultResp
@@ -42,11 +41,14 @@ import java.net.InetAddress
 import java.net.MalformedURLException
 import java.net.Proxy
 import java.net.SocketTimeoutException
+import java.net.URI
+import java.net.URISyntaxException
 import java.net.URL
 import java.net.UnknownHostException
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.Charset
+import java.util.Collections
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -89,11 +91,14 @@ class ReactNativeBlobUtilReq(
     private val method: String = method!!.uppercase(Locale.ROOT)
     private val options = ReactNativeBlobUtilConfig(options)
     private var destPath: String? = null
-    private var customPath: String? = null
 
     // Never assigned, as in Java: DownloadManager.addCompletedDownload always receives 0.
     private val contentLength: Long = 0
+    // Set on the module thread, read by onReceive on the main thread.
+    @Volatile
     private var downloadManagerId: Long = 0
+    // storeInDownloads applied: the download goes to the Downloads collection.
+    private var toDownloadsCollection = false
     private var requestBody: ReactNativeBlobUtilBody? = null
     private var requestType: RequestType
     private val responseType: ResponseType
@@ -126,6 +131,9 @@ class ReactNativeBlobUtilReq(
             // Can only process if it's written to a file
             (options.fileCache!! || options.path != null)
 
+    // Synchronized: a DownloadManager download settles on the main thread, and its
+    // cancel on the module thread.
+    @Synchronized
     private fun invokeCallback(vararg args: Any?) {
         if (callbackfired) return
         callback.invoke(*args)
@@ -174,9 +182,12 @@ class ReactNativeBlobUtilReq(
 
                 val cursor: Cursor? = downloadManager.query(query)
 
-                if (cursor != null && cursor.moveToFirst()) {
+                if (cursor != null && !cursor.moveToFirst()) {
+                    cursor.close()
+                } else if (cursor != null) {
 
-                    val written = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)).toLong()
+                    // getLong: getInt cut a count past 2 GB short.
+                    val written = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
 
                     val total = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
                     cursor.close()
@@ -197,7 +208,7 @@ class ReactNativeBlobUtilReq(
                     }
 
                     if (total == written) {
-                        future!!.cancel(true)
+                        future?.cancel(true)
                     }
                 }
             }
@@ -215,114 +226,9 @@ class ReactNativeBlobUtilReq(
         }
         // use download manager instead of default HTTP implementation
         val downloads = options.addAndroidDownloads
-        if (downloads != null && downloads.hasKey("useDownloadManager")) {
-
-            if (downloads.getBoolean("useDownloadManager")) {
-                val uri = Uri.parse(url!!)
-                val req = DownloadManager.Request(uri)
-                if (downloads.hasKey("notification") && downloads.getBoolean("notification")) {
-                    req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                } else {
-                    req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
-                }
-                if (downloads.hasKey("title")) {
-                    req.setTitle(downloads.getString("title"))
-                }
-                if (downloads.hasKey("description")) {
-                    req.setDescription(downloads.getString("description"))
-                }
-                if (downloads.hasKey("path")) {
-                    val path = downloads.getString("path")
-                    val f = File(path)
-                    val dir = f.parentFile
-
-                    if (!f.exists()) {
-                        if (dir != null && !dir.exists()) {
-                            if (!dir.mkdirs() && !dir.exists()) {
-                                fail("ENOTDIR", "Failed to create parent directory of '$path'")
-                                return
-                            }
-                        }
-                    }
-                    req.setDestinationUri(Uri.parse("file://$path"))
-
-                    customPath = path
-                }
-
-
-                if (downloads.hasKey("storeLocal") && downloads.getBoolean("storeLocal")) {
-                    val downloadDir = ReactNativeBlobUtilFS.getSystemfolders(ReactNativeBlobUtilImpl.RCTContext)["DownloadDir"] as String?
-                    val path = downloadDir + UUID.randomUUID().toString()
-
-                    val f = File(path)
-                    val dir = f.parentFile
-                    if (!f.exists()) {
-                        if (dir != null && !dir.exists()) {
-                            if (!dir.mkdirs() && !dir.exists()) {
-                                fail("ENOTDIR", "Failed to create parent directory of '$path'")
-                                return
-                            }
-                        }
-                    }
-                    req.setDestinationUri(Uri.parse("file://$path"))
-                    customPath = path
-                }
-
-                if (downloads.hasKey("mime")) {
-                    req.setMimeType(downloads.getString("mime"))
-                }
-
-                if (downloads.hasKey("mediaScannable") && downloads.getBoolean("mediaScannable")) {
-                    @Suppress("DEPRECATION")
-                    req.allowScanningByMediaScanner()
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && downloads.hasKey("storeInDownloads") && downloads.getBoolean("storeInDownloads")) {
-                    val title = downloads.getString("title")
-                    var t = if (title == null || title.isEmpty()) UUID.randomUUID().toString() else title
-                    val appendExt = options.appendExt
-                    if (appendExt != null && !appendExt.isEmpty())
-                        t += ".$appendExt"
-
-                    req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, t)
-                }
-
-                // set headers
-                val headerKeys = headers!!.keySetIterator()
-                while (headerKeys.hasNextKey()) {
-                    val key = headerKeys.nextKey()
-                    req.addRequestHeader(key, headers.getString(key))
-                }
-
-                // Attempt to add cookie, if it exists
-                try {
-                    val urlObj = URL(url)
-                    val baseUrl = urlObj.protocol + "://" + urlObj.host
-                    val cookie = CookieManager.getInstance().getCookie(baseUrl)
-                    req.addRequestHeader("Cookie", cookie)
-                } catch (e: MalformedURLException) {
-                    e.printStackTrace()
-                }
-
-                val dm = appCtx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                downloadManagerId = dm.enqueue(req)
-                androidDownloadManagerTaskTable[taskId] = downloadManagerId
-                if (Build.VERSION.SDK_INT >= 34) {
-                    appCtx.registerReceiver(this, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
-                } else {
-                    appCtx.registerReceiver(this, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-                }
-                future = scheduledExecutorService.scheduleAtFixedRate(Runnable {
-                    val msg = mHandler.obtainMessage()
-                    val data = Bundle()
-                    data.putLong("downloadManagerId", downloadManagerId)
-                    msg.data = data
-                    msg.what = QUERY
-                    mHandler.sendMessage(msg)
-                }, 0, 100, TimeUnit.MILLISECONDS)
-                return
-            }
-
+        if (downloads != null && downloads.hasKey("useDownloadManager") && downloads.getBoolean("useDownloadManager")) {
+            startDownloadManager(appCtx, downloads)
+            return
         }
 
         // find cached result if `key` property exists
@@ -882,87 +788,185 @@ class ReactNativeBlobUtilReq(
             .emit(ReactNativeBlobUtilConst.EVENT_HTTP_STATE, args)
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
-        if (DownloadManager.ACTION_DOWNLOAD_COMPLETE == action) {
-            val appCtx = ReactNativeBlobUtilImpl.RCTContext.applicationContext
-            // An intent without the id is not ours; it used to crash on extras!!.
-            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
-            if (id == downloadManagerId) {
-                releaseTaskResource() // remove task ID from task map
-                // One receiver per download; it was never unregistered and every finished
-                // download left one behind for the life of the app.
-                try {
-                    appCtx.unregisterReceiver(this)
-                } catch (e: IllegalArgumentException) {
-                    // not registered any more
-                }
+    /**
+     * Hands the download to the DownloadManager; [onReceive] settles it.
+     *
+     * Of `path`, `storeLocal` and `storeInDownloads`, the last one set wins, as when
+     * each was applied to the DownloadManager request in turn. Only the destination
+     * that wins is prepared now, so a `path` that `storeInDownloads` replaces is
+     * neither created nor cleared.
+     *
+     * Anything the DownloadManager throws rejects the request: it throws for a
+     * destination it does not accept (SecurityException "Unsupported path" outside
+     * external storage, IllegalArgumentException for a name with ".." in it) and for
+     * a URL that is not http or https. run() is called on the module thread, so the
+     * exception used to end the app.
+     */
+    private fun startDownloadManager(appCtx: Context, downloads: ReadableMap) {
+        try {
+            val req = DownloadManager.Request(Uri.parse(url!!))
+            if (downloads.hasKey("notification") && downloads.getBoolean("notification")) {
+                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            } else {
+                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
+            }
+            val title = if (downloads.hasKey("title")) downloads.getString("title") else null
+            if (downloads.hasKey("title")) {
+                req.setTitle(title)
+            }
+            if (downloads.hasKey("description")) {
+                req.setDescription(downloads.getString("description"))
+            }
 
-                val query = DownloadManager.Query()
-                query.setFilterById(downloadManagerId)
-                val dm = appCtx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                dm.query(query)
-                val c: Cursor? = dm.query(query)
-                if (c == null) {
-                    invokeCallback("Download manager failed to download from  $url. Query was unsuccessful ", null, null)
+            toDownloadsCollection = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                downloads.hasKey("storeInDownloads") && downloads.getBoolean("storeInDownloads")
+            val storeLocal = downloads.hasKey("storeLocal") && downloads.getBoolean("storeLocal")
+            val target = when {
+                toDownloadsCollection -> null
+                storeLocal -> {
+                    val downloadDir = ReactNativeBlobUtilFS.getSystemfolders(ReactNativeBlobUtilImpl.RCTContext)["DownloadDir"] as String?
+                    if (downloadDir.isNullOrEmpty()) {
+                        fail("ENOENT", "The app's download directory is not available")
+                        releaseTaskResource()
+                        return
+                    }
+                    storeLocalPath(downloadDir, UUID.randomUUID().toString())
+                }
+                downloads.hasKey("path") -> downloads.getString("path")
+                else -> null
+            }
+            if (target != null) {
+                val error = prepareDownloadTarget(File(target), options.overwrite != false)
+                if (error != null) {
+                    fail("ENOTDIR", error)
+                    releaseTaskResource()
                     return
                 }
-
-                var filePath: String? = null
-                try {
-                    // the file exists in media content database
-                    if (c.moveToFirst()) {
-                        val statusCode = c.getInt(c.getColumnIndex(DownloadManager.COLUMN_STATUS))
-                        if (statusCode == DownloadManager.STATUS_FAILED) {
-                            invokeCallback("Download manager failed to download from  $url. Status Code = $statusCode", null, null)
-                            return
-                        }
-                        val contentUri = c.getString(c.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
-                        if (contentUri != null) {
-                            val uri = Uri.parse(contentUri)
-                            @Suppress("DEPRECATION")
-                            val cursor = appCtx.contentResolver.query(uri, arrayOf(MediaStore.Files.FileColumns.DATA), null, null, null)
-                            // use default destination of DownloadManager
-                            if (cursor != null) {
-                                cursor.moveToFirst()
-                                filePath = cursor.getString(0)
-                                cursor.close()
-                            }
-                        }
-                    }
-                } finally {
-                    c.close()
-                }
-
-                // When the file is not found in media content database, check if custom path exists
-                val downloads = options.addAndroidDownloads!!
-                if (downloads.hasKey("path") || downloads.hasKey("storeLocal")) {
-                    try {
-                        val customDest = customPath
-                        val exists = File(customDest).exists()
-                        if (!exists)
-                            throw Exception("Download manager download failed, the file does not downloaded to destination.")
-                        else
-                            invokeCallback(null, ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, customDest)
-
-                    } catch (ex: Exception) {
-                        ex.printStackTrace()
-                        invokeCallback(ex.localizedMessage, null)
-                    }
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && downloads.hasKey("storeInDownloads") && downloads.getBoolean("storeInDownloads")) {
-                    val downloadeduri = dm.getUriForDownloadedFile(downloadManagerId)
-                    if (downloadeduri == null)
-                        invokeCallback("Download manager could not resolve downloaded file uri.", ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, null)
-                    else
-                        invokeCallback(null, ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, downloadeduri.toString())
-                } else {
-                    if (filePath == null)
-                        invokeCallback("Download manager could not resolve downloaded file path.", ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, null)
-                    else
-                        invokeCallback(null, ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, filePath)
-                }
-
+                req.setDestinationUri(Uri.parse(downloadDestination(target)))
             }
+
+            if (downloads.hasKey("mime")) {
+                req.setMimeType(downloads.getString("mime"))
+            }
+
+            if (downloads.hasKey("mediaScannable") && downloads.getBoolean("mediaScannable")) {
+                @Suppress("DEPRECATION")
+                req.allowScanningByMediaScanner()
+            }
+
+            if (toDownloadsCollection) {
+                var t = if (title.isNullOrEmpty()) UUID.randomUUID().toString() else title
+                val appendExt = options.appendExt
+                if (!appendExt.isNullOrEmpty())
+                    t += ".$appendExt"
+
+                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, t)
+            }
+
+            // set headers
+            val headerKeys = headers!!.keySetIterator()
+            while (headerKeys.hasNextKey()) {
+                val key = headerKeys.nextKey()
+                req.addRequestHeader(key, headers.getString(key))
+            }
+
+            // The WebView's cookies for the host, if it has any. CookieManager throws
+            // while no WebView is installed; the download goes ahead without them.
+            try {
+                val urlObj = URL(url)
+                val cookie = CookieManager.getInstance().getCookie(urlObj.protocol + "://" + urlObj.host)
+                if (!cookie.isNullOrEmpty()) {
+                    req.addRequestHeader("Cookie", cookie)
+                }
+            } catch (e: Exception) {
+                // no cookies
+            }
+
+            val dm = appCtx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            // Registered before the download starts, so one that ends at once is not missed.
+            if (Build.VERSION.SDK_INT >= 34) {
+                appCtx.registerReceiver(this, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
+            } else {
+                appCtx.registerReceiver(this, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+            }
+            downloadManagerId = dm.enqueue(req)
+            androidDownloadManagerTaskTable[taskId] = downloadManagerId
+            downloadManagerRequests[taskId] = this
+            future = scheduledExecutorService.scheduleAtFixedRate(Runnable {
+                val msg = mHandler.obtainMessage()
+                val data = Bundle()
+                data.putLong("downloadManagerId", downloadManagerId)
+                msg.data = data
+                msg.what = QUERY
+                mHandler.sendMessage(msg)
+            }, 0, 100, TimeUnit.MILLISECONDS)
+        } catch (e: Exception) {
+            endDownloadManager()
+            fail(if (e is SecurityException) "EACCES" else "EINVAL", e.localizedMessage)
+            releaseTaskResource()
+        }
+    }
+
+    /**
+     * Stops watching a DownloadManager download: the progress poll and the receiver.
+     * The poll's thread used to run on after a download failed or was cancelled, one
+     * thread per download, and the receiver stayed registered after a cancel.
+     */
+    private fun endDownloadManager() {
+        future?.cancel(true)
+        scheduledExecutorService.shutdownNow()
+        downloadManagerRequests.remove(taskId)
+        try {
+            ReactNativeBlobUtilImpl.RCTContext.applicationContext.unregisterReceiver(this)
+        } catch (e: IllegalArgumentException) {
+            // not registered (any more)
+        }
+    }
+
+    /** cancel() of a DownloadManager download, after the download was removed. */
+    private fun downloadManagerCancelled() {
+        endDownloadManager()
+        fail("ECANCELED", "The download was cancelled")
+        releaseTaskResource()
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        if (DownloadManager.ACTION_DOWNLOAD_COMPLETE != intent.action) return
+        // An intent without the id is not ours; it used to crash on extras!!.
+        val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+        if (id != downloadManagerId) return
+
+        // One receiver per download; it used to stay registered for the life of the app.
+        endDownloadManager()
+        releaseTaskResource()
+
+        var status: Int? = null
+        var reason = 0
+        var reported: String? = null
+        try {
+            val dm = ReactNativeBlobUtilImpl.RCTContext.applicationContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            dm.query(DownloadManager.Query().setFilterById(id))?.use { c ->
+                if (c.moveToFirst()) {
+                    status = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                    reason = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                    reported = c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+                }
+            }
+            // A file in the Downloads collection resolves to the URI the DownloadManager
+            // gives the app for it, as before.
+            if (toDownloadsCollection && status == DownloadManager.STATUS_SUCCESSFUL) {
+                reported = dm.getUriForDownloadedFile(id)?.toString()
+            }
+        } catch (e: Exception) {
+            fail("EUNSPECIFIED", "The DownloadManager could not report on the download: ${e.localizedMessage}")
+            return
+        }
+
+        val outcome = downloadManagerOutcome(status, reason, reported)
+        if (outcome.code != null) {
+            fail(outcome.code, outcome.message)
+        } else {
+            invokeCallback(null, ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, outcome.result)
         }
     }
 
@@ -1024,6 +1028,10 @@ class ReactNativeBlobUtilReq(
         @JvmField
         val androidDownloadManagerTaskTable = HashMap<String?, Long>()
 
+        // The DownloadManager downloads still watched, so cancelTask can stop watching them.
+        private val downloadManagerRequests: MutableMap<String?, ReactNativeBlobUtilReq> =
+            Collections.synchronizedMap(HashMap())
+
         internal val progressReport = HashMap<String?, ReactNativeBlobUtilProgressConfig>()
 
         internal val uploadProgressReport = HashMap<String?, ReactNativeBlobUtilProgressConfig>()
@@ -1044,6 +1052,9 @@ class ReactNativeBlobUtilReq(
                 val dm = appCtx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 dm.remove(downloadManagerIdForTaskId)
             }
+            // Not every DownloadManager announces a removed download, and without the
+            // announcement the request went on watching it for good.
+            downloadManagerRequests[taskId]?.downloadManagerCancelled()
         }
 
         /**
@@ -1138,6 +1149,108 @@ class ReactNativeBlobUtilReq(
         @JvmStatic
         internal fun headerFields(headers: Headers): Map<String, String> =
             headers.names().associateWith { headers.values(it).joinToString(", ") }
+
+        /**
+         * The file:// URI that tells the DownloadManager to write to [path]. The path
+         * used to be pasted in as "file://$path", and the DownloadManager decodes the
+         * URI: a "%20" in the name became a space, and a "#" or "?" ended the name as
+         * the start of a fragment or a query. The file went to another name than the
+         * one the request looked for afterwards, and the request failed although the
+         * file had been downloaded (#330).
+         */
+        @JvmStatic
+        internal fun downloadDestination(path: String): String =
+            "file://" + URI(null, null, path, null).toASCIIString()
+
+        /** Where `storeLocal` puts a download: [name] inside the app's download directory. */
+        @JvmStatic
+        internal fun storeLocalPath(downloadDir: String, name: String): String =
+            downloadDir.trimEnd('/') + "/" + name
+
+        /**
+         * Gets [target] ready for the DownloadManager: creates its directory and,
+         * unless [overwrite] is false, deletes a file already there. The DownloadManager
+         * never replaces a file; with one in the way it writes `name-1.ext` next to it,
+         * so a second download to the same path left the first file in place and the
+         * request resolved with it (#325, #249). A file that cannot be deleted stays,
+         * and the download goes to the new name, which the request then reports.
+         * Returns an error message, or null.
+         */
+        @JvmStatic
+        internal fun prepareDownloadTarget(target: File, overwrite: Boolean): String? {
+            val dir = target.parentFile
+            if (dir != null && !dir.isDirectory && !dir.mkdirs() && !dir.isDirectory) {
+                return "Failed to create parent directory of '${target.path}'"
+            }
+            if (overwrite && target.isFile) {
+                target.delete()
+            }
+            return null
+        }
+
+        /**
+         * The path in a file:// URI the DownloadManager reports, decoded; any other
+         * URI (a content:// one) as it is.
+         */
+        @JvmStatic
+        internal fun downloadedFile(localUri: String?): String? {
+            if (localUri.isNullOrEmpty()) return null
+            if (!localUri.startsWith("file:")) return localUri
+            return try {
+                URI(localUri).path
+            } catch (e: URISyntaxException) {
+                // not encoded after all
+                localUri.removePrefix("file://")
+            }
+        }
+
+        /** How a DownloadManager download settles: [result], or [code] and [message]. */
+        internal data class DownloadManagerOutcome(val result: String?, val code: String?, val message: String?)
+
+        /**
+         * How a DownloadManager download settles, from its row once it has ended:
+         * [status] is null when the row is gone, [reported] is where the
+         * DownloadManager says the file is (COLUMN_LOCAL_URI).
+         *
+         * The result is that file, not the destination the request asked for. With a
+         * file already at the destination the DownloadManager writes to a new name
+         * instead (see [prepareDownloadTarget]). Without a destination it keeps the file
+         * in its own cache and reports a content:// URI, which the app can read through
+         * the ContentResolver; the request used to resolve with the file's path in that
+         * cache, which the app cannot open (#299). The request also used to check that
+         * the requested file existed, and failed when the name had changed.
+         */
+        @JvmStatic
+        internal fun downloadManagerOutcome(status: Int?, reason: Int, reported: String?): DownloadManagerOutcome {
+            when (status) {
+                null -> return DownloadManagerOutcome(null, "ECANCELED", "The download was removed before it finished")
+                DownloadManager.STATUS_SUCCESSFUL -> {}
+                DownloadManager.STATUS_FAILED -> return DownloadManagerOutcome(
+                    null,
+                    "EUNSPECIFIED",
+                    "The DownloadManager could not download the file: ${downloadManagerReason(reason)}",
+                )
+                else -> return DownloadManagerOutcome(null, "EUNSPECIFIED", "The DownloadManager ended the download with status $status")
+            }
+            val result = downloadedFile(reported)
+                ?: return DownloadManagerOutcome(null, "EUNSPECIFIED", "The DownloadManager did not report where it stored the file")
+            return DownloadManagerOutcome(result, null, null)
+        }
+
+        /** COLUMN_REASON of a failed download, in words: an HTTP status or an ERROR_ constant. */
+        @JvmStatic
+        internal fun downloadManagerReason(reason: Int): String = when (reason) {
+            in 100..599 -> "HTTP $reason"
+            DownloadManager.ERROR_CANNOT_RESUME -> "the download could not be resumed"
+            DownloadManager.ERROR_DEVICE_NOT_FOUND -> "no external storage was found"
+            DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "the file already exists"
+            DownloadManager.ERROR_FILE_ERROR -> "the file could not be written"
+            DownloadManager.ERROR_HTTP_DATA_ERROR -> "the connection failed while receiving data"
+            DownloadManager.ERROR_INSUFFICIENT_SPACE -> "there is not enough space"
+            DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "too many redirects"
+            DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "the server answered with an HTTP code it does not handle"
+            else -> "reason $reason"
+        }
 
         /** What a finished download is listed under in the Downloads app. */
         internal data class CompletedDownload(val title: String, val description: String, val mime: String, val path: String)

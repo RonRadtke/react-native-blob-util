@@ -363,6 +363,18 @@ POST no longer goes out on a connection a server that closes idle ones after 5 s
 (Node's default) has already closed. `respInfo.timeout` on a response is always
 `false`; it was only ever `true` after a resend that succeeded.
 
+### DownloadManager downloads (Android, 1.2.0)
+
+`res.path()` of an `android.downloadManager` download is the file the DownloadManager
+wrote, as it reports it:
+
+| Download | Before | 1.2.0 |
+|---|---|---|
+| To a `path` where a file already is | went to `name-1.ext`; `res.path()` was the old file | the old file is replaced and the download keeps the name. With `overwrite: false` the old file stays, the download goes to `name-1.ext`, and `res.path()` says so |
+| Without `path`, `storeLocal` or `storeInDownloads` | `res.path()` was a path in the DownloadManager's own cache, which the app cannot open | a `content://downloads/…` URI the app can read: `fs.readFile`, `fs.cp`, `media.copyToMediaStore` |
+| With `storeLocal` | the file was written next to `fs.dirs.DownloadDir`, as `Download<uuid>` | inside `fs.dirs.DownloadDir` |
+| That fails or is removed | rejected `EUNSPECIFIED` with "Status Code = 16" | a failure rejects `EUNSPECIFIED` with the reason (`HTTP 404`, `there is not enough space`); a download removed before it finished (from the notification, say) rejects `ECANCELED` |
+
 ### TLS and other hardening (Android)
 
 - `trusty: true` keeps hostname verification. It used to install an accept-all
