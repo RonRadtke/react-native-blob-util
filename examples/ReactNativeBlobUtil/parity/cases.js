@@ -46,6 +46,13 @@ const DIR_KEYS = [
     'LegacyDownloadDir',
     'LegacyMovieDir',
     'LegacySDCardDir',
+    // Last on purpose. On Android the temporary directory IS the cache
+    // directory, so CacheDir above already masks it and android.json keeps
+    // recording <CacheDir>; on iOS it is the container's tmp/, which nothing
+    // else masks - without this the golden carries a real
+    // /Users/<name>/Library/Developer/CoreSimulator/... path and only compares
+    // on the machine that recorded it.
+    'TemporaryDir',
 ];
 
 // ---------------------------------------------------------------------------

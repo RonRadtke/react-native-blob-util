@@ -557,7 +557,8 @@
       "status": 200,
       "taskId": "string"
     },
-    "sawStateChange": true
+    "sawStateChange": true,
+    "stateCount": 1
   },
   "fetch-status": {
     "s201": {
@@ -636,6 +637,342 @@
       }
     }
   },
+  "fs-bytes": {
+    "appendBuffer": {
+      "resolved": 2
+    },
+    "appendView": {
+      "resolved": 2
+    },
+    "createBytes": {
+      "resolved": "<undefined>"
+    },
+    "created": {
+      "resolved": "hi"
+    },
+    "empty": {
+      "resolved": {
+        "bytes": [],
+        "kind": "Uint8Array"
+      }
+    },
+    "readBytes": {
+      "resolved": {
+        "bytes": [
+          0,
+          1,
+          254,
+          255,
+          7,
+          8,
+          2,
+          3
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "readBytesOption": {
+      "resolved": {
+        "bytes": [
+          0,
+          1,
+          254,
+          255,
+          7,
+          8,
+          2,
+          3
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "writeTyped": {
+      "resolved": 4
+    }
+  },
+  "fs-cp-dir": {
+    "copy": {
+      "resolved": "<undefined>"
+    },
+    "emptyDirectory": {
+      "resolved": []
+    },
+    "missingParent": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "The file “src” doesn’t exist.",
+        "name": "Error"
+      }
+    },
+    "ontoDirectory": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "“src” couldn’t be copied to “fs-cp-dir” because an item with the same name already exists.",
+        "name": "Error"
+      }
+    },
+    "ontoFile": {
+      "resolved": "<undefined>"
+    },
+    "ontoFileResult": {
+      "resolved": true
+    },
+    "sourceKept": {
+      "resolved": {
+        "a.txt": "YQ==",
+        "sub/": "dir",
+        "sub/b.txt": "YmI=",
+        "sub/deeper/": "dir",
+        "sub/deeper/c.bin": "AAEC"
+      }
+    },
+    "tree": {
+      "resolved": {
+        "a.txt": "YQ==",
+        "sub/": "dir",
+        "sub/b.txt": "YmI=",
+        "sub/deeper/": "dir",
+        "sub/deeper/c.bin": "AAEC"
+      }
+    }
+  },
+  "fs-created": {
+    "directory": "number:epoch-ms",
+    "file": "number:epoch-ms",
+    "lsEntry": "number:epoch-ms"
+  },
+  "fs-dirs-1.2": {
+    "ExternalCacheDir": "",
+    "RoamingDir": "",
+    "TemporaryDir": "<TemporaryDir>",
+    "externalDirs": {
+      "resolved": {
+        "allStrings": true,
+        "first": null,
+        "kind": "array"
+      }
+    },
+    "temporaryWritable": {
+      "resolved": "tmp"
+    }
+  },
+  "fs-file-urls": {
+    "copy": {
+      "resolved": "by url"
+    },
+    "cp": {
+      "resolved": "<undefined>"
+    },
+    "exists": {
+      "resolved": true
+    },
+    "gone": {
+      "resolved": false
+    },
+    "hash": {
+      "resolved": "<md5>"
+    },
+    "ls": {
+      "resolved": [
+        "a b#1 %20.txt"
+      ]
+    },
+    "readByPath": {
+      "resolved": "by url"
+    },
+    "readByUrl": {
+      "resolved": "by url"
+    },
+    "stat": {
+      "resolved": "a b#1 %20.txt"
+    },
+    "unlink": {
+      "resolved": "<undefined>"
+    },
+    "write": {
+      "resolved": 6
+    }
+  },
+  "fs-read-range": {
+    "all": {
+      "resolved": [
+        104,
+        233,
+        0,
+        65533,
+        65
+      ]
+    },
+    "allBase64": {
+      "resolved": "aMOpAP9B"
+    },
+    "ascii": {
+      "resolved": [
+        0,
+        255,
+        65
+      ]
+    },
+    "brokenCharacter": {
+      "resolved": [
+        104,
+        65533
+      ]
+    },
+    "bytes": {
+      "resolved": {
+        "bytes": [
+          195,
+          169,
+          0
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "directory": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/fs-read-range' is a directory",
+        "name": "Error"
+      }
+    },
+    "lengthPastTheEnd": {
+      "resolved": "QQ=="
+    },
+    "middle": {
+      "resolved": "w6k="
+    },
+    "missing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/fs-read-range/missing.bin'",
+        "name": "Error"
+      }
+    },
+    "negative": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"position\" and \"length\" must be whole numbers, 0 or more",
+        "name": "TypeError"
+      }
+    },
+    "pastTheEnd": {
+      "resolved": ""
+    },
+    "tail": {
+      "resolved": "/0E="
+    },
+    "zeroLength": {
+      "resolved": ""
+    }
+  },
+  "fs-touch": {
+    "afterTimes": {
+      "resolved": {
+        "created": 1400000000000,
+        "lastModified": 1600000000000,
+        "size": 4
+      }
+    },
+    "badTime": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"mtime\" and \"ctime\" must be a Date or milliseconds since the epoch",
+        "name": "TypeError"
+      }
+    },
+    "contentKept": {
+      "resolved": "kept"
+    },
+    "create": {
+      "resolved": "<undefined>"
+    },
+    "created": {
+      "resolved": {
+        "created": 1500000000000,
+        "lastModified": 1500000000000,
+        "size": 0
+      }
+    },
+    "directory": {
+      "resolved": "<undefined>"
+    },
+    "directoryTime": {
+      "resolved": 1500000000000
+    },
+    "missingDirectory": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Cannot create the directory of '<DocumentDir>/parity/fs-touch/no/such.txt'",
+        "name": "Error"
+      }
+    },
+    "now": {
+      "resolved": "number:epoch-ms"
+    },
+    "times": {
+      "resolved": "<undefined>"
+    }
+  },
+  "fs-write-range": {
+    "afterAppend": {
+      "resolved": "abXYef!"
+    },
+    "afterBytes": {
+      "resolved": "AQJYWWVmIQAAeg=="
+    },
+    "afterOverwrite": {
+      "resolved": "abXYef"
+    },
+    "afterPastTheEnd": {
+      "resolved": "YWJYWWVmIQAAeg=="
+    },
+    "afterUtf8": {
+      "resolved": "AQJYw6lmIQAAeg=="
+    },
+    "append": {
+      "resolved": 1
+    },
+    "badPosition": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"position\" must be a whole number, 0 or more",
+        "name": "TypeError"
+      }
+    },
+    "bytes": {
+      "resolved": 2
+    },
+    "directory": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/fs-write-range' is a directory",
+        "name": "Error"
+      }
+    },
+    "missingDirectory": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Cannot create the directory of '<DocumentDir>/parity/fs-write-range/no/such/dir.txt'",
+        "name": "Error"
+      }
+    },
+    "newFile": {
+      "resolved": 5
+    },
+    "newFileContent": {
+      "resolved": "fresh"
+    },
+    "overwrite": {
+      "resolved": 2
+    },
+    "pastTheEnd": {
+      "resolved": 1
+    },
+    "utf8": {
+      "resolved": 2
+    }
+  },
   "hash-algorithms": {
     "md5": {
       "bytes": {
@@ -693,6 +1030,47 @@
       }
     }
   },
+  "ios-attributes": {
+    "badProtection": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Unsupported protection \"secret\", expected one of complete, completeUnlessOpen, untilFirstAuth, none",
+        "name": "TypeError"
+      }
+    },
+    "bundlePathMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No bundle named 'NoSuchBundleForParity.bundle' in the main bundle",
+        "name": "Error"
+      }
+    },
+    "cpProtected": {
+      "resolved": "<undefined>"
+    },
+    "missing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/ios-attributes/missing.txt'",
+        "name": "Error"
+      }
+    },
+    "mkdirProtected": {
+      "resolved": "<undefined>"
+    },
+    "readBack": {
+      "resolved": "secret"
+    },
+    "setAttributes": {
+      "resolved": "<undefined>"
+    },
+    "setNone": {
+      "resolved": "<undefined>"
+    },
+    "writeProtected": {
+      "resolved": 6
+    }
+  },
   "ios-misc": {
     "excludeFromBackupKey": {
       "resolved": "<undefined>"
@@ -731,6 +1109,7 @@
       {
         "filename": "a.txt",
         "keys": [
+          "created",
           "filename",
           "lastModified",
           "path",
@@ -748,6 +1127,7 @@
       {
         "filename": "b.txt",
         "keys": [
+          "created",
           "filename",
           "lastModified",
           "path",
@@ -765,6 +1145,7 @@
       {
         "filename": "sub",
         "keys": [
+          "created",
           "filename",
           "lastModified",
           "path",
@@ -962,6 +1343,7 @@
   "stat-dir": {
     "filename": "stat-dir",
     "keys": [
+      "created",
       "filename",
       "lastModified",
       "path",
@@ -976,6 +1358,7 @@
   "stat-file": {
     "filename": "a.txt",
     "keys": [
+      "created",
       "filename",
       "lastModified",
       "path",
