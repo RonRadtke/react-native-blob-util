@@ -366,6 +366,14 @@ class ReactNativeBlobUtilReq(
                 }
             }
 
+            // A resumed download asks for the rest of the file. The bytes on disk are
+            // the identity encoding (OkHttp unpacks gzip), so the range must be too.
+            if (options.rangeFrom >= 0 && responseType == ResponseType.FileStorage) {
+                builder.header("range", "bytes=${options.rangeFrom}-")
+                builder.header("accept-encoding", "identity")
+                options.rangeIfRange?.let { builder.header("if-range", it) }
+            }
+
             // Any method but GET and HEAD sends a body it is given (DELETE and OPTIONS
             // used to drop theirs); POST, PUT and PATCH send an empty one without.
             val sendsBody = !method.equals("get", ignoreCase = true) && !method.equals("head", ignoreCase = true) &&
@@ -572,6 +580,7 @@ class ReactNativeBlobUtilReq(
                     response.body!!,
                     destPath,
                     options.overwrite!!,
+                    ReactNativeBlobUtilFileResp.rangeMode(options.rangeFrom, response.code, response.header("Content-Range")),
                 ).also { fileResponse = it }
             }
             response.newBuilder().body(extended).build()

@@ -15,6 +15,7 @@ import okio.buffer
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 
 /**
  * Created by wkh237 on 2016/7/11.
@@ -28,24 +29,51 @@ class ReactNativeBlobUtilFileResp : ResponseBody {
     private var rctContext: ReactApplicationContext? = null
     private var ofStream: FileOutputStream? = null
     private var isEndMarkerReceived = false
+    /** Bytes already on disk that a resumed download continues after; progress counts on from them. */
+    private var progressOffset: Long = 0
+    /** A resumed download whose answer is not the file: the body is read but not written. */
+    private var discard = false
 
     constructor(body: ResponseBody) : super() {
         this.originalBody = body
     }
 
+    /**
+     * @param rangeMode for a resumed download, what to do with the body (rangeMode());
+     *                  REPLACE for any other request.
+     */
     @Throws(IOException::class)
-    constructor(ctx: ReactApplicationContext?, taskId: String?, body: ResponseBody, path: String?, overwrite: Boolean) : super() {
+    constructor(
+        ctx: ReactApplicationContext?,
+        taskId: String?,
+        body: ResponseBody,
+        path: String?,
+        overwrite: Boolean,
+        rangeMode: Long = REPLACE,
+    ) : super() {
         this.rctContext = ctx
         this.mTaskId = taskId
         this.originalBody = body
         this.mPath = path
         this.isEndMarkerReceived = false
         if (path != null) {
-            val appendToExistingFile = !overwrite
             val cleaned = path.replace("?append=true", "")
             mPath = cleaned
-            val f = prepareOutputFile(cleaned)
-            ofStream = FileOutputStream(f, appendToExistingFile)
+            when {
+                // An error status, or a range the server got wrong: the file on disk stays as it is.
+                rangeMode == DISCARD -> discard = true
+                rangeMode >= 0 -> {
+                    // 206 from the offset asked for: the body continues the file there.
+                    val f = prepareOutputFile(cleaned)
+                    RandomAccessFile(f, "rw").use { it.setLength(rangeMode) }
+                    progressOffset = rangeMode
+                    ofStream = FileOutputStream(f, true)
+                }
+                else -> {
+                    val f = prepareOutputFile(cleaned)
+                    ofStream = FileOutputStream(f, !overwrite)
+                }
+            }
         }
     }
 
@@ -85,7 +113,7 @@ class ReactNativeBlobUtilFileResp : ResponseBody {
                 if (read > 0) {
                     // A body without an output file fails here, as the Java version
                     // did, and the catch below turns that into an IOException.
-                    ofStream!!.write(bytes, 0, read.toInt())
+                    if (!discard) ofStream!!.write(bytes, 0, read.toInt())
                     // Forward bytes into the Okio sink too. Without this the buffer
                     // stays empty and buffered consumers (byteStream()/source().read())
                     // hit a false EOF after the first 8 KB segment, so any file larger
@@ -105,7 +133,7 @@ class ReactNativeBlobUtilFileResp : ResponseBody {
 
                     if (reportConfig != null && reportConfig.shouldReport(progress /* progress */)) {
                         val (written, total) = progressValues(bytesDownloaded, contentLength(), isEndMarkerReceived)
-                        reportProgress(mTaskId, written, total)
+                        reportProgress(mTaskId, written + progressOffset, if (total < 0) total else total + progressOffset)
                     }
 
                 }
@@ -133,12 +161,36 @@ class ReactNativeBlobUtilFileResp : ResponseBody {
         @Throws(IOException::class)
         override fun close() {
             // Without an output file this throws, as the Java version did.
-            ofStream!!.close()
+            if (!discard) ofStream!!.close()
 
         }
     }
 
     internal companion object {
+        /** rangeMode: write the body as the whole file. */
+        const val REPLACE = -1L
+
+        /** rangeMode: read the body and write none of it. */
+        const val DISCARD = -2L
+
+        /**
+         * What a resumed download does with a response, from its status. Not a
+         * resumed download (rangeFrom -1): REPLACE. 200: the server sent the whole
+         * file (no range support, or If-Range found it changed), so it replaces the
+         * partial one: REPLACE. 206 starting at rangeFrom: continue the file there,
+         * returning rangeFrom. Anything else - an error status, 416, a 206 from
+         * another offset - DISCARD, and fetch.js decides. Pure, so it is unit-tested.
+         */
+        @JvmStatic
+        fun rangeMode(rangeFrom: Long, status: Int, contentRange: String?): Long {
+            if (rangeFrom < 0 || status == 200) return REPLACE
+            if (status == 206) {
+                val start = contentRange?.let { Regex("^\\s*bytes\\s+(\\d+)-").find(it)?.groupValues?.get(1)?.toLongOrNull() }
+                return if (start == rangeFrom) rangeFrom else DISCARD
+            }
+            return DISCARD
+        }
+
         /**
          * The (written, total) a download to a file reports. With a known length,
          * the bytes so far of that length. Without one (a chunked response), the

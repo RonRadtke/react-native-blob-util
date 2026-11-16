@@ -34,6 +34,13 @@ internal class ReactNativeBlobUtilConfig(options: ReadableMap?) {
     var trustSystemCerts: Boolean? = false
     /** What a single request body is - text, base64 or file - as JS decided it. */
     var bodyType: String? = null
+    /**
+     * A resumed download (fetch.js, pause/resume and resumable): ask for the bytes
+     * from rangeFrom on, with If-Range when the first response named a validator.
+     * -1 when the request is not one.
+     */
+    var rangeFrom: Long = -1
+    var rangeIfRange: String? = null
 
     init {
         if (options != null) {
@@ -82,6 +89,11 @@ internal class ReactNativeBlobUtilConfig(options: ReadableMap?) {
             }
             if (options.hasKey("trustSystemCerts")) {
                 trustSystemCerts = options.getBoolean("trustSystemCerts")
+            }
+            val range = if (options.hasKey("range")) options.getMap("range") else null
+            if (range != null && range.hasKey("from")) {
+                rangeFrom = range.getDouble("from").toLong()
+                rangeIfRange = if (range.hasKey("ifRange")) range.getString("ifRange") else null
             }
         }
     }
