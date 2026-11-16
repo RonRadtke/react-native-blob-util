@@ -155,6 +155,43 @@ The wiring between these scenarios and the apps is checked by `npm test`
 app exposes, if the two apps drift apart on the TLS cases, or if a TLS button
 exists that nothing exercises. That runs anywhere, without a device.
 
+## Background downloads, by hand
+
+The `background-download` parity case runs a background download with the app
+open. That the download goes on after the app has ended, and is found again on
+the next start, is checked by hand on each platform, with two throwaway cases
+added locally to `parity/cases.js` (not committed): one that starts
+`config({path, background: {id}}).fetch(...)` against `/range?size=65536&ms=2000`
+(eight seconds) and returns at once, and one that reads `background.list()`, then
+`background.attach(id)`, then the list again and the file's hash.
+
+1. Run the e2e server on its own (`node tests/e2e/server.js`) so it outlives the
+   runs; BITS waits ten minutes before retrying a download whose server went away.
+2. Run the start case.
+3. End the app the way the system does, not the way a user force-quits:
+   - **Android**: `adb shell run-as <package> kill -9 <pid>`. `am force-stop`, and
+     Appium ending a session without `E2E_ANDROID_NO_RESET=1`, put the app in the
+     stopped state, in which Android delivers no broadcasts to it; the download then
+     finishes, and is moved into place on the next start instead.
+   - **iOS**: a test button that calls `exit(0)`. Swiping the app away in the app
+     switcher cancels its background downloads.
+   - **Windows**: end the process.
+4. Wait for the download to end. On Android the receiver moves the file into place
+   while the app is not running (`run-as <package> ls files/...` shows it); a
+   process without UI is started for it, which Appium does not then bring to the
+   front, so end it before the next run.
+5. Run the second case with `E2E_ANDROID_NO_RESET=1` (Appium otherwise clears the
+   app's data): `list()` reports the download `completed`, `attach(id)` resolves with
+   its path, and the record is gone afterwards.
+
+Measured on 2026-11-16: Android 14 emulator (the receiver moved the file two
+seconds after the process was killed) and Windows 11 (BITS completed it while the
+app was closed).
+
+The Android emulator's network path loses bytes of a fast burst from the host (raw
+`nc` on the emulator shows it too, while the host receives the same responses
+intact), so the cases pace their transfers or keep them small.
+
 ## Run-all options
 
 `tests/e2e/run-all.js` supports:

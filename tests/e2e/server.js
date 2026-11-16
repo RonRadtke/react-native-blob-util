@@ -164,10 +164,14 @@ const handleRange = (req, res, url) => {
     log.push({range: req.headers.range ?? null, ifRange: req.headers["if-range"] ?? null});
     RANGE_LOG.set(token, log);
 
-    const size = RANGE_BUFFER.length;
+    // size=<n> serves the first n bytes only.
+    const size = Math.min(RANGE_BUFFER.length, Number(url.searchParams.get("size") || RANGE_BUFFER.length));
+    const file = RANGE_BUFFER.subarray(0, size);
     let start = 0;
     let status = 200;
-    const asked = /^bytes=(\d+)-$/.exec(req.headers.range || "");
+    // bytes=N- and bytes=N-M (BITS asks for closed ranges).
+    const asked = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range || "");
+    let end = size - 1;
     const ifRange = req.headers["if-range"];
     if (asked && url.searchParams.get("noRange") !== "1" && (!ifRange || ifRange === etag)) {
         start = Number(asked[1]);
@@ -176,12 +180,15 @@ const handleRange = (req, res, url) => {
             res.end();
             return;
         }
+        if (asked[2] !== "") {
+            end = Math.min(size - 1, Number(asked[2]));
+        }
         status = 206;
     }
-    const body = RANGE_BUFFER.subarray(start);
+    const body = file.subarray(start, end + 1);
     const headers = {"Content-Type": "application/octet-stream", "Content-Length": body.length, ETag: etag, "Accept-Ranges": "bytes"};
     if (status === 206) {
-        headers["Content-Range"] = `bytes ${start}-${size - 1}/${size}`;
+        headers["Content-Range"] = `bytes ${start}-${end}/${size}`;
     }
     res.writeHead(status, headers);
 
@@ -224,7 +231,8 @@ const handler = async (req, res) => {
         return handleEcho(req, res);
     }
 
-    if (method === "GET" && url.pathname === "/binary") {
+    // HEAD as well: BITS (Windows background downloads) asks for the size first.
+    if ((method === "GET" || method === "HEAD") && url.pathname === "/binary") {
         res.writeHead(200, {
             "Content-Type": "application/octet-stream",
             "Content-Length": BINARY_BUFFER.length,
@@ -250,7 +258,7 @@ const handler = async (req, res) => {
     }
 
     // Answers after `ms` milliseconds, for the timeout and cancel cases.
-    if (method === "GET" && url.pathname === "/slow") {
+    if ((method === "GET" || method === "HEAD") && url.pathname === "/slow") {
         const ms = Math.min(Number(url.searchParams.get("ms") || 3000), 30000);
         setTimeout(() => sendJson(res, 200, { ok: true, waited: ms }), ms);
         return;
@@ -275,7 +283,7 @@ const handler = async (req, res) => {
     if (method === "GET" && url.pathname === "/range/log") {
         return sendJson(res, 200, {requests: RANGE_LOG.get(url.searchParams.get("token") || "") || []});
     }
-    if (method === "GET" && url.pathname === "/range") {
+    if ((method === "GET" || method === "HEAD") && url.pathname === "/range") {
         return handleRange(req, res, url);
     }
 

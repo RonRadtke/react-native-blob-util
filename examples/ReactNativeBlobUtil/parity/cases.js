@@ -1492,6 +1492,60 @@ define('fetch-resumable-cancel', async (ctx) => {
     };
 });
 
+// A download run by the system: it lands at path and its record goes once the
+// task that started it has settled. Ending the app in the middle is a manual
+// check (tests/e2e/README.md); here the app stays.
+define('background-download', async (ctx) => {
+    const {background} = ReactNativeBlobUtil;
+    const dir = await freshDir('background-download');
+    const path = `${dir}/bg.bin`;
+    const id = rangeToken('bg');
+    // Small: the DownloadManager waits long before it retries a download the emulator's
+    // network cut short. /range answers HEAD and ranges, which BITS asks for on Windows.
+    const task = ReactNativeBlobUtil.config({path, background: {id}}).fetch('GET', ctx.url(`/range?token=${id}&size=4096`));
+    const listed = await settle(async () => (await background.list()).filter((t) => t.id === id)
+        .map((t) => ({samePath: t.path === path, url: t.url.endsWith(`/range?token=${id}&size=4096`), state: typeof t.state})));
+    const result = await settle(async () => {
+        const res = await task;
+        return {taskId: res.taskId === id, samePath: res.path() === path, status: res.info().status};
+    });
+    const out = {
+        listed,
+        result,
+        hash: await settleRaw(() => fs.hash(path, 'sha256')),
+        goneFromListOnceSettled: !(await background.list()).some((t) => t.id === id),
+        attachUnknown: await settle(() => background.attach('no-such-background-download')),
+        startTwice: null,
+    };
+
+    // forget() of a running one cancels it and settles the task waiting for it.
+    const slowId = rangeToken('bg-forget');
+    const slow = ReactNativeBlobUtil.config({path: `${dir}/slow.bin`, background: {id: slowId}})
+        .fetch('GET', ctx.url('/slow?ms=8000'));
+    out.startTwice = await settle(async () => {
+        try {
+            await ReactNativeBlobUtil.config({path: `${dir}/again.bin`, background: {id: slowId}}).fetch('GET', ctx.url('/binary'));
+            return 'started';
+        } catch (err) {
+            return err.code;
+        }
+    });
+    out.forget = await settle(() => background.forget(slowId));
+    out.forgottenTask = await settle(() => slow);
+    out.forgottenListed = (await background.list()).some((t) => t.id === slowId);
+    await pause(500);
+    out.forgottenFile = await fs.exists(`${dir}/slow.bin`);
+
+    // cancel() of a running one is the same.
+    const cancelId = rangeToken('bg-cancel');
+    const cancelled = ReactNativeBlobUtil.config({path: `${dir}/cancel.bin`, background: {id: cancelId}})
+        .fetch('GET', ctx.url('/slow?ms=8000'));
+    out.cancel = await settle(() => cancelled.cancel());
+    out.cancelledTask = await settle(() => cancelled);
+    out.cancelledListed = (await background.list()).some((t) => t.id === cancelId);
+    return out;
+});
+
 define('ios-misc', async () => {
     const dir = await freshDir('ios-misc');
     const file = `${dir}/backup.txt`;

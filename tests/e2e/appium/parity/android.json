@@ -321,6 +321,61 @@
       "resolved": "<SDCardDir>"
     }
   },
+  "background-download": {
+    "attachUnknown": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No background download \"no-such-background-download\"",
+        "name": "Error"
+      }
+    },
+    "cancel": {
+      "resolved": "<undefined>"
+    },
+    "cancelledListed": false,
+    "cancelledTask": {
+      "rejected": {
+        "code": "ECANCELED",
+        "message": "canceled",
+        "name": "ReactNativeBlobUtilCanceledFetch"
+      }
+    },
+    "forget": {
+      "resolved": "<undefined>"
+    },
+    "forgottenFile": false,
+    "forgottenListed": false,
+    "forgottenTask": {
+      "rejected": {
+        "code": "ECANCELED",
+        "message": "The background download was forgotten",
+        "name": "Error"
+      }
+    },
+    "goneFromListOnceSettled": true,
+    "hash": {
+      "resolved": "470d1b89fc75293c6793ec18ae42d29a06e47c26fde262729975d35de66bc5b1"
+    },
+    "listed": {
+      "resolved": [
+        {
+          "samePath": true,
+          "state": "string",
+          "url": true
+        }
+      ]
+    },
+    "result": {
+      "resolved": {
+        "samePath": true,
+        "status": 200,
+        "taskId": true
+      }
+    },
+    "startTwice": {
+      "resolved": "EEXIST"
+    }
+  },
   "constants": {
     "ApplicationSupportDir": "",
     "CacheDir": "<CacheDir>",
