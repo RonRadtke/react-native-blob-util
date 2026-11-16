@@ -13,7 +13,9 @@
 #include <winrt/Windows.Security.Cryptography.h>
 #include <winrt/Windows.Security.Cryptography.Core.h>
 #include <winrt/Windows.Web.Http.Filters.h>
+#include <atomic>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -320,7 +322,7 @@ struct ReactNativeBlobUtil
     void addCompleteDownload(::React::JSValue&& config, ::React::ReactPromise<void>&& result) noexcept;
 
     REACT_METHOD(copyToInternal)
-    void copyToInternal(std::string contentUri, std::string destpath, ::React::ReactPromise<std::string>&& result) noexcept;
+    void copyToInternal(std::string contentUri, std::string destpath, ::React::JSValue&& options, ::React::ReactPromise<std::string>&& result) noexcept;
 
     REACT_METHOD(copyToMediaStore)
     void copyToMediaStore(::React::JSValue&& filedata, std::string mt, std::string path, ::React::ReactPromise<std::string>&& result) noexcept;
@@ -331,8 +333,26 @@ struct ReactNativeBlobUtil
     REACT_METHOD(getBlob)
     void getBlob(std::string contentUri, std::string encoding, ::React::ReactPromise<::React::JSValueArray>&& result) noexcept;
 
-    REACT_METHOD(getContentIntent)
-    void getContentIntent(std::string mime, ::React::ReactPromise<std::string>&& result) noexcept;
+    REACT_METHOD(readRange)
+    void readRange(std::string path, double position, double length, ::React::ReactPromise<std::string>&& promise) noexcept;
+
+    REACT_METHOD(writeRange)
+    void writeRange(std::string path, std::string data, double position, ::React::ReactPromise<double>&& promise) noexcept;
+
+    REACT_METHOD(touch)
+    void touch(std::string path, double mtime, double ctime, ::React::ReactPromise<void>&& promise) noexcept;
+
+    REACT_METHOD(setAttributes)
+    void setAttributes(std::string path, ::React::JSValue&& attributes, ::React::ReactPromise<void>&& promise) noexcept;
+
+    REACT_METHOD(bundlePath)
+    void bundlePath(std::string name, ::React::ReactPromise<std::string>&& promise) noexcept;
+
+    REACT_METHOD(getExternalDirs)
+    void getExternalDirs(::React::ReactPromise<::React::JSValueArray>&& promise) noexcept;
+
+    REACT_METHOD(pickFiles)
+    void pickFiles(::React::JSValue&& options, ::React::ReactPromise<::React::JSValueArray>&& promise) noexcept;
 
     REACT_METHOD(getSDCardDir)
     void getSDCardDir(::React::ReactPromise<std::string>&& result) noexcept;
@@ -388,6 +408,26 @@ private:
     const std::string prefix{ "ReactNativeBlobUtil-file://" };
 
     std::mutex m_mutex;
+    // Set while a file picker is open; a second pickFiles rejects EBUSY.
+    std::atomic<bool> m_pickerOpen{ false };
+
+    // The requests that have started and not ended, the send operation of each
+    // once there is one, and the ones cancelled before it existed. cancelRequest
+    // cancels the operation; a cancel that comes while the request is still being
+    // built is remembered and stops it before it is sent.
+    std::mutex m_requestsMutex;
+    std::set<std::string> m_startedRequests;
+    std::set<std::string> m_cancelledRequests;
+    std::map<std::string, winrt::Windows::Foundation::IAsyncInfo> m_sendingRequests;
+
+public:
+    void RequestStarted(std::string const& taskId) noexcept;
+    void RequestEnded(std::string const& taskId) noexcept;
+    bool RequestCancelled(std::string const& taskId) noexcept;
+    // False when the request was cancelled already; the caller cancels the operation.
+    bool RequestSending(std::string const& taskId, winrt::Windows::Foundation::IAsyncInfo const& operation) noexcept;
+    void RequestSent(std::string const& taskId) noexcept;
+private:
     std::map<std::string, ReactNativeBlobUtilProgressConfig> downloadProgressMap;
     std::map<std::string, ReactNativeBlobUtilProgressConfig> uploadProgressMap;
 };

@@ -8,6 +8,7 @@
 #include <winrt/Windows.Storage.FileProperties.h>
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Windows.Storage.h>
+#include <winrt/Windows.Storage.Pickers.h>
 #include <winrt/Windows.Web.Http.h>
 #include <winrt/Windows.Web.Http.Headers.h>
 #include <winrt/windows.web.http.filters.h>
@@ -19,7 +20,9 @@
 #include <filesystem>
 #include <optional>
 #include <string_view>
-#include <sstream> 
+#include <sstream>
+#include <fstream>
+#include <shobjidl_core.h>
 
 using namespace winrt;
 using namespace winrt::Windows::ApplicationModel;
@@ -106,11 +109,80 @@ namespace
         return CryptographicBuffer::DecodeFromBase64String(winrt::to_hstring(clean));
     }
 
+    // Base64 written to a file, read by the rule Android uses: the alphabet, "="
+    // and whitespace are accepted, line breaks and missing padding included, and
+    // anything else is refused (nullopt) rather than skipped, so a payload that is
+    // not base64 at all fails instead of writing nothing. CryptographicBuffer
+    // alone rejected the line breaks and missing padding the other platforms
+    // accept (#267).
+    std::optional<IBuffer> DecodeBase64ForFile(std::string const& text)
+    {
+        for (const char c : text)
+        {
+            const bool alphabet{ (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' };
+            if (!alphabet && c != '=' && c != ' ' && c != '\t' && c != '\r' && c != '\n')
+            {
+                return std::nullopt;
+            }
+        }
+        if (text.find_first_not_of("= \t\r\n") == std::string::npos)
+        {
+            return CryptographicBuffer::CreateFromByteArray(std::vector<uint8_t>{});
+        }
+        return DecodeBase64Leniently(text);
+    }
+
+    // A buffer's bytes as base64; "" for an empty buffer.
+    std::string EncodeBase64(std::vector<uint8_t> const& bytes)
+    {
+        if (bytes.empty())
+        {
+            return "";
+        }
+        return winrt::to_string(CryptographicBuffer::EncodeToBase64String(CryptographicBuffer::CreateFromByteArray(bytes)));
+    }
+
+    // Milliseconds since the Unix epoch as a FILETIME value (100 ns since 1601).
+    LARGE_INTEGER FileTimeOfMillis(double millis)
+    {
+        LARGE_INTEGER value;
+        value.QuadPart = (static_cast<int64_t>(millis) + 11644473600000LL) * 10000LL;
+        return value;
+    }
+
+    // A WinRT DateTime in milliseconds since the Unix epoch.
+    int64_t MillisOf(winrt::Windows::Foundation::DateTime const& time)
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count() - 11644473600000LL;
+    }
+
     // The contents of a request body's file. Throws when it cannot be read.
     IAsyncOperation<IBuffer> readRequestFile(std::string path)
     {
         auto file = co_await StorageFile::GetFileFromPathAsync(nativePath(path));
         co_return co_await FileIO::ReadBufferAsync(file);
+    }
+
+    // Why an upload source could not be read, as (code, message), the codes
+    // Android and iOS report: ENOENT when it is not there, EISDIR for a
+    // directory, EACCES when the app may not read it (#502).
+    std::pair<std::string, std::string> UploadSourceError(std::string const& path, winrt::hresult const& code)
+    {
+        std::error_code ec;
+        const std::filesystem::path target{ nativePath(path).c_str() };
+        if (std::filesystem::is_directory(target, ec))
+        {
+            return { "EISDIR", "Expecting a file but '" + path + "' is a directory" };
+        }
+        if (!std::filesystem::exists(target, ec))
+        {
+            return { "ENOENT", "No such file '" + path + "'" };
+        }
+        if (code == E_ACCESSDENIED)
+        {
+            return { "EACCES", "Not allowed to read '" + path + "'" };
+        }
+        return { "EUNSPECIFIED", "Could not read '" + path + "'" };
     }
 
     // Android's rules: text/* is "text", application/json "json", any other
@@ -896,6 +968,9 @@ namespace winrt::ReactNativeBlobUtil
         constants.LibraryDir = to_string(ApplicationData::Current().LocalFolder().Path());
         constants.ApplicationSupportDir = to_string(ApplicationData::Current().RoamingFolder().Path());
         constants.DCIMDir = to_string(UserDataPaths::GetDefault().CameraRoll());
+        constants.TemporaryDir = to_string(ApplicationData::Current().TemporaryFolder().Path());
+        constants.RoamingDir = to_string(ApplicationData::Current().RoamingFolder().Path());
+        constants.ExternalCacheDir = "";
         // Android only: "" rather than a missing key, as on iOS.
         constants.RingtoneDir = "";
         constants.SDCardDir = "";
@@ -996,7 +1071,16 @@ namespace winrt::ReactNativeBlobUtil
             }
             winrt::Windows::Web::Http::HttpClient httpClient{ filter };
 
+            // Cancelled while it was being built: it is not sent at all.
+            if (RequestCancelled(taskId))
+            {
+                throw winrt::hresult_canceled();
+            }
             auto operation{ httpClient.SendRequestAsync(request) };
+            if (!RequestSending(taskId, operation))
+            {
+                operation.Cancel();
+            }
             WatchProgress(operation, taskId);
             // HttpClient has no timeout of its own: the operation is cancelled
             // when config.timeout runs out, and the caller reports ETIMEDOUT.
@@ -1011,9 +1095,11 @@ namespace winrt::ReactNativeBlobUtil
             catch (...)
             {
                 timer.Cancel();
+                RequestSent(taskId);
                 throw;
             }
             timer.Cancel();
+            RequestSent(taskId);
 
             const int status{ static_cast<int>(response.StatusCode()) };
             const auto location{ response.Headers().TryLookup(L"Location") };
@@ -1104,6 +1190,14 @@ namespace winrt::ReactNativeBlobUtil
             // down with a fast-fail instead of surfacing the error, while the same
             // callback after a suspension reports normally.
             co_await winrt::resume_background();
+            // Known from here until it ends, so a cancel during the build counts.
+            RequestStarted(taskId);
+            struct RequestScope
+            {
+                ReactNativeBlobUtil* module;
+                std::string id;
+                ~RequestScope() { module->RequestEnded(id); }
+            } requestScope{ this, taskId };
 
             winrt::Windows::Foundation::Uri requestUri{ nullptr };
             if (!TryParseRequestUri(url, requestUri))
@@ -1159,13 +1253,21 @@ namespace winrt::ReactNativeBlobUtil
                 IBuffer partBuffer{ nullptr };
                 if (kind == "file")
                 {
-                    // A file that cannot be read leaves the part empty, as on Android and iOS.
+                    // A file that cannot be read fails the request before it is sent.
+                    // The part used to go out empty (#502).
+                    std::optional<std::pair<std::string, std::string>> unreadable;
                     try
                     {
                         partBuffer = co_await readRequestFile(pathOfFileReference(data));
                     }
-                    catch (winrt::hresult_error const&)
+                    catch (winrt::hresult_error const& ex)
                     {
+                        unreadable = UploadSourceError(pathOfFileReference(data), ex.code());
+                    }
+                    if (unreadable)
+                    {
+                        callback(fetchError(unreadable->first, unreadable->second), std::nullopt, std::nullopt, std::nullopt);
+                        co_return;
                     }
                 }
                 else if (kind == "base64")
@@ -1235,6 +1337,14 @@ namespace winrt::ReactNativeBlobUtil
         {
             // Off the caller's thread before anything else - see fetchBlobForm.
             co_await winrt::resume_background();
+            // Known from here until it ends, so a cancel during the build counts.
+            RequestStarted(taskId);
+            struct RequestScope
+            {
+                ReactNativeBlobUtil* module;
+                std::string id;
+                ~RequestScope() { module->RequestEnded(id); }
+            } requestScope{ this, taskId };
 
             winrt::Windows::Foundation::Uri requestUri{ nullptr };
             if (!TryParseRequestUri(url, requestUri))
@@ -1265,12 +1375,19 @@ namespace winrt::ReactNativeBlobUtil
             if (!body.empty() && kind == "file")
             {
                 std::string path = pathOfFileReference(body);
+                std::optional<std::pair<std::string, std::string>> unreadable;
                 try
                 {
                     requestBuffer = co_await readRequestFile(path);
                 }
-                catch (winrt::hresult_error const&)
+                catch (winrt::hresult_error const& ex)
                 {
+                    unreadable = UploadSourceError(path, ex.code());
+                }
+                if (unreadable)
+                {
+                    callback(fetchError(unreadable->first, unreadable->second), std::nullopt, std::nullopt, std::nullopt);
+                    co_return;
                 }
                 if (!requestBuffer)
                 {
@@ -1349,7 +1466,13 @@ namespace winrt::ReactNativeBlobUtil
         }
         else if (encoding.compare("base64") == 0)
         {
-            buffer = CryptographicBuffer::DecodeFromBase64String(content);
+            auto decoded{ DecodeBase64ForFile(winrt::to_string(content)) };
+            if (!decoded)
+            {
+                promise.Reject(rejection("EINVAL", "Invalid base64 data"));
+                co_return;
+            }
+            buffer = *decoded;
         }
         else
         {
@@ -1458,7 +1581,13 @@ namespace winrt::ReactNativeBlobUtil
             }
             else if (encoding.compare("base64") == 0)
             {
-                buffer = Cryptography::CryptographicBuffer::DecodeFromBase64String(data);
+                auto decoded{ DecodeBase64ForFile(winrt::to_string(data)) };
+                if (!decoded)
+                {
+                    promise.Reject(rejection("EINVAL", "Invalid base64 data"));
+                    co_return;
+                }
+                buffer = *decoded;
             }
             else if (encoding.compare("uri") == 0)
             {
@@ -1856,6 +1985,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::stat(
         fileInfo["filename"] = givenPath.filename().string();
         fileInfo["path"] = givenPath.string();
         fileInfo["lastModified"] = static_cast<int64_t>(winrt::clock::to_time_t(properties.DateModified())) * 1000;
+        fileInfo["created"] = static_cast<int64_t>(winrt::clock::to_time_t(item.DateCreated())) * 1000;
         fileInfo["type"] = isDirectory ? "directory" : "file";
 
         promise.Resolve(::React::JSValue{ std::move(fileInfo) });
@@ -1884,6 +2014,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::lstat(
             itemInfo["size"] = properties.Size();
             itemInfo["type"] = item.IsOfType(StorageItemTypes::Folder) ? "directory" : "file";
             itemInfo["lastModified"] = properties.DateModified().time_since_epoch() / std::chrono::milliseconds(1) - UNIX_EPOCH_IN_WINRT_SECONDS * 1000;
+            itemInfo["created"] = item.DateCreated().time_since_epoch() / std::chrono::milliseconds(1) - UNIX_EPOCH_IN_WINRT_SECONDS * 1000;
 
             return itemInfo;
         };
@@ -1930,6 +2061,45 @@ winrt::fire_and_forget ReactNativeBlobUtil::cp(
 {
     try
     {
+        std::filesystem::path from{ nativePath(src).c_str() };
+        std::filesystem::path to{ nativePath(dest).c_str() };
+        std::error_code ec;
+        // A file is not copied into or over a directory; iOS refuses the same.
+        if (std::filesystem::is_directory(to, ec))
+        {
+            promise.Reject(rejection("EEXIST", "Destination '" + dest + "' is a directory"));
+            co_return;
+        }
+        // A directory is copied with everything in it, as iOS's copyItem does.
+        if (std::filesystem::is_directory(from, ec))
+        {
+            if (!std::filesystem::is_directory(to.parent_path(), ec))
+            {
+                promise.Reject(rejection("ENOENT", "Destination directory of '" + dest + "' does not exist"));
+                co_return;
+            }
+            auto const canonicalFrom{ std::filesystem::weakly_canonical(from, ec).wstring() };
+            auto const canonicalTo{ std::filesystem::weakly_canonical(to, ec).wstring() };
+            if (canonicalTo.rfind(canonicalFrom + L"\\", 0) == 0)
+            {
+                promise.Reject(rejection("EINVAL", "Cannot copy '" + src + "' into itself"));
+                co_return;
+            }
+            if (std::filesystem::exists(to, ec) && !std::filesystem::remove(to, ec))
+            {
+                promise.Reject(rejection("EUNSPECIFIED", "Could not replace '" + dest + "'"));
+                co_return;
+            }
+            std::filesystem::copy(from, to, std::filesystem::copy_options::recursive, ec);
+            if (ec)
+            {
+                promise.Reject(rejection("EUNSPECIFIED", ec.message()));
+                co_return;
+            }
+            promise.Resolve();
+            co_return;
+        }
+
         winrt::hstring srcDirectoryPath, srcFileName;
         splitPath(src, srcDirectoryPath, srcFileName);
 
@@ -1957,6 +2127,37 @@ winrt::fire_and_forget ReactNativeBlobUtil::mv(
 {
     try
     {
+        std::filesystem::path from{ nativePath(src).c_str() };
+        std::filesystem::path to{ nativePath(dest).c_str() };
+        std::error_code ec;
+        // A directory is not replaced; iOS and Android refuse the same.
+        if (std::filesystem::is_directory(to, ec))
+        {
+            promise.Reject(rejection("EEXIST", "Destination '" + dest + "' is a directory"));
+            co_return;
+        }
+        // A directory moves as a whole, as on iOS and Android; StorageFile only moves files.
+        if (std::filesystem::is_directory(from, ec))
+        {
+            if (!std::filesystem::is_directory(to.parent_path(), ec))
+            {
+                promise.Reject(rejection("ENOENT", "mv failed because the destination directory doesn't exist"));
+                co_return;
+            }
+            if (std::filesystem::exists(to, ec))
+            {
+                std::filesystem::remove(to, ec);
+            }
+            std::filesystem::rename(from, to, ec);
+            if (ec)
+            {
+                promise.Reject(rejection("EUNSPECIFIED", ec.message()));
+                co_return;
+            }
+            promise.Resolve();
+            co_return;
+        }
+
         winrt::hstring srcDirectoryPath, srcFileName;
         splitPath(src, srcDirectoryPath, srcFileName);
 
@@ -2253,12 +2454,67 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
     }
 }
 
+void ReactNativeBlobUtil::RequestStarted(std::string const& taskId) noexcept
+{
+    std::scoped_lock lock{ m_requestsMutex };
+    m_startedRequests.insert(taskId);
+}
+
+void ReactNativeBlobUtil::RequestEnded(std::string const& taskId) noexcept
+{
+    std::scoped_lock lock{ m_requestsMutex };
+    m_startedRequests.erase(taskId);
+    m_cancelledRequests.erase(taskId);
+    m_sendingRequests.erase(taskId);
+}
+
+bool ReactNativeBlobUtil::RequestCancelled(std::string const& taskId) noexcept
+{
+    std::scoped_lock lock{ m_requestsMutex };
+    return m_cancelledRequests.count(taskId) > 0;
+}
+
+bool ReactNativeBlobUtil::RequestSending(std::string const& taskId, winrt::Windows::Foundation::IAsyncInfo const& operation) noexcept
+{
+    std::scoped_lock lock{ m_requestsMutex };
+    if (m_cancelledRequests.count(taskId) > 0)
+    {
+        return false;
+    }
+    m_sendingRequests.insert_or_assign(taskId, operation);
+    return true;
+}
+
+void ReactNativeBlobUtil::RequestSent(std::string const& taskId) noexcept
+{
+    std::scoped_lock lock{ m_requestsMutex };
+    m_sendingRequests.erase(taskId);
+}
+
 void ReactNativeBlobUtil::cancelRequest(
     std::string taskId,
     ::React::ReactPromise<void>&& promise) noexcept
 {
     try
     {
+        // Nothing registered the requests with m_tasks since the move to the new
+        // architecture, so cancel() stopped nothing on Windows.
+        winrt::Windows::Foundation::IAsyncInfo operation{ nullptr };
+        {
+            std::scoped_lock lock{ m_requestsMutex };
+            if (auto found{ m_sendingRequests.find(taskId) }; found != m_sendingRequests.end())
+            {
+                operation = found->second;
+            }
+            if (m_startedRequests.count(taskId) > 0)
+            {
+                m_cancelledRequests.insert(taskId);
+            }
+        }
+        if (operation)
+        {
+            operation.Cancel();
+        }
         m_tasks.Cancel(taskId);
         promise.Resolve();
     }
@@ -2424,10 +2680,11 @@ void ReactNativeBlobUtil::addCompleteDownload(
 void ReactNativeBlobUtil::copyToInternal(
     std::string contentUri,
     std::string destpath,
+    ::React::JSValue&& options,
     ::React::ReactPromise<std::string>&& result) noexcept
-{    
-    // No-op: Android API
-    result.Resolve("");
+{
+    // JS rejects ENOTSUP before reaching native; this covers a direct call.
+    result.Reject(rejection("ENOTSUP", "ReactNativeBlobUtil.media.copyToInternal is only available on Android and iOS"));
 }
 
 void ReactNativeBlobUtil::copyToMediaStore(
@@ -2458,12 +2715,291 @@ void ReactNativeBlobUtil::getBlob(
     result.Resolve(::React::JSValueArray{});
 }
 
-void ReactNativeBlobUtil::getContentIntent(
-    std::string mime,
-    ::React::ReactPromise<std::string>&& result) noexcept
+void ReactNativeBlobUtil::readRange(
+    std::string path,
+    double position,
+    double length,
+    ::React::ReactPromise<std::string>&& promise) noexcept
 {
-    // No-op: Android API
-    result.Resolve("");
+    try
+    {
+        std::filesystem::path target{ nativePath(path).c_str() };
+        std::error_code ec;
+        if (std::filesystem::is_directory(target, ec))
+        {
+            promise.Reject(rejection("EISDIR", "Expecting a file but '" + path + "' is a directory"));
+            return;
+        }
+        if (!std::filesystem::exists(target, ec))
+        {
+            promise.Reject(rejection("ENOENT", "No such file '" + path + "'"));
+            return;
+        }
+        const uint64_t size{ std::filesystem::file_size(target, ec) };
+        const uint64_t start{ static_cast<uint64_t>(position) };
+        if (ec || start >= size)
+        {
+            promise.Resolve(std::string{});
+            return;
+        }
+        const uint64_t available{ size - start };
+        const uint64_t count{ length < 0 ? available : std::min<uint64_t>(static_cast<uint64_t>(length), available) };
+        std::vector<uint8_t> bytes(static_cast<size_t>(count));
+        std::ifstream input{ target, std::ios::binary };
+        input.seekg(static_cast<std::streamoff>(start));
+        input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(count));
+        if (!input && !input.eof())
+        {
+            promise.Reject(rejection("EUNSPECIFIED", "Could not read '" + path + "'"));
+            return;
+        }
+        bytes.resize(static_cast<size_t>(input.gcount()));
+        promise.Resolve(EncodeBase64(bytes));
+    }
+    catch (const hresult_error& ex)
+    {
+        promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
+    }
+    catch (const std::exception& ex)
+    {
+        promise.Reject(rejection("EUNSPECIFIED", ex.what()));
+    }
+}
+
+void ReactNativeBlobUtil::writeRange(
+    std::string path,
+    std::string data,
+    double position,
+    ::React::ReactPromise<double>&& promise) noexcept
+{
+    try
+    {
+        // Decoded first: bad data leaves the file as it was.
+        auto decoded{ DecodeBase64ForFile(data) };
+        if (!decoded)
+        {
+            promise.Reject(rejection("EINVAL", "Invalid base64 data"));
+            return;
+        }
+        std::vector<uint8_t> bytes;
+        if (decoded->Length() > 0)
+        {
+            winrt::com_array<uint8_t> raw;
+            CryptographicBuffer::CopyToByteArray(*decoded, raw);
+            bytes.assign(raw.begin(), raw.end());
+        }
+
+        std::filesystem::path target{ nativePath(path).c_str() };
+        std::error_code ec;
+        if (std::filesystem::is_directory(target, ec))
+        {
+            promise.Reject(rejection("EISDIR", "Expecting a file but '" + path + "' is a directory"));
+            return;
+        }
+        if (!std::filesystem::is_directory(target.parent_path(), ec))
+        {
+            promise.Reject(rejection("ENOENT", "Directory of '" + path + "' does not exist"));
+            return;
+        }
+        if (!std::filesystem::exists(target, ec))
+        {
+            std::ofstream create{ target, std::ios::binary };
+            if (!create)
+            {
+                promise.Reject(rejection("EUNSPECIFIED", "Could not create '" + path + "'"));
+                return;
+            }
+        }
+        const uint64_t length{ std::filesystem::file_size(target, ec) };
+        const uint64_t start{ position < 0 ? length : static_cast<uint64_t>(position) };
+        std::fstream file{ target, std::ios::binary | std::ios::in | std::ios::out };
+        if (!file)
+        {
+            promise.Reject(rejection("EUNSPECIFIED", "Could not open '" + path + "'"));
+            return;
+        }
+        // A gap past the end is filled with zeros, written rather than left to the file system.
+        if (start > length)
+        {
+            file.seekp(static_cast<std::streamoff>(length));
+            const std::vector<char> zeros(static_cast<size_t>(std::min<uint64_t>(65536, start - length)), 0);
+            for (uint64_t gap{ start - length }; gap > 0;)
+            {
+                const auto step{ std::min<uint64_t>(gap, zeros.size()) };
+                file.write(zeros.data(), static_cast<std::streamsize>(step));
+                gap -= step;
+            }
+        }
+        file.seekp(static_cast<std::streamoff>(start));
+        file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        file.flush();
+        if (!file)
+        {
+            promise.Reject(rejection("EUNSPECIFIED", "Could not write '" + path + "'"));
+            return;
+        }
+        promise.Resolve(static_cast<double>(bytes.size()));
+    }
+    catch (const hresult_error& ex)
+    {
+        promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
+    }
+    catch (const std::exception& ex)
+    {
+        promise.Reject(rejection("EUNSPECIFIED", ex.what()));
+    }
+}
+
+void ReactNativeBlobUtil::touch(
+    std::string path,
+    double mtime,
+    double ctime,
+    ::React::ReactPromise<void>&& promise) noexcept
+{
+    std::filesystem::path target{ nativePath(path).c_str() };
+    std::error_code ec;
+    const bool directory{ std::filesystem::is_directory(target, ec) };
+    if (!directory && !std::filesystem::is_directory(target.parent_path(), ec))
+    {
+        promise.Reject(rejection("ENOENT", "Directory of '" + path + "' does not exist"));
+        return;
+    }
+    CREATEFILE2_EXTENDED_PARAMETERS parameters{};
+    parameters.dwSize = sizeof(parameters);
+    parameters.dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
+    // Needed to open a directory at all.
+    parameters.dwFileFlags = FILE_FLAG_BACKUP_SEMANTICS;
+    // OPEN_ALWAYS creates a missing file empty, as touch does.
+    HANDLE handle{ CreateFile2(target.c_str(), FILE_WRITE_ATTRIBUTES | (directory ? 0 : GENERIC_WRITE),
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, directory ? OPEN_EXISTING : OPEN_ALWAYS, &parameters) };
+    if (handle == INVALID_HANDLE_VALUE)
+    {
+        const DWORD error{ GetLastError() };
+        promise.Reject(rejection(error == ERROR_PATH_NOT_FOUND || error == ERROR_FILE_NOT_FOUND ? "ENOENT"
+            : error == ERROR_ACCESS_DENIED ? "EACCES" : "EUNSPECIFIED", "Could not open '" + path + "'"));
+        return;
+    }
+    // Zero leaves a time as it is.
+    FILE_BASIC_INFO info{};
+    info.LastWriteTime = FileTimeOfMillis(mtime);
+    if (ctime >= 0)
+    {
+        info.CreationTime = FileTimeOfMillis(ctime);
+    }
+    const BOOL set{ SetFileInformationByHandle(handle, FileBasicInfo, &info, sizeof(info)) };
+    CloseHandle(handle);
+    if (!set)
+    {
+        promise.Reject(rejection("EUNSPECIFIED", "Could not set the times of '" + path + "'"));
+        return;
+    }
+    promise.Resolve();
+}
+
+void ReactNativeBlobUtil::setAttributes(
+    std::string path,
+    ::React::JSValue&& attributes,
+    ::React::ReactPromise<void>&& promise) noexcept
+{
+    promise.Reject(rejection("ENOTSUP", "ReactNativeBlobUtil.fs.setAttributes is only available on iOS"));
+}
+
+void ReactNativeBlobUtil::bundlePath(
+    std::string name,
+    ::React::ReactPromise<std::string>&& promise) noexcept
+{
+    promise.Reject(rejection("ENOTSUP", "ReactNativeBlobUtil.fs.bundlePath is only available on iOS"));
+}
+
+void ReactNativeBlobUtil::getExternalDirs(
+    ::React::ReactPromise<::React::JSValueArray>&& promise) noexcept
+{
+    // No external storage volumes of the app's own on Windows.
+    promise.Resolve(::React::JSValueArray{});
+}
+
+void ReactNativeBlobUtil::pickFiles(
+    ::React::JSValue&& options,
+    ::React::ReactPromise<::React::JSValueArray>&& promise) noexcept
+{
+    bool expected{ false };
+    if (!m_pickerOpen.compare_exchange_strong(expected, true))
+    {
+        promise.Reject(rejection("EBUSY", "A file picker is already open"));
+        return;
+    }
+    // JS sends the extensions for the MIME types; the picker filters by them.
+    std::vector<winrt::hstring> extensions;
+    bool multiple{ false };
+    if (options.Type() == ::React::JSValueType::Object)
+    {
+        auto const& object{ options.AsObject() };
+        auto const found{ object.find("extensions") };
+        if (found != object.end() && found->second.Type() == ::React::JSValueType::Array)
+        {
+            for (auto const& extension : found->second.AsArray())
+            {
+                extensions.push_back(winrt::to_hstring(extension.AsString()));
+            }
+        }
+        auto const many{ object.find("multiple") };
+        multiple = many != object.end() && many->second.AsBoolean();
+    }
+    if (extensions.empty())
+    {
+        extensions.push_back(L"*");
+    }
+
+    // The picker is shown from the UI thread, owned by the app's window.
+    auto context{ m_context };
+    context.UIDispatcher().Post([this, context, extensions, multiple, promise]() mutable
+    {
+        [](ReactNativeBlobUtil* self, React::ReactContext context, std::vector<winrt::hstring> extensions, bool multiple,
+            ::React::ReactPromise<::React::JSValueArray> promise) -> winrt::fire_and_forget
+        {
+            ::React::JSValueArray picked;
+            try
+            {
+                winrt::Windows::Storage::Pickers::FileOpenPicker picker;
+                const auto windowId{ winrt::Microsoft::ReactNative::ReactCoreInjection::GetTopLevelWindowId(context.Properties().Handle()) };
+                if (windowId != 0)
+                {
+                    picker.as<::IInitializeWithWindow>()->Initialize(reinterpret_cast<HWND>(windowId));
+                }
+                for (auto const& extension : extensions)
+                {
+                    picker.FileTypeFilter().Append(extension);
+                }
+                std::vector<StorageFile> files;
+                if (multiple)
+                {
+                    for (auto const& file : co_await picker.PickMultipleFilesAsync())
+                    {
+                        files.push_back(file);
+                    }
+                }
+                else if (auto file{ co_await picker.PickSingleFileAsync() })
+                {
+                    files.push_back(file);
+                }
+                // A copy the app owns, as on iOS: a picked file outside the app's
+                // folders cannot be opened by path later.
+                auto temporary{ ApplicationData::Current().TemporaryFolder() };
+                for (auto const& file : files)
+                {
+                    auto copy{ co_await file.CopyAsync(temporary, file.Name(), NameCollisionOption::GenerateUniqueName) };
+                    picked.push_back(::React::JSValue{ winrt::to_string(copy.Path()) });
+                }
+                self->m_pickerOpen = false;
+                promise.Resolve(std::move(picked));
+            }
+            catch (const hresult_error& ex)
+            {
+                self->m_pickerOpen = false;
+                promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
+            }
+        }(this, context, extensions, multiple, promise);
+    });
 }
 
 void ReactNativeBlobUtil::getSDCardDir(

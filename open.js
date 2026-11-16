@@ -4,6 +4,7 @@
 
 import {Platform} from 'react-native';
 import {addCode} from './utils/errors';
+import {extensionsForMime} from './utils/mime';
 import {requireNativeModule} from './utils/nativeModule';
 import {notSupported} from './utils/platform';
 
@@ -94,7 +95,10 @@ function pick(mimeOrOptions: string | Array<string> | PickOptions = '*/*'): Prom
         return Promise.reject(addCode('EINVAL', new TypeError('"mime" must be a MIME type such as "image/*", or a list of them')));
     }
     const multiple = Boolean(options.multiple);
-    return requireNativeModule().pickFiles({mime, multiple}).then((picked) => {
+    // The Windows picker filters by extension; JS turns the types into them,
+    // so the table is in one place and unit-tested.
+    const request = Platform.OS === 'windows' ? {mime, multiple, extensions: extensionsForMime(mime)} : {mime, multiple};
+    return requireNativeModule().pickFiles(request).then((picked) => {
         const list = Array.isArray(picked) ? picked : [];
         if (multiple) {
             return list;

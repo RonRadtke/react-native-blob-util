@@ -73,11 +73,12 @@ test('open.optionsMenu is iOS only; open.pick works on every platform', async ()
     await assert.rejects(open.optionsMenu('/a.pdf'), {code: 'ENOTSUP'});
 
     const one = (mime) => ['pickFiles', {mime, multiple: false}];
-    assert.deepEqual(calls, [
+    assert.deepEqual(calls.slice(0, 3), [
         ['presentOptionsMenu', 'file:///a.pdf', undefined],
-        one(['image/*']), one(['image/*']), one(['image/*']),
-        one(['*/*']),
+        one(['image/*']), one(['image/*']),
     ]);
+    assert.equal(calls[3][1].extensions.includes('.png'), true, 'Windows gets extensions');
+    assert.deepEqual(calls[4], one(['*/*']));
 });
 
 test('open.pick takes several MIME types and returns a list with multiple', async () => {
@@ -104,6 +105,21 @@ test('open.pick rejects a malformed MIME type with EINVAL before native', async 
         await assert.rejects(open.pick({mime}), {code: 'EINVAL'}, JSON.stringify(mime));
     }
     assert.deepEqual(calls, []);
+});
+
+test('the Windows picker gets the extensions of the MIME types', async () => {
+    const {extensionsForMime} = await import('../../utils/mime.js');
+    assert.deepEqual(extensionsForMime(['application/pdf']), ['.pdf']);
+    assert.deepEqual(extensionsForMime(['image/jpeg', 'application/PDF; charset=x']), ['.jpg', '.jpeg', '.pdf']);
+    assert.deepEqual(extensionsForMime(['*/*']), ['*']);
+    assert.deepEqual(extensionsForMime(['image/png', 'application/x-unknown']), ['*'], 'an unknown type offers every file');
+    const images = extensionsForMime(['image/*']);
+    assert.ok(images.includes('.png') && images.includes('.jpg') && !images.includes('.pdf'));
+    assert.ok(extensionsForMime(['text/*']).includes('.txt'));
+
+    rn.setPlatform('windows');
+    await open.pick({mime: ['application/pdf', 'text/plain'], multiple: true});
+    assert.deepEqual(calls, [['pickFiles', {mime: ['application/pdf', 'text/plain'], multiple: true, extensions: ['.pdf', '.txt']}]]);
 });
 
 test('on Windows every open call but pick rejects with ENOTSUP without reaching native', async () => {
