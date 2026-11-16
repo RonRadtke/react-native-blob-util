@@ -89,18 +89,21 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
       Method<void(std::string, Promise<std::string>) noexcept>{37, L"bundlePath"},
       Method<void(Promise<::React::JSValueArray>) noexcept>{38, L"getExternalDirs"},
       Method<void(::React::JSValue, Promise<::React::JSValueArray>) noexcept>{39, L"pickFiles"},
-      Method<void(std::string, std::string, std::optional<std::string>, Promise<void>) noexcept>{40, L"actionViewIntent"},
-      Method<void(::React::JSValue, Promise<void>) noexcept>{41, L"addCompleteDownload"},
-      Method<void(std::string, std::string, ::React::JSValue, Promise<std::string>) noexcept>{42, L"copyToInternal"},
-      Method<void(::React::JSValue, std::string, std::string, Promise<std::string>) noexcept>{43, L"copyToMediaStore"},
-      Method<void(::React::JSValue, std::string, Promise<std::string>) noexcept>{44, L"createMediaFile"},
-      Method<void(std::string, std::string, Promise<::React::JSValueArray>) noexcept>{45, L"getBlob"},
-      Method<void(Promise<std::string>) noexcept>{46, L"getSDCardDir"},
-      Method<void(Promise<std::string>) noexcept>{47, L"getSDCardApplicationDir"},
-      Method<void(::React::JSValueArray, Promise<void>) noexcept>{48, L"scanFile"},
-      Method<void(std::string, std::string, bool, Promise<std::string>) noexcept>{49, L"writeToMediaFile"},
-      Method<void(std::string) noexcept>{50, L"addListener"},
-      Method<void(double) noexcept>{51, L"removeListeners"},
+      Method<void(Promise<::React::JSValueArray>) noexcept>{40, L"listBackgroundTasks"},
+      Method<void(std::string, Callback<std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>>) noexcept>{41, L"attachBackgroundTask"},
+      Method<void(std::string, Promise<void>) noexcept>{42, L"forgetBackgroundTask"},
+      Method<void(std::string, std::string, std::optional<std::string>, Promise<void>) noexcept>{43, L"actionViewIntent"},
+      Method<void(::React::JSValue, Promise<void>) noexcept>{44, L"addCompleteDownload"},
+      Method<void(std::string, std::string, ::React::JSValue, Promise<std::string>) noexcept>{45, L"copyToInternal"},
+      Method<void(::React::JSValue, std::string, std::string, Promise<std::string>) noexcept>{46, L"copyToMediaStore"},
+      Method<void(::React::JSValue, std::string, Promise<std::string>) noexcept>{47, L"createMediaFile"},
+      Method<void(std::string, std::string, Promise<::React::JSValueArray>) noexcept>{48, L"getBlob"},
+      Method<void(Promise<std::string>) noexcept>{49, L"getSDCardDir"},
+      Method<void(Promise<std::string>) noexcept>{50, L"getSDCardApplicationDir"},
+      Method<void(::React::JSValueArray, Promise<void>) noexcept>{51, L"scanFile"},
+      Method<void(std::string, std::string, bool, Promise<std::string>) noexcept>{52, L"writeToMediaFile"},
+      Method<void(std::string) noexcept>{53, L"addListener"},
+      Method<void(double) noexcept>{54, L"removeListeners"},
   };
 
   template <class TModule>
@@ -316,61 +319,76 @@ struct BlobUtilsSpec : winrt::Microsoft::ReactNative::TurboModuleSpec {
           "    REACT_METHOD(pickFiles) static void pickFiles(::React::JSValue && options, ::React::ReactPromise<::React::JSValueArray> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
           40,
+          "listBackgroundTasks",
+          "    REACT_METHOD(listBackgroundTasks) void listBackgroundTasks(::React::ReactPromise<::React::JSValueArray> &&result) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(listBackgroundTasks) static void listBackgroundTasks(::React::ReactPromise<::React::JSValueArray> &&result) noexcept { /* implementation */ }\n");
+    REACT_SHOW_METHOD_SPEC_ERRORS(
+          41,
+          "attachBackgroundTask",
+          "    REACT_METHOD(attachBackgroundTask) void attachBackgroundTask(std::string id, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(attachBackgroundTask) static void attachBackgroundTask(std::string id, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const & callback) noexcept { /* implementation */ }\n");
+    REACT_SHOW_METHOD_SPEC_ERRORS(
+          42,
+          "forgetBackgroundTask",
+          "    REACT_METHOD(forgetBackgroundTask) void forgetBackgroundTask(std::string id, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n"
+          "    REACT_METHOD(forgetBackgroundTask) static void forgetBackgroundTask(std::string id, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n");
+    REACT_SHOW_METHOD_SPEC_ERRORS(
+          43,
           "actionViewIntent",
           "    REACT_METHOD(actionViewIntent) void actionViewIntent(std::string path, std::string mime, std::optional<std::string> chooserTitle, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(actionViewIntent) static void actionViewIntent(std::string path, std::string mime, std::optional<std::string> chooserTitle, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          41,
+          44,
           "addCompleteDownload",
           "    REACT_METHOD(addCompleteDownload) void addCompleteDownload(::React::JSValue && config, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(addCompleteDownload) static void addCompleteDownload(::React::JSValue && config, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          42,
+          45,
           "copyToInternal",
           "    REACT_METHOD(copyToInternal) void copyToInternal(std::string contentUri, std::string destpath, ::React::JSValue && options, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(copyToInternal) static void copyToInternal(std::string contentUri, std::string destpath, ::React::JSValue && options, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          43,
+          46,
           "copyToMediaStore",
           "    REACT_METHOD(copyToMediaStore) void copyToMediaStore(::React::JSValue && filedata, std::string mt, std::string path, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(copyToMediaStore) static void copyToMediaStore(::React::JSValue && filedata, std::string mt, std::string path, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          44,
+          47,
           "createMediaFile",
           "    REACT_METHOD(createMediaFile) void createMediaFile(::React::JSValue && filedata, std::string mt, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(createMediaFile) static void createMediaFile(::React::JSValue && filedata, std::string mt, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          45,
+          48,
           "getBlob",
           "    REACT_METHOD(getBlob) void getBlob(std::string contentUri, std::string encoding, ::React::ReactPromise<::React::JSValueArray> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(getBlob) static void getBlob(std::string contentUri, std::string encoding, ::React::ReactPromise<::React::JSValueArray> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          46,
+          49,
           "getSDCardDir",
           "    REACT_METHOD(getSDCardDir) void getSDCardDir(::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(getSDCardDir) static void getSDCardDir(::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          47,
+          50,
           "getSDCardApplicationDir",
           "    REACT_METHOD(getSDCardApplicationDir) void getSDCardApplicationDir(::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(getSDCardApplicationDir) static void getSDCardApplicationDir(::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          48,
+          51,
           "scanFile",
           "    REACT_METHOD(scanFile) void scanFile(::React::JSValueArray && pairs, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(scanFile) static void scanFile(::React::JSValueArray && pairs, ::React::ReactPromise<void> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          49,
+          52,
           "writeToMediaFile",
           "    REACT_METHOD(writeToMediaFile) void writeToMediaFile(std::string fileUri, std::string path, bool transformFile, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(writeToMediaFile) static void writeToMediaFile(std::string fileUri, std::string path, bool transformFile, ::React::ReactPromise<std::string> &&result) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          50,
+          53,
           "addListener",
           "    REACT_METHOD(addListener) void addListener(std::string eventName) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(addListener) static void addListener(std::string eventName) noexcept { /* implementation */ }\n");
     REACT_SHOW_METHOD_SPEC_ERRORS(
-          51,
+          54,
           "removeListeners",
           "    REACT_METHOD(removeListeners) void removeListeners(double count) noexcept { /* implementation */ }\n"
           "    REACT_METHOD(removeListeners) static void removeListeners(double count) noexcept { /* implementation */ }\n");

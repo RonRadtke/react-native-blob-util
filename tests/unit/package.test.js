@@ -62,7 +62,7 @@ test('the tarball ships no tests', () => {
 // packed file has to match one of these, and prepublishOnly runs this file, which
 // makes `npm publish` fail instead of shipping a stray file.
 const SHIPPED = [
-    /^(index|index\.web|android|ios|fetch|fs|media|mediacollection|open|types|app\.plugin)\.js$/,
+    /^(index|index\.web|android|background|ios|fetch|fs|media|mediacollection|open|types|app\.plugin)\.js$/,
     /^index\.d\.ts$/,
     /^(package\.json|README\.md|LICENSE|Migration\.md|NuGet\.config|react-native-blob-util\.podspec)$/,
     /^Package\.swift$/,

@@ -13,6 +13,7 @@ import ReactNativeBlobUtil, {
     session as namedSession,
     wrap as namedWrap,
     base64 as namedBase64,
+    background as namedBackground,
 } from '../../../index';
 import type {
     Methods,
@@ -26,6 +27,7 @@ import type {
     ReactNativeBlobUtilResponseInfo,
     ReactNativeBlobUtilStat,
     filedescriptor,
+    BackgroundTask,
 } from '../../../index';
 
 const {fs, open, media, android, ios, MediaCollection, base64, config, session, wrap} = ReactNativeBlobUtil;
@@ -365,3 +367,21 @@ async function resumableDownloads() {
     void paused; void resumed; void res;
 }
 void resumableDownloads;
+
+// 1.2.0: downloads that outlive the app.
+async function backgroundDownloads() {
+    const task = ReactNativeBlobUtil.config({path: '/p/big.bin', background: {id: 'invoice-42'}}).fetch('GET', 'https://example.test/big.bin');
+    const started: string = task.taskId;
+    const tasks: BackgroundTask[] = await namedBackground.list();
+    for (const t of tasks) {
+        const state: 'running' | 'paused' | 'completed' | 'failed' = t.state;
+        const code: ErrorCode | undefined = t.error?.code;
+        void state; void code;
+    }
+    const res = await ReactNativeBlobUtil.background.attach('invoice-42').progress((written, total) => void (written + total));
+    const file: string | null = res.path();
+    await namedBackground.forget('invoice-42');
+    await ReactNativeBlobUtil.config({path: '/p/b.bin', background: true}).fetch('GET', 'https://example.test/b.bin');
+    void started; void file;
+}
+void backgroundDownloads;

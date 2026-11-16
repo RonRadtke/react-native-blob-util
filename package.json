@@ -8,6 +8,7 @@
         "index.d.ts",
         "index.web.js",
         "android.js",
+        "background.js",
         "ios.js",
         "fetch.js",
         "fs.js",

@@ -5,6 +5,7 @@
 
 import base64 from 'base-64';
 import android from './android';
+import background from './background';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
 import {config, fetch} from './fetch';
 import fs from './fs';
@@ -19,7 +20,7 @@ const wrap = URIUtil.wrap;
 
 // Named exports, the same objects as the default export's members:
 // import {fetch, fs} from 'react-native-blob-util'.
-export {base64, config, fetch, fs, media, open, session, wrap};
+export {background, base64, config, fetch, fs, media, open, session, wrap};
 
 export type {ReactNativeBlobUtilConfig, ReactNativeBlobUtilResponseInfo, ReactNativeBlobUtilStream} from './types';
 export {default as URIUtil} from './utils/uri';
@@ -33,6 +34,7 @@ export default {
     fs,
     open,
     media,
+    background,
     wrap,
     base64,
     CanceledFetchError,

@@ -1527,6 +1527,116 @@
             }
           },
           {
+            "name": "listBackgroundTasks",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": []
+            }
+          },
+          {
+            "name": "attachBackgroundTask",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "VoidTypeAnnotation"
+              },
+              "params": [
+                {
+                  "name": "id",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "callback",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "FunctionTypeAnnotation",
+                    "returnTypeAnnotation": {
+                      "type": "VoidTypeAnnotation"
+                    },
+                    "params": [
+                      {
+                        "name": "err",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "GenericObjectTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "rawType",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "data",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "StringTypeAnnotation"
+                          }
+                        }
+                      },
+                      {
+                        "name": "responseInfo",
+                        "optional": false,
+                        "typeAnnotation": {
+                          "type": "NullableTypeAnnotation",
+                          "typeAnnotation": {
+                            "type": "GenericObjectTypeAnnotation"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "forgetBackgroundTask",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "id",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
             "name": "actionViewIntent",
             "optional": false,
             "typeAnnotation": {

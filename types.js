@@ -27,6 +27,7 @@ export type ReactNativeBlobUtilConfig = {
   session?: string,
   overwrite?: boolean,
   resumable?: boolean,
+  background?: boolean | {id?: string},
   timeout?: number,
   followRedirect?: boolean,
   transform?: boolean,

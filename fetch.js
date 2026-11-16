@@ -2,6 +2,7 @@
 import {FetchBlobResponse} from './class/ReactNativeBlobUtilBlobResponse';
 import CanceledFetchError from './class/ReactNativeBlobUtilCanceledFetchError';
 import fs from './fs';
+import {backgroundIdOf, invalidBackground} from './utils/background';
 import toByteCount from './utils/byteCount';
 import {normalizeConfig} from './utils/config';
 import {addCode} from './utils/errors';
@@ -81,11 +82,22 @@ export function fetch(...args: any): Promise {
     return fetchWithOptions({}, ...args);
 }
 
-function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, url: string, headers: ?Object, body: any): Promise {
+/**
+ * A task for a background download started earlier, maybe before the app was
+ * last ended: background.attach(id). It settles when the download does, and
+ * reports progress and cancels like any task.
+ */
+export function attachBackground(id: string): Promise {
+    return fetchWithOptions({}, 'GET', '', null, null, id);
+}
+
+function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, url: string, headers: ?Object, body: any, attachId: ?string = null): Promise {
     options = normalizeConfig(options);
 
-    // create task ID for receiving progress event
-    const taskId = getUUID();
+    // A background download is known by its id, also to native after a restart;
+    // any other task by a fresh one. The id is used for events, too.
+    const background = attachId === null ? backgroundIdOf(options.background, getUUID) : null;
+    const taskId = attachId ?? (background && background.id) ?? getUUID();
     let respInfo = {'uninit': true};
 
     // A body passed in the headers' place (#334) was copied key by key below:
@@ -110,19 +122,24 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
     const resumable = Boolean(options.resumable);
     const invalid = headersNotAnObject || invalidAppendExt(options) || prepared.error || invalidHeader(headers)
         || (Array.isArray(body) ? invalidFormField(body) : null)
-        || (resumable ? invalidResumable(method, options, body) : null);
+        || (resumable ? invalidResumable(method, options, body) : null)
+        || (background ? background.error || invalidBackground(method, options, body) : null);
     headers = prepared.headers;
     body = Array.isArray(prepared.body) ? escapeForm(prepared.body) : prepared.body;
     // `range` is set here for a resumed request only; `resumable` is handled here.
     delete options.range;
     delete options.resumable;
+    delete options.background;
+    if (background && !background.error) {
+        options.background = {id: taskId};
+    }
     // The kind of a single body travels in the options; native no longer infers it.
     options = nativeOptions(prepared.bodyType ? {...options, bodyType: prepared.bodyType} : options);
 
     // A download to a path can pause and resume: GET, written to a file the
     // caller named, by the library rather than the DownloadManager or an iOS
     // background session.
-    const pausable = String(method).toUpperCase() === 'GET' && typeof options.path === 'string'
+    const pausable = attachId === null && !background && String(method).toUpperCase() === 'GET' && typeof options.path === 'string'
         && !options.addAndroidDownloads && !options.IOSBackgroundTask;
     // A resumable download writes to <path>.part, with what it needs to continue
     // in <path>.part.json, and moves the part file to path once it is complete.
@@ -237,7 +254,11 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
             sendOptions.range = range.ifRange ? range : {from: range.from};
         }
         const nativeMethodName = Array.isArray(body) ? 'fetchBlobForm' : 'fetchBlob';
-        const req = requireNativeModule()[nativeMethodName];
+        // An attached background download has no request to send: native hands
+        // over its outcome when it has one.
+        const req = attachId === null
+            ? requireNativeModule()[nativeMethodName]
+            : (o, i, m, u, h, b, callback) => requireNativeModule().attachBackgroundTask(attachId, callback);
 
         /**
          * Send request via native module, the response callback accepts four arguments

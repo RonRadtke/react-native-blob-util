@@ -16,6 +16,7 @@ export declare const config: ReactNativeBlobUtilStatic['config'];
 export declare const fs: FS;
 export declare const open: OpenApi;
 export declare const media: MediaApi;
+export declare const background: BackgroundApi;
 export declare const session: ReactNativeBlobUtilStatic['session'];
 export declare const wrap: ReactNativeBlobUtilStatic['wrap'];
 export declare const base64: ReactNativeBlobUtilStatic['base64'];
@@ -49,6 +50,7 @@ export interface ReactNativeBlobUtilStatic {
     fs: FS;
     open: OpenApi;
     media: MediaApi;
+    background: BackgroundApi;
     /** @deprecated every member forwards to `open.*` or `media.*` */
     android: AndroidApi;
     /** @deprecated every member forwards to `open.*` or `fs.*` */
@@ -313,6 +315,21 @@ export interface ReactNativeBlobUtilConfig {
      * DownloadManager.
      */
     resumable?: boolean;
+
+    /**
+     * Run the download in the background: it goes on while the app is
+     * suspended or ended, and is found again on a later start by its id
+     * (`background.list()`, `background.attach(id)`). `true` gets a new id,
+     * which is the task's `taskId`. The file lands at `path` even while the app
+     * is not running. Run by a background URLSession on iOS, the DownloadManager
+     * on Android (which shows a notification while it runs, and uses the
+     * system's certificate trust, so customCACerts and trusty do not apply),
+     * and BackgroundDownloader on Windows (packaged apps). Needs GET and
+     * `path`; an id is 1 to 100 letters, digits, ".", "_" or "-". A user who
+     * force-quits an iOS app from the app switcher cancels its background
+     * downloads.
+     */
+    background?: boolean | {id?: string};
 
     /**
      * Request timeout in milliseconds. Default 60000.
@@ -814,6 +831,48 @@ export interface OpenApi {
     pick(options: PickOptions & {multiple: true}): Promise<string[]>;
     pick(mime?: string | string[] | (PickOptions & {multiple?: false})): Promise<string | null>;
     pick(options: PickOptions): Promise<string | string[] | null>;
+}
+
+/** A background download, as `background.list()` reports it. */
+export interface BackgroundTask {
+    id: string;
+    url: string;
+    /** Where the file goes, and is once the download is completed. */
+    path: string;
+    state: 'running' | 'paused' | 'completed' | 'failed';
+    /** Bytes so far. */
+    written: number;
+    /** Bytes in all; -1 when not known. */
+    total: number;
+    /** Why a failed download failed. */
+    error?: {code: ErrorCode; message: string};
+}
+
+/**
+ * Downloads that outlive the app, started with `config({path, background})`.
+ */
+export interface BackgroundApi {
+    /**
+     * The background downloads whose outcome has not been handed to the app
+     * yet: running ones, and ones that finished while the app was not there.
+     * One stays listed until a task for it settles (`attach`, or the fetch that
+     * started it) or until `forget(id)`; reading the list removes nothing.
+     */
+    list(): Promise<BackgroundTask[]>;
+
+    /**
+     * A task for a background download by its id, with `progress()` and
+     * `cancel()`: it resolves with the response (`res.path()`) once the file is
+     * there, at once when it already is, and rejects with the error of a failed
+     * one, or ENOENT for an id there is no record of.
+     */
+    attach(id: string): StatefulPromise<FetchBlobResponse>;
+
+    /**
+     * Remove the record of a background download, cancelling it if it still
+     * runs. A file it already wrote stays.
+     */
+    forget(id: string): Promise<void>;
 }
 
 /**

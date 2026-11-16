@@ -90,6 +90,13 @@ export interface Spec extends TurboModule {
     +getExternalDirs: () => Promise<Array<any>>;
     // {mime: string[], multiple: boolean}; resolves what was picked, [] when cancelled.
     +pickFiles: (options: Object) => Promise<Array<any>>;
+    // Downloads that outlive the app (fetch with options.background = {id}): the
+    // records not yet handed to JS; the outcome of one, through the same callback
+    // fetchBlob takes (at once when it is known); removing one, cancelling it if
+    // it still runs.
+    +listBackgroundTasks: () => Promise<Array<any>>;
+    +attachBackgroundTask: (id: string, callback: (err: ?Object, rawType: ?string, data: ?string, responseInfo: ?Object) => void) => void;
+    +forgetBackgroundTask: (id: string) => Promise<void>;
     // Android Only APIs (copyToInternal: Android and iOS)
     +actionViewIntent: (path: string, mime: string, chooserTitle: ?string) => Promise<void>;
     +addCompleteDownload: (config: Object) => Promise<void>;
