@@ -21,6 +21,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.io.RandomAccessFile
 import java.nio.charset.Charset
 import java.security.MessageDigest
 import java.util.Locale
@@ -248,6 +249,8 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 var bytes: ByteArray = if (resolved != null && resolved.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {
                     val assetName = resolved.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
                     ReactNativeBlobUtilImpl.RCTContext.assets.open(assetName).use { readBytesWithLimit(it) }
+                } else if (resolved != null && isResource(resolved)) {
+                    openResource(resolved).use { readBytesWithLimit(it) }
                 }
                 // issue 287
                 else if (resolved == null) {
@@ -322,6 +325,11 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
 
             res["DocumentDir"] = getFilesDirPath(ctx)
             res["CacheDir"] = getCacheDirPath(ctx)
+            // Android has no separate temporary directory; the cache is where
+            // temporary files go, and the system may clear it.
+            res["TemporaryDir"] = getCacheDirPath(ctx)
+            res["ExternalCacheDir"] = ctx.externalCacheDir?.absolutePath ?: ""
+            res["RoamingDir"] = ""
             res["DCIMDir"] = getExternalFilesDirPath(ctx, Environment.DIRECTORY_DCIM)
             res["PictureDir"] = getExternalFilesDirPath(ctx, Environment.DIRECTORY_PICTURES)
             res["MusicDir"] = getExternalFilesDirPath(ctx, Environment.DIRECTORY_MUSIC)
@@ -425,6 +433,10 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             }
         }
 
+        /** Every app-specific directory on external storage: the primary one, then removable volumes. */
+        fun getExternalDirs(ctx: ReactApplicationContext): List<String> =
+            ctx.getExternalFilesDirs(null).filterNotNull().map { it.absolutePath }
+
         /**
          * Static method that returns a temp file path
          *
@@ -511,6 +523,16 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
         fun cp(path: String?, rawDest: String?, promise: Promise) {
             val destIsContent = ReactNativeBlobUtilContent.isContent(rawDest)
             val dest = ReactNativeBlobUtilUtils.normalizePath(rawDest)
+            val source = ReactNativeBlobUtilUtils.normalizePath(path)
+            if (!destIsContent && dest != null && source != null && !isAsset(source) && !isResource(source) && File(source).isDirectory) {
+                copyDirectory(File(source), File(dest), promise)
+                return
+            }
+            // A file is not copied into or over a directory; iOS refuses the same.
+            if (!destIsContent && dest != null && File(dest).isDirectory) {
+                promise.reject("EEXIST", "Destination '$dest' is a directory")
+                return
+            }
             var input: InputStream? = null
             var out: OutputStream? = null
             var message = ""
@@ -565,6 +587,57 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
         }
 
         /**
+         * Copies a directory with everything in it, as iOS's copyItem does: the
+         * destination must not be a directory already (EEXIST), a file there is
+         * replaced, and its parent must exist (ENOENT).
+         */
+        internal fun copyDirectory(src: File, dest: File, promise: Promise) {
+            try {
+                if (dest.isDirectory) {
+                    promise.reject("EEXIST", "Destination '${dest.path}' already exists")
+                    return
+                }
+                val parent = dest.absoluteFile.parentFile
+                if (parent != null && !parent.isDirectory) {
+                    promise.reject("ENOENT", "Destination directory of '${dest.path}' does not exist")
+                    return
+                }
+                val from = src.canonicalFile
+                val to = dest.canonicalFile
+                if (to.path.startsWith(from.path + File.separator)) {
+                    promise.reject("EINVAL", "Cannot copy '${src.path}' into itself")
+                    return
+                }
+                if (dest.exists() && !dest.delete()) {
+                    promise.reject("EUNSPECIFIED", "Could not replace '${dest.path}'")
+                    return
+                }
+                copyTree(from, dest)
+                promise.resolve(null)
+            } catch (e: SecurityException) {
+                promise.reject("EACCES", e.localizedMessage)
+            } catch (e: Exception) {
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
+            }
+        }
+
+        @Throws(IOException::class)
+        private fun copyTree(src: File, dest: File) {
+            if (!dest.mkdir() && !dest.isDirectory) {
+                throw IOException("Could not create '${dest.path}'")
+            }
+            val children = src.listFiles() ?: throw IOException("Cannot read directory '${src.path}'")
+            for (child in children) {
+                val target = File(dest, child.name)
+                if (child.isDirectory) {
+                    copyTree(child, target)
+                } else {
+                    FileInputStream(child).use { input -> FileOutputStream(target).use { input.copyTo(it, 10240) } }
+                }
+            }
+        }
+
+        /**
          * Move file
          *
          * @param path     Source file path
@@ -590,6 +663,12 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 val parentDir = destFile.parentFile
                 if (parentDir != null && !parentDir.exists()) {
                     promise.reject("ENOENT", "mv failed because the destination directory doesn't exist")
+                    return
+                }
+                // A directory is not replaced; iOS refuses the same. An empty one was
+                // deleted and replaced here, a full one made the rename fail.
+                if (destFile.isDirectory) {
+                    promise.reject("EEXIST", "Destination '$dest' is a directory")
                     return
                 }
                 // mv overwrites files, so delete any existing file.
@@ -622,13 +701,14 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          */
         fun exists(rawPath: String?): Pair<Boolean, Boolean> {
             if (isAsset(rawPath)) {
-                return try {
-                    val filename = rawPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
-                    ReactNativeBlobUtilImpl.RCTContext.assets.openFd(filename)
-                    true to false
-                } catch (e: IOException) {
-                    false to false
-                }
+                // openFd alone throws for an asset stored compressed, which most
+                // text files are, so those were reported missing.
+                val name = assetName(rawPath!!)
+                if (assetSize(name) >= 0) return true to false
+                return if (isAssetDir(name)) true to true else false to false
+            }
+            if (isResource(rawPath)) {
+                return (resourceSize(rawPath!!) >= 0) to false
             }
             val path = ReactNativeBlobUtilUtils.normalizePath(rawPath) ?: return false to false
             return File(path).exists() to File(path).isDirectory
@@ -641,6 +721,16 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
          * @param promise JS context promise
          */
         fun ls(rawPath: String?, promise: Promise) {
+            if (isAsset(rawPath)) {
+                val name = assetName(rawPath!!)
+                val entries = assetEntries(name)
+                when {
+                    entries.isNotEmpty() -> promise.resolve(Arguments.fromList(entries))
+                    assetSize(name) >= 0 -> promise.reject("ENOTDIR", "Not a directory '$rawPath'")
+                    else -> promise.reject("ENOENT", "No such asset directory '$rawPath'")
+                }
+                return
+            }
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
                 val src = File(path)
@@ -729,6 +819,24 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
 
         @Suppress("DEPRECATION")
         fun lstat(rawPath: String?, promise: Promise) {
+            if (isAsset(rawPath)) {
+                val name = assetName(rawPath!!)
+                val entries = assetEntries(name)
+                val paths = when {
+                    entries.isNotEmpty() -> entries.map { ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET + (if (name.isEmpty()) it else "$name/$it") }
+                    assetSize(name) >= 0 -> listOf(rawPath)
+                    else -> {
+                        promise.reject("ENOENT", "failed to lstat path `$rawPath` because it does not exist or it is not a folder")
+                        return
+                    }
+                }
+                val res = Arguments.createArray()
+                for (p in paths) {
+                    res.pushMap(statFile(p))
+                }
+                promise.resolve(res)
+                return
+            }
             val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
 
             object : AsyncTask<String?, Int, Int>() {
@@ -804,13 +912,29 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
                 val stat = Arguments.createMap()
                 if (isAsset(path)) {
-                    val name = path!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
-                    val fd = ReactNativeBlobUtilImpl.RCTContext.assets.openFd(name)
-                    stat.putString("filename", name)
+                    val name = assetName(path!!)
+                    val size = assetSize(name)
+                    val directory = size < 0
+                    if (directory && !isAssetDir(name)) {
+                        return null
+                    }
+                    stat.putString("filename", name.substringAfterLast('/'))
+                    stat.putString("path", path)
+                    stat.putString("type", if (directory) "directory" else "asset")
+                    stat.putString("size", (if (directory) 0 else size).toString())
+                    stat.putInt("lastModified", 0)
+                    stat.putNull("created")
+                } else if (isResource(path)) {
+                    val size = resourceSize(path!!)
+                    if (size < 0) {
+                        return null
+                    }
+                    stat.putString("filename", path.substringAfterLast('/'))
                     stat.putString("path", path)
                     stat.putString("type", "asset")
-                    stat.putString("size", fd.length.toString())
+                    stat.putString("size", size.toString())
                     stat.putInt("lastModified", 0)
+                    stat.putNull("created")
                 } else {
                     val target = File(path)
                     if (!target.exists()) {
@@ -822,6 +946,10 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     stat.putString("size", target.length().toString())
                     val lastModified = target.lastModified().toString()
                     stat.putString("lastModified", lastModified)
+                    // The file systems Android uses do not report a creation time to
+                    // apps; BasicFileAttributes.creationTime() hands back the
+                    // modification time instead, which would be wrong after any write.
+                    stat.putNull("created")
 
                 }
                 return stat
@@ -847,7 +975,8 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     return
                 }
 
-                if (!path!!.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_CONTENT)) {
+                // Assets and resources are not files; they used to fail the check below.
+                if (!path!!.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_CONTENT) && !isAsset(path) && !isResource(path)) {
                     val file = File(ReactNativeBlobUtilUtils.normalizePath(path))
                     if (file.isDirectory) {
                         promise.reject("EISDIR", "Expecting a file but '$path' is a directory")
@@ -884,6 +1013,8 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 promise.resolve(hexString.toString())
             } catch (e: SecurityException) {
                 promise.reject("EACCES", "Not allowed to read '$path'")
+            } catch (e: FileNotFoundException) {
+                promise.reject("ENOENT", "No such file '$path'")
             } catch (e: Exception) {
                 e.printStackTrace()
                 promise.reject("EUNSPECIFIED", e.localizedMessage)
@@ -1042,6 +1173,9 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             if (p.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {
                 return ReactNativeBlobUtilImpl.RCTContext.assets.open(p.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, ""))
             }
+            if (p.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_RESOURCE)) {
+                return openResource(p)
+            }
             if (p.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_CONTENT)) {
                 return ReactNativeBlobUtilImpl.RCTContext.contentResolver.openInputStream(Uri.parse(p))
             }
@@ -1050,6 +1184,287 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
 
         fun isAsset(path: String?): Boolean =
             path != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)
+
+        fun isResource(path: String?): Boolean = ReactNativeBlobUtilUtils.isResource(path)
+
+        /** The asset path behind bundle-assets://, without a trailing slash. */
+        internal fun assetName(path: String): String =
+            path.removePrefix(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET).trimEnd('/')
+
+        /** The entries of an asset directory; empty for a file or a missing path. */
+        private fun assetEntries(name: String): List<String> = try {
+            ReactNativeBlobUtilImpl.RCTContext.assets.list(name)?.toList() ?: emptyList()
+        } catch (e: IOException) {
+            emptyList()
+        }
+
+        /** AssetManager lists entries only for a directory, and packages no empty ones. */
+        private fun isAssetDir(name: String): Boolean = name.isEmpty() || assetEntries(name).isNotEmpty()
+
+        /**
+         * The size of an asset file, or -1 when there is none. openFd only works
+         * for an asset stored uncompressed; a compressed one is counted.
+         */
+        private fun assetSize(name: String): Long {
+            if (name.isEmpty()) return -1
+            val assets = ReactNativeBlobUtilImpl.RCTContext.assets
+            try {
+                assets.openFd(name).use { return it.length }
+            } catch (e: IOException) {
+                // compressed, a directory, or missing
+            }
+            return try {
+                assets.open(name).use { countBytes(it) }
+            } catch (e: IOException) {
+                -1
+            }
+        }
+
+        /**
+         * The (type, name) a bundle-res://<type>/<name> path names, or null when
+         * it is not of that shape.
+         */
+        internal fun resourceName(path: String): Pair<String, String>? {
+            val name = path.removePrefix(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_RESOURCE)
+            val slash = name.indexOf('/')
+            if (slash <= 0 || slash == name.length - 1 || name.indexOf('/', slash + 1) >= 0) return null
+            return name.substring(0, slash) to name.substring(slash + 1)
+        }
+
+        /** The resource id a bundle-res:// path names, or 0. */
+        @Suppress("DiscouragedApi")
+        private fun resourceId(path: String): Int {
+            val (type, name) = resourceName(path) ?: return 0
+            val ctx = ReactNativeBlobUtilImpl.RCTContext
+            return ctx.resources.getIdentifier(name, type, ctx.packageName)
+        }
+
+        @Throws(FileNotFoundException::class)
+        private fun openResource(path: String): InputStream {
+            val id = resourceId(path)
+            if (id == 0) throw FileNotFoundException("No such resource '$path'")
+            return try {
+                ReactNativeBlobUtilImpl.RCTContext.resources.openRawResource(id)
+            } catch (e: android.content.res.Resources.NotFoundException) {
+                // A resource that is a value (a string, a color) has an id but no file.
+                throw FileNotFoundException("No such resource '$path'")
+            }
+        }
+
+        /** The size of a resource's file, or -1 when it has none. */
+        private fun resourceSize(path: String): Long {
+            val id = resourceId(path)
+            if (id == 0) return -1
+            val resources = ReactNativeBlobUtilImpl.RCTContext.resources
+            try {
+                resources.openRawResourceFd(id)?.use { return it.length }
+            } catch (e: Exception) {
+                // compressed, or not a file
+            }
+            return try {
+                openResource(path).use { countBytes(it) }
+            } catch (e: IOException) {
+                -1
+            }
+        }
+
+        private fun countBytes(input: InputStream): Long {
+            val buffer = ByteArray(10240)
+            var total = 0L
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) return total
+                total += read
+            }
+        }
+
+        /**
+         * Up to `length` bytes from `position` (-1: to the end). A position past
+         * the end reads nothing. Pure java.io, so it is unit-testable.
+         */
+        @Throws(IOException::class)
+        internal fun readRangeOfFile(file: File, position: Long, length: Long): ByteArray {
+            RandomAccessFile(file, "r").use { raf ->
+                val size = raf.length()
+                if (position >= size) return ByteArray(0)
+                val available = size - position
+                val count = if (length < 0) available else minOf(length, available)
+                if (count > Int.MAX_VALUE - 8) throw IOException("A range of $count bytes is too large to read at once")
+                val bytes = ByteArray(count.toInt())
+                raf.seek(position)
+                raf.readFully(bytes)
+                return bytes
+            }
+        }
+
+        /** Up to `length` bytes from `position` (-1: to the end) of a stream that cannot seek. */
+        @Throws(IOException::class)
+        internal fun readRangeOfStream(input: InputStream, position: Long, length: Long): ByteArray {
+            var skipped = 0L
+            while (skipped < position) {
+                val step = input.skip(position - skipped)
+                if (step <= 0) {
+                    if (input.read() < 0) return ByteArray(0)
+                    skipped++
+                } else {
+                    skipped += step
+                }
+            }
+            val out = ByteArrayOutputStream()
+            val buffer = ByteArray(10240)
+            var remaining = length
+            while (length < 0 || remaining > 0) {
+                val want = if (length < 0) buffer.size else minOf(buffer.size.toLong(), remaining).toInt()
+                val read = input.read(buffer, 0, want)
+                if (read < 0) break
+                out.write(buffer, 0, read)
+                remaining -= read
+            }
+            return out.toByteArray()
+        }
+
+        /**
+         * Writes `bytes` at `position` (-1: at the end), keeping the rest of the
+         * file and creating it when missing. A position past the end leaves zero
+         * bytes in between, written explicitly rather than left to the file
+         * system. Pure java.io, so it is unit-testable.
+         */
+        @Throws(IOException::class)
+        internal fun writeRangeOfFile(file: File, bytes: ByteArray, position: Long) {
+            RandomAccessFile(file, "rw").use { raf ->
+                val length = raf.length()
+                val start = if (position < 0) length else position
+                if (start > length) {
+                    raf.seek(length)
+                    val zeros = ByteArray(minOf(65536L, start - length).toInt())
+                    var gap = start - length
+                    while (gap > 0) {
+                        val step = minOf(gap, zeros.size.toLong()).toInt()
+                        raf.write(zeros, 0, step)
+                        gap -= step
+                    }
+                }
+                raf.seek(start)
+                raf.write(bytes)
+            }
+        }
+
+        /** fs.read: the bytes of a range, as base64. */
+        fun readRange(rawPath: String?, position: Long, length: Long, promise: Promise) {
+            if (rawPath == null || position < 0) {
+                promise.reject("EINVAL", "Missing argument \"path\", or a negative position")
+                return
+            }
+            val resolved = ReactNativeBlobUtilUtils.normalizePath(rawPath)
+            try {
+                val bytes = if (resolved != null && !isAsset(resolved) && !isResource(resolved)) {
+                    val file = File(resolved)
+                    if (file.isDirectory) {
+                        promise.reject("EISDIR", "Expecting a file but '$resolved' is a directory")
+                        return
+                    }
+                    if (!file.exists()) {
+                        promise.reject("ENOENT", "No such file '$resolved'")
+                        return
+                    }
+                    readRangeOfFile(file, position, length)
+                } else {
+                    val input = inputStreamFromPath(resolved ?: rawPath)
+                    if (input == null) {
+                        promise.reject("ENOENT", "No such file '$rawPath'")
+                        return
+                    }
+                    input.use { readRangeOfStream(it, position, length) }
+                }
+                promise.resolve(Base64.encodeToString(bytes, Base64.NO_WRAP))
+            } catch (e: SecurityException) {
+                promise.reject("EACCES", "Not allowed to read '$rawPath'")
+            } catch (e: FileNotFoundException) {
+                promise.reject("ENOENT", "No such file '$rawPath'")
+            } catch (e: Exception) {
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
+            }
+        }
+
+        /** fs.write: base64 data written at a position (-1: appended); resolves the byte count. */
+        fun writeRange(rawPath: String?, data: String?, position: Long, promise: Promise) {
+            val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
+            if (path == null || data == null) {
+                promise.reject("EINVAL", "Missing argument \"path\" or \"data\"")
+                return
+            }
+            if (isAsset(path) || isResource(path)) {
+                promise.reject("ENOTSUP", "'$path' is part of the app and cannot be written")
+                return
+            }
+            // Decoded before the file is touched, so bad data leaves it as it was.
+            val bytes = try {
+                ReactNativeBlobUtilUtils.stringToBytes(data, "base64")
+            } catch (e: IllegalArgumentException) {
+                promise.reject("EINVAL", e.message)
+                return
+            }
+            writeBytesAt(path, bytes, position, promise)
+        }
+
+        /** writeRange after decoding; split out so a test can reach it without android.util.Base64. */
+        internal fun writeBytesAt(path: String, bytes: ByteArray, position: Long, promise: Promise) {
+            val file = File(path)
+            try {
+                if (file.isDirectory) {
+                    promise.reject("EISDIR", "Expecting a file but '$path' is a directory")
+                    return
+                }
+                val parent = file.absoluteFile.parentFile
+                if (parent != null && !parent.isDirectory) {
+                    promise.reject("ENOENT", "Directory of '$path' does not exist")
+                    return
+                }
+                writeRangeOfFile(file, bytes, position)
+                promise.resolve(bytes.size)
+            } catch (e: SecurityException) {
+                promise.reject("EACCES", "Not allowed to write '$path'")
+            } catch (e: FileNotFoundException) {
+                promise.reject("ENOENT", e.localizedMessage)
+            } catch (e: Exception) {
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
+            }
+        }
+
+        /**
+         * fs.touch: sets the modification time and creates a missing file. Android
+         * keeps no settable creation time, so ctime is not taken.
+         */
+        fun touch(rawPath: String?, mtime: Long, promise: Promise) {
+            val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
+            if (path == null || isAsset(path) || isResource(path)) {
+                promise.reject("EINVAL", "'$rawPath' is not a file path")
+                return
+            }
+            val file = File(path)
+            try {
+                if (!file.exists()) {
+                    val parent = file.absoluteFile.parentFile
+                    if (parent != null && !parent.isDirectory) {
+                        promise.reject("ENOENT", "Directory of '$path' does not exist")
+                        return
+                    }
+                    if (!file.createNewFile() && !file.exists()) {
+                        promise.reject("EUNSPECIFIED", "Could not create '$path'")
+                        return
+                    }
+                }
+                if (!file.setLastModified(mtime)) {
+                    promise.reject("EUNSPECIFIED", "Could not set the modification time of '$path'")
+                    return
+                }
+                promise.resolve(null)
+            } catch (e: SecurityException) {
+                promise.reject("EACCES", "Not allowed to write '$path'")
+            } catch (e: IOException) {
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
+            }
+        }
     }
 
 }

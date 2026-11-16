@@ -1,6 +1,10 @@
 package com.ReactNativeBlobUtil
 
 import android.content.ContentValues
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -28,6 +32,24 @@ class ReactNativeBlobUtilMediaCollection {
         Image,
         Video,
         Download,
+    }
+
+    /**
+     * How copyToInternal scales an image: to fit within width x height (0: no
+     * limit on that side), written as JPEG at `compression` (0..1; below 0 means
+     * the default, 0.9). Inactive when nothing was asked for.
+     */
+    class ScaleOptions private constructor(val width: Int, val height: Int, val compression: Double) {
+        val active: Boolean
+            get() = width > 0 || height > 0 || compression >= 0
+
+        val quality: Int
+            get() = Math.round((if (compression >= 0) compression else 0.9) * 100).toInt().coerceIn(0, 100)
+
+        companion object {
+            @JvmStatic
+            fun of(width: Int, height: Int, compression: Double) = ScaleOptions(width, height, compression)
+        }
     }
 
     companion object {
@@ -232,8 +254,100 @@ class ReactNativeBlobUtilMediaCollection {
             }
         }
 
+        /**
+         * The size a srcWidth x srcHeight image takes to fit within maxWidth x
+         * maxHeight (0: no limit on that side), keeping its aspect ratio. Never
+         * larger than the source. Pure, so it is unit-testable.
+         */
+        @JvmStatic
+        fun fitWithin(srcWidth: Int, srcHeight: Int, maxWidth: Int, maxHeight: Int): Pair<Int, Int> {
+            if (srcWidth <= 0 || srcHeight <= 0) return srcWidth to srcHeight
+            var scale = 1.0
+            if (maxWidth > 0) scale = minOf(scale, maxWidth.toDouble() / srcWidth)
+            if (maxHeight > 0) scale = minOf(scale, maxHeight.toDouble() / srcHeight)
+            return maxOf(1, Math.round(srcWidth * scale).toInt()) to maxOf(1, Math.round(srcHeight * scale).toInt())
+        }
+
+        /**
+         * The largest power of two to decode a srcWidth x srcHeight image with, so
+         * that it still is at least targetWidth x targetHeight. Pure.
+         */
+        @JvmStatic
+        fun sampleSize(srcWidth: Int, srcHeight: Int, targetWidth: Int, targetHeight: Int): Int {
+            var sample = 1
+            while (srcWidth / (sample * 2) >= targetWidth && srcHeight / (sample * 2) >= targetHeight) {
+                sample *= 2
+            }
+            return sample
+        }
+
+        /** The rotation in degrees an image's EXIF orientation asks for. */
+        private fun rotationOf(open: () -> InputStream?): Int = try {
+            open()?.use {
+                when (ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                    ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                    ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                    else -> 0
+                }
+            } ?: 0
+        } catch (e: Exception) {
+            0
+        }
+
+        /**
+         * Writes the image behind `open` scaled as `scale` says, as JPEG. False when
+         * it is not an image Android can decode; the caller then copies the bytes.
+         */
+        @Throws(IOException::class)
+        private fun writeScaledImage(open: () -> InputStream?, dest: File, scale: ScaleOptions): Boolean {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            open()?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return false
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return false
+            val rotation = rotationOf(open)
+            val turned = rotation == 90 || rotation == 270
+            val shownWidth = if (turned) bounds.outHeight else bounds.outWidth
+            val shownHeight = if (turned) bounds.outWidth else bounds.outHeight
+            val (targetWidth, targetHeight) = fitWithin(shownWidth, shownHeight, scale.width, scale.height)
+            val decode = BitmapFactory.Options().apply {
+                inSampleSize = if (turned) sampleSize(bounds.outWidth, bounds.outHeight, targetHeight, targetWidth)
+                else sampleSize(bounds.outWidth, bounds.outHeight, targetWidth, targetHeight)
+            }
+            val decoded = open()?.use { BitmapFactory.decodeStream(it, null, decode) } ?: return false
+            val matrix = Matrix()
+            if (rotation != 0) matrix.postRotate(rotation.toFloat())
+            val upright = if (rotation != 0) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
+            val scaled = if (upright.width != targetWidth || upright.height != targetHeight) {
+                Bitmap.createScaledBitmap(upright, targetWidth, targetHeight, true)
+            } else {
+                upright
+            }
+            try {
+                FileOutputStream(dest).use { out ->
+                    if (!scaled.compress(Bitmap.CompressFormat.JPEG, scale.quality, out)) {
+                        throw IOException("Could not encode the image as JPEG")
+                    }
+                }
+            } finally {
+                if (scaled !== decoded) scaled.recycle()
+                if (upright !== decoded && upright !== scaled) upright.recycle()
+                decoded.recycle()
+            }
+            return true
+        }
+
         @JvmStatic
         fun copyToInternal(contenturi: Uri, destpath: String?, promise: Promise) {
+            copyToInternal(contenturi, destpath, ScaleOptions.of(0, 0, -1.0), promise)
+        }
+
+        /**
+         * Copies an entry into the app's storage. With `scale` active an image is
+         * scaled down and written as JPEG; anything Android cannot decode as an
+         * image, a video say, is copied as it is.
+         */
+        @JvmStatic
+        fun copyToInternal(contenturi: Uri, destpath: String?, scale: ScaleOptions, promise: Promise) {
             if (destpath == null) {
                 promise.reject("EINVAL", "Missing argument \"destpath\"")
                 return
@@ -246,6 +360,10 @@ class ReactNativeBlobUtilMediaCollection {
                 val parent = f.parentFile
                 if (parent != null && !parent.isDirectory && !parent.mkdirs()) {
                     promise.reject("ENOENT", "Cannot create the directory of '$destpath'")
+                    return
+                }
+                if (scale.active && writeScaledImage({ resolver.openInputStream(contenturi) }, f, scale)) {
+                    promise.resolve("")
                     return
                 }
                 val input = resolver.openInputStream(contenturi)

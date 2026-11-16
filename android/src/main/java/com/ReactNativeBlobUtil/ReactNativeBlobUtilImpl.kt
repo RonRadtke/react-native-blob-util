@@ -47,10 +47,20 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
                 if (requestCode != GET_CONTENT_INTENT) return
                 val pending = promiseTable.get(GET_CONTENT_INTENT) ?: return
                 promiseTable.remove(GET_CONTENT_INTENT)
-                val uri = if (resultCode == RESULT_OK) data?.data else null
-                // The user dismissed the picker, or it returned nothing: resolve null
-                // instead of leaving the promise pending forever.
-                pending.resolve(uri?.toString())
+                // The user dismissed the picker, or it returned nothing: resolve an
+                // empty list instead of leaving the promise pending forever.
+                val picked = Arguments.createArray()
+                if (resultCode == RESULT_OK && data != null) {
+                    val clip = data.clipData
+                    if (clip != null) {
+                        for (i in 0 until clip.itemCount) {
+                            clip.getItemAt(i).uri?.let { picked.pushString(it.toString()) }
+                        }
+                    } else {
+                        data.data?.let { picked.pushString(it.toString()) }
+                    }
+                }
+                pending.resolve(picked)
             }
 
             override fun onNewIntent(intent: Intent) {
@@ -183,6 +193,28 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         result.putBoolean("exists", exists)
         result.putBoolean("isDirectory", isDirectory)
         promise.resolve(result)
+    }
+
+    fun readRange(path: String?, position: Long, length: Long, promise: Promise) {
+        threadPool.execute { ReactNativeBlobUtilFS.readRange(path, position, length, promise) }
+    }
+
+    fun writeRange(path: String?, data: String?, position: Long, promise: Promise) {
+        if (refuseContent(promise, path)) return
+        threadPool.execute { ReactNativeBlobUtilFS.writeRange(path, data, position, promise) }
+    }
+
+    fun touch(path: String?, mtime: Long, promise: Promise) {
+        if (refuseContent(promise, path)) return
+        threadPool.execute { ReactNativeBlobUtilFS.touch(path, mtime, promise) }
+    }
+
+    fun getExternalDirs(promise: Promise) {
+        try {
+            promise.resolve(Arguments.fromList(ReactNativeBlobUtilFS.getExternalDirs(RCTContext)))
+        } catch (e: Exception) {
+            promise.reject("EUNSPECIFIED", e.localizedMessage)
+        }
     }
 
     fun cp(path: String?, dest: String?, promise: Promise) {
@@ -322,16 +354,28 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         ReactNativeBlobUtilReq(options, taskId, method, url, headers, null, body, mClient, callback).run()
     }
 
-    fun getContentIntent(mime: String?, promise: Promise) {
+    /**
+     * The system file picker: one or several MIME types, one file or several.
+     * Resolves the content URIs picked, [] when the user cancels.
+     */
+    fun pickFiles(options: ReadableMap?, promise: Promise) {
         if (promiseTable.get(GET_CONTENT_INTENT) != null) {
             promise.reject("EBUSY", "A file picker is already open")
             return
         }
+        val mimes = ArrayList<String>()
+        val given = if (options != null && options.hasKey("mime")) options.getArray("mime") else null
+        for (index in 0 until (given?.size() ?: 0)) {
+            given!!.getString(index)?.let { mimes.add(it) }
+        }
+        val multiple = options != null && options.hasKey("multiple") && options.getBoolean("multiple")
         val i = Intent(Intent.ACTION_GET_CONTENT)
-        if (mime != null)
-            i.setType(mime)
-        else
-            i.setType("*/*")
+        i.addCategory(Intent.CATEGORY_OPENABLE)
+        i.setType(pickerType(mimes))
+        if (mimes.size > 1) {
+            i.putExtra(Intent.EXTRA_MIME_TYPES, mimes.toTypedArray())
+        }
+        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple)
         promiseTable.put(GET_CONTENT_INTENT, promise)
         try {
             RCTContext.startActivityForResult(i, GET_CONTENT_INTENT, null)
@@ -402,9 +446,17 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         if (res) promise.resolve("Success")
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.Q)
-    fun copyToInternal(contentUri: String?, destpath: String?, promise: Promise) {
-        ReactNativeBlobUtilMediaCollection.copyToInternal(Uri.parse(contentUri!!), destpath, promise)
+    fun copyToInternal(contentUri: String?, destpath: String?, options: ReadableMap?, promise: Promise) {
+        if (contentUri == null) {
+            promise.reject("EINVAL", "Missing argument \"contentUri\"")
+            return
+        }
+        val scale = ReactNativeBlobUtilMediaCollection.ScaleOptions.of(
+            if (options != null && options.hasKey("width")) options.getDouble("width").toInt() else 0,
+            if (options != null && options.hasKey("height")) options.getDouble("height").toInt() else 0,
+            if (options != null && options.hasKey("compression")) options.getDouble("compression") else -1.0,
+        )
+        threadPool.execute { ReactNativeBlobUtilMediaCollection.copyToInternal(Uri.parse(contentUri), destpath, scale, promise) }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.Q)
@@ -441,6 +493,19 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
     companion object {
 
         const val NAME = "ReactNativeBlobUtil"
+
+        /**
+         * The type an ACTION_GET_CONTENT intent gets: the one MIME type asked for,
+         * or for several the wildcard of the top-level type they share (any image
+         * for two image types), with the full list in EXTRA_MIME_TYPES.
+         */
+        @JvmStatic
+        fun pickerType(mimes: List<String>): String {
+            if (mimes.isEmpty()) return "*/*"
+            if (mimes.size == 1) return mimes[0]
+            val tops = mimes.map { it.substringBefore('/') }.toSet()
+            return if (tops.size == 1 && tops.first() != "*") "${tops.first()}/*" else "*/*"
+        }
 
         /** Set by the first module instance; everything else reads the app context from here. */
         lateinit var RCTContext: ReactApplicationContext

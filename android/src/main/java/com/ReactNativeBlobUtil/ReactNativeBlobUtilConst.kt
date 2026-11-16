@@ -9,6 +9,8 @@ object ReactNativeBlobUtilConst {
     const val FILE_PREFIX = "ReactNativeBlobUtil-file://"
     const val CONTENT_PREFIX = "ReactNativeBlobUtil-content://"
     const val FILE_PREFIX_BUNDLE_ASSET = "bundle-assets://"
+    /** An app resource, "bundle-res://<type>/<name>", as fs.resource() names it. */
+    const val FILE_PREFIX_BUNDLE_RESOURCE = "bundle-res://"
     const val FILE_PREFIX_CONTENT = "content://"
     const val DATA_ENCODE_URI = "uri"
     const val RNFB_RESPONSE_BASE64 = "base64"

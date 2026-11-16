@@ -243,11 +243,12 @@ class ReactNativeBlobUtilUtils {
         }
 
         /**
-         * The file path a string names: a plain path as it is, a file:// URI without
-         * its scheme, a bundle-assets:// URI unchanged. Any other URI, content://
-         * above all, is not a file path and yields null; callers open it through
-         * ContentResolver (ReactNativeBlobUtilContent). Resolving a content URI to
-         * a path let a URI shared by another app name this app's private files.
+         * The file path a string names: a plain path as it is, a file:// URI as the
+         * decoded path it names, a bundle-assets:// or bundle-res:// URI unchanged.
+         * Any other URI, content:// above all, is not a file path and yields null;
+         * callers open it through ContentResolver (ReactNativeBlobUtilContent).
+         * Resolving a content URI to a path let a URI shared by another app name
+         * this app's private files.
          *
          * @param path URI string.
          * @return The path, or null for a URI that is not one.
@@ -257,11 +258,60 @@ class ReactNativeBlobUtilUtils {
             if (path == null) return null
             if (!SCHEME.matches(path)) return path
             if (path.startsWith("file://")) {
-                return path.replace("file://", "")
+                // Decoded: Uri.fromFile, which Android 7-9 used for the file URIs it
+                // handed out, escapes a space as %20, and the file was then written
+                // under a name with "%20" in it (#287).
+                return decodePercent(path.replace("file://", ""))
             }
-
-            return if (path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) path else null
+            if (path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET) ||
+                path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_RESOURCE)
+            ) {
+                return path
+            }
+            return null
         }
+
+        /**
+         * A string with its %XX escapes decoded as UTF-8. Unlike URLDecoder it leaves
+         * "+" alone, which is a literal character in a path. A malformed escape, or
+         * bytes that are not UTF-8, leave the whole string as it is.
+         */
+        @JvmStatic
+        fun decodePercent(value: String): String {
+            if (!value.contains('%')) return value
+            val out = java.io.ByteArrayOutputStream(value.length)
+            var i = 0
+            while (i < value.length) {
+                val c = value[i]
+                if (c == '%') {
+                    if (i + 2 >= value.length) return value
+                    val high = Character.digit(value[i + 1], 16)
+                    val low = Character.digit(value[i + 2], 16)
+                    if (high < 0 || low < 0) return value
+                    out.write(high * 16 + low)
+                    i += 3
+                } else {
+                    // A whole run at once, so a surrogate pair is encoded as one character.
+                    var end = i
+                    while (end < value.length && value[end] != '%') end++
+                    val bytes = value.substring(i, end).toByteArray(Charsets.UTF_8)
+                    out.write(bytes, 0, bytes.size)
+                    i = end
+                }
+            }
+            val decoder = Charsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+            return try {
+                decoder.decode(java.nio.ByteBuffer.wrap(out.toByteArray())).toString()
+            } catch (e: java.nio.charset.CharacterCodingException) {
+                value
+            }
+        }
+
+        @JvmStatic
+        fun isResource(path: String?): Boolean =
+            path != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_RESOURCE)
 
         /**
          * Whether appendExt can be appended to a generated cache file name: no

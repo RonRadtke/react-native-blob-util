@@ -48,6 +48,8 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
 
             if (resolved != null && resolved.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET)) {
                 fs = ReactNativeBlobUtilImpl.RCTContext.assets.open(resolved.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, ""))
+            } else if (resolved != null && ReactNativeBlobUtilFS.isResource(resolved)) {
+                fs = ReactNativeBlobUtilFS.inputStreamFromPath(resolved)
             }
             // fix issue 287
             else if (resolved == null) {

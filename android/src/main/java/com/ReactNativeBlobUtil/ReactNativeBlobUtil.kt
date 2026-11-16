@@ -173,6 +173,34 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         delegate.df(promise)
     }
 
+    override fun readRange(path: String?, position: Double, length: Double, promise: Promise) {
+        delegate.readRange(path, position.toLong(), length.toLong(), promise)
+    }
+
+    override fun writeRange(path: String?, data: String?, position: Double, promise: Promise) {
+        delegate.writeRange(path, data, position.toLong(), promise)
+    }
+
+    override fun touch(path: String?, mtime: Double, ctime: Double, promise: Promise) {
+        delegate.touch(path, mtime.toLong(), promise)
+    }
+
+    override fun setAttributes(path: String?, attributes: ReadableMap?, promise: Promise) {
+        promise.reject("ENOTSUP", "ReactNativeBlobUtil.fs.setAttributes is only available on iOS")
+    }
+
+    override fun bundlePath(name: String?, promise: Promise) {
+        promise.reject("ENOTSUP", "ReactNativeBlobUtil.fs.bundlePath is only available on iOS")
+    }
+
+    override fun getExternalDirs(promise: Promise) {
+        delegate.getExternalDirs(promise)
+    }
+
+    override fun pickFiles(options: ReadableMap?, promise: Promise) {
+        delegate.pickFiles(options, promise)
+    }
+
     override fun actionViewIntent(path: String?, mime: String?, chooserTitle: String?, promise: Promise) {
         delegate.actionViewIntent(path, mime, chooserTitle, promise)
     }
@@ -181,9 +209,8 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         delegate.addCompleteDownload(config, promise)
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.Q)
-    override fun copyToInternal(contentUri: String?, destpath: String?, promise: Promise) {
-        delegate.copyToInternal(contentUri, destpath, promise)
+    override fun copyToInternal(contentUri: String?, destpath: String?, options: ReadableMap?, promise: Promise) {
+        delegate.copyToInternal(contentUri, destpath, options, promise)
     }
 
     override fun copyToMediaStore(filedata: ReadableMap?, mt: String?, path: String?, promise: Promise) {
@@ -197,10 +224,6 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
     @RequiresApi(api = Build.VERSION_CODES.Q)
     override fun getBlob(contentUri: String?, encoding: String?, promise: Promise) {
         delegate.getBlob(contentUri, encoding, promise)
-    }
-
-    override fun getContentIntent(mime: String?, promise: Promise) {
-        delegate.getContentIntent(mime, promise)
     }
 
     override fun getSDCardDir(promise: Promise) {

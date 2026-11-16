@@ -16,6 +16,11 @@ gradlew           text eol=lf
 *.pbxproj         text eol=lf
 *.pbxproj         -merge
 
+# Fixtures the parity cases read byte for byte; a CRLF checkout would change
+# their sizes and hashes on Windows.
+examples/ReactNativeBlobUtil/android/app/src/main/assets/** text eol=lf
+examples/ReactNativeBlobUtil/android/app/src/main/res/raw/parity_* text eol=lf
+
 # Binary, never touch
 *.png             binary
 *.jpg             binary
