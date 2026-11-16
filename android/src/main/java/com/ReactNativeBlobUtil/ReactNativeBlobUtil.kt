@@ -201,6 +201,18 @@ class ReactNativeBlobUtil(reactContext: ReactApplicationContext) : NativeBlobUti
         delegate.pickFiles(options, promise)
     }
 
+    override fun listBackgroundTasks(promise: Promise) {
+        delegate.listBackgroundTasks(promise)
+    }
+
+    override fun attachBackgroundTask(id: String?, callback: Callback) {
+        delegate.attachBackgroundTask(id, callback)
+    }
+
+    override fun forgetBackgroundTask(id: String?, promise: Promise) {
+        delegate.forgetBackgroundTask(id, promise)
+    }
+
     override fun actionViewIntent(path: String?, mime: String?, chooserTitle: String?, promise: Promise) {
         delegate.actionViewIntent(path, mime, chooserTitle, promise)
     }

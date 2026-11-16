@@ -209,6 +209,42 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
         threadPool.execute { ReactNativeBlobUtilFS.touch(path, mtime, promise) }
     }
 
+    fun listBackgroundTasks(promise: Promise) {
+        threadPool.execute {
+            try {
+                promise.resolve(ReactNativeBlobUtilBackground.list(RCTContext.applicationContext))
+            } catch (e: Exception) {
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
+            }
+        }
+    }
+
+    fun attachBackgroundTask(id: String?, callback: Callback) {
+        if (id == null) {
+            val error = Arguments.createMap()
+            error.putString("code", "EINVAL")
+            error.putString("message", "Missing argument \"id\"")
+            callback.invoke(error, null, null, null)
+            return
+        }
+        threadPool.execute { ReactNativeBlobUtilBackground.attach(RCTContext.applicationContext, id, callback) }
+    }
+
+    fun forgetBackgroundTask(id: String?, promise: Promise) {
+        if (id == null) {
+            promise.reject("EINVAL", "Missing argument \"id\"")
+            return
+        }
+        threadPool.execute {
+            try {
+                ReactNativeBlobUtilBackground.forget(RCTContext.applicationContext, id)
+                promise.resolve(null)
+            } catch (e: Exception) {
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
+            }
+        }
+    }
+
     fun getExternalDirs(promise: Promise) {
         try {
             promise.resolve(Arguments.fromList(ReactNativeBlobUtilFS.getExternalDirs(RCTContext)))

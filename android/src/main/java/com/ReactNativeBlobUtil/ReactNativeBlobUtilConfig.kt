@@ -41,6 +41,8 @@ internal class ReactNativeBlobUtilConfig(options: ReadableMap?) {
      */
     var rangeFrom: Long = -1
     var rangeIfRange: String? = null
+    /** A download that outlives the app (ReactNativeBlobUtilBackground), by its task id. */
+    var background: Boolean = false
 
     init {
         if (options != null) {
@@ -90,6 +92,7 @@ internal class ReactNativeBlobUtilConfig(options: ReadableMap?) {
             if (options.hasKey("trustSystemCerts")) {
                 trustSystemCerts = options.getBoolean("trustSystemCerts")
             }
+            background = options.hasKey("background") && !options.isNull("background")
             val range = if (options.hasKey("range")) options.getMap("range") else null
             if (range != null && range.hasKey("from")) {
                 rangeFrom = range.getDouble("from").toLong()

@@ -224,6 +224,11 @@ class ReactNativeBlobUtilReq(
             releaseTaskResource()
             return
         }
+        // A download that outlives the app: the DownloadManager runs it.
+        if (options.background) {
+            ReactNativeBlobUtilBackground.start(appCtx, taskId!!, url, options.path, headers, callback)
+            return
+        }
         // use download manager instead of default HTTP implementation
         val downloads = options.addAndroidDownloads
         if (downloads != null && downloads.hasKey("useDownloadManager") && downloads.getBoolean("useDownloadManager")) {
@@ -1061,6 +1066,9 @@ class ReactNativeBlobUtilReq(
 
         @JvmStatic
         fun cancelTask(taskId: String?) {
+            if (taskId != null && ReactNativeBlobUtilBackground.cancel(ReactNativeBlobUtilImpl.RCTContext.applicationContext, taskId)) {
+                return
+            }
             val call = taskTable[taskId]
             if (call != null) {
                 call.cancel()
