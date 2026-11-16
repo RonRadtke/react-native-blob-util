@@ -72,7 +72,8 @@
     "MusicDir": "<MusicDir>",
     "PictureDir": "<PictureDir>",
     "SDCardApplicationDir": "",
-    "SDCardDir": ""
+    "SDCardDir": "",
+    "TemporaryDir": "<TemporaryDir>"
   },
   "cp-mv": {
     "cp": {
@@ -486,6 +487,12 @@
       "taskId": "undefined"
     },
     "secondType": "path"
+  },
+  "fetch-no-resend": {
+    "droppedHits": 1,
+    "droppedRejected": true,
+    "timedOut": "ETIMEDOUT",
+    "timedOutHits": 1
   },
   "fetch-path": {
     "exists": true,

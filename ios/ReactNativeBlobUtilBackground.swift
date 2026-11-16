@@ -127,6 +127,35 @@ public final class ReactNativeBlobUtilBackground: NSObject, URLSessionDownloadDe
         write(all)
     }
 
+    // MARK: - which requests are background downloads
+
+    /// The id a request should run as a background download under, or nil when
+    /// it is an ordinary request.
+    ///
+    /// Two ways in. `background: {id}` is the 1.2.0 one, and JS has already
+    /// checked everything about it (utils/background.js). `ios.backgroundTask:
+    /// true` is the old one: it used to make a background session of its own
+    /// named after the task id, which nothing could find again after a relaunch
+    /// - the session was gone with the process that named it. It shares this
+    /// one now, with the task id as the download's id, so it survives the same
+    /// way. It only qualifies when it is a GET to a path, because that is all a
+    /// system-run download can be; anything else keeps the old behaviour rather
+    /// than quietly changing what it does.
+    ///
+    /// Pure, so the table is testable without a network.
+    static func backgroundId(options: [String: Any]?, taskId: String, method: String) -> String? {
+        if let given = (options?["background"] as? [String: Any])?["id"] as? String, !given.isEmpty {
+            return given
+        }
+        guard (options?["IOSBackgroundTask"] as? NSNumber)?.boolValue == true,
+              method.uppercased() == "GET",
+              let path = options?[ReactNativeBlobUtilConst.configFilePath] as? String, !path.isEmpty,
+              !taskId.isEmpty else {
+            return nil
+        }
+        return taskId
+    }
+
     // MARK: - starting
 
     /// Starts a download, or rejects when `id` already names one that has not

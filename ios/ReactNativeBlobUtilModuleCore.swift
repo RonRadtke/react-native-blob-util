@@ -159,8 +159,7 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         // A download that outlives the app is run by the system, not by the
         // request layer: no body, no transform, nothing for us to do to the
         // bytes on the way. JS has already checked that (utils/background.js).
-        if let background = options?["background"] as? [String: Any],
-           let id = background["id"] as? String, !id.isEmpty {
+        if let id = ReactNativeBlobUtilBackground.backgroundId(options: options, taskId: taskId, method: method) {
             ReactNativeBlobUtilBackground.shared.eventSink = eventSink
             return ReactNativeBlobUtilBackground.shared.start(
                 withId: id, url: url, path: options?[ReactNativeBlobUtilConst.configFilePath] as? String ?? "",

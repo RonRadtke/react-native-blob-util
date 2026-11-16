@@ -303,6 +303,52 @@ final class BackgroundDownloadTests: XCTestCase {
         XCTAssertEqual((args.first as? [String: Any])?["code"] as? String, "EINVAL")
     }
 
+    // MARK: - which requests are background downloads
+
+    private func idFor(_ options: [String: Any]?, _ taskId: String = "task-1", _ method: String = "GET") -> String? {
+        ReactNativeBlobUtilBackground.backgroundId(options: options, taskId: taskId, method: method)
+    }
+
+    func testAnOrdinaryRequestIsNotABackgroundDownload() {
+        XCTAssertNil(idFor(nil))
+        XCTAssertNil(idFor([:]))
+        XCTAssertNil(idFor(["path": "/tmp/x.bin"]))
+    }
+
+    func testTheBackgroundOptionNamesTheId() {
+        XCTAssertEqual(idFor(["background": ["id": "chosen"]]), "chosen")
+        // JS has already checked the rest of it, so nothing else is required.
+        XCTAssertEqual(idFor(["background": ["id": "chosen"]], "task-1", "POST"), "chosen")
+    }
+
+    func testAnEmptyOrMissingIdIsNotOne() {
+        XCTAssertNil(idFor(["background": ["id": ""]]))
+        XCTAssertNil(idFor(["background": [:]]))
+        XCTAssertNil(idFor(["background": true]))
+    }
+
+    /// The old ios.backgroundTask made a background session named after the
+    /// task id, which nothing could find again after a relaunch. It shares the
+    /// one session now, under that same id.
+    func testTheOldBackgroundTaskOptionSharesTheSession() {
+        XCTAssertEqual(idFor(["IOSBackgroundTask": true, "path": "/tmp/x.bin"], "task-7"), "task-7")
+    }
+
+    /// Only where it can mean the same thing: a system-run download is a GET
+    /// writing to a path. Anything else keeps the behaviour it had.
+    func testTheOldOptionOnlyQualifiesForAGetToAPath() {
+        XCTAssertNil(idFor(["IOSBackgroundTask": true], "task-7"))
+        XCTAssertNil(idFor(["IOSBackgroundTask": true, "path": ""], "task-7"))
+        XCTAssertNil(idFor(["IOSBackgroundTask": true, "path": "/tmp/x.bin"], "task-7", "POST"))
+        XCTAssertNil(idFor(["IOSBackgroundTask": false, "path": "/tmp/x.bin"], "task-7"))
+        XCTAssertNil(idFor(["IOSBackgroundTask": true, "path": "/tmp/x.bin"], ""))
+    }
+
+    func testTheNewOptionWinsOverTheOld() {
+        XCTAssertEqual(idFor(["IOSBackgroundTask": true, "path": "/tmp/x.bin",
+                              "background": ["id": "chosen"]], "task-7"), "chosen")
+    }
+
     // MARK: - the relaunch entry point
 
     /// The app may have background sessions of its own; ours says so and the
