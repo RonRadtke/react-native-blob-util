@@ -1546,6 +1546,41 @@ define('background-download', async (ctx) => {
     return out;
 });
 
+// A request that fails after the server may have received it is not sent again
+// (#504, 1.1.1): a POST whose connection drops before an answer, and one that
+// times out, each reach the server once.
+define('fetch-no-resend', async (ctx) => {
+    const hits = async (token) => (await (await ReactNativeBlobUtil.fetch('GET', ctx.url(`/count/hits?token=${token}`))).json()).hits;
+    const reset = rangeToken('reset');
+    const dropped = await settle(async () => (await ReactNativeBlobUtil.fetch('POST', ctx.url(`/count?token=${reset}&reset=1`), {'Content-Type': 'text/plain'}, 'once')).info().status);
+    await pause(500);
+    const slow = rangeToken('timeout');
+    const timedOut = await settle(async () => (await ReactNativeBlobUtil.config({timeout: 1000})
+        .fetch('POST', ctx.url(`/count?token=${slow}&ms=3000`), {'Content-Type': 'text/plain'}, 'once')).info().status);
+    await pause(2500);
+    return {
+        droppedRejected: 'rejected' in dropped,
+        droppedHits: await hits(reset),
+        timedOut: timedOut.rejected ? timedOut.rejected.code : timedOut,
+        timedOutHits: await hits(slow),
+    };
+});
+
+// A download through OkHttp listed in the Downloads app (android.downloadManager
+// without useDownloadManager) resolves; with the defaults it ended the app (#390).
+define('android-download-listed', async (ctx) => {
+    const fetchListed = (downloadManager) => settle(async () => {
+        const res = await ReactNativeBlobUtil.config({fileCache: true, android: {downloadManager}}).fetch('GET', ctx.url('/binary'));
+        const size = (await fs.stat(res.path())).size;
+        await fs.unlink(res.path());
+        return {status: res.info().status, size};
+    });
+    return {
+        defaults: await fetchListed({}),
+        named: await fetchListed({title: 'parity', description: 'parity', mime: 'application/octet-stream'}),
+    };
+}, ['android']);
+
 define('ios-misc', async () => {
     const dir = await freshDir('ios-misc');
     const file = `${dir}/backup.txt`;

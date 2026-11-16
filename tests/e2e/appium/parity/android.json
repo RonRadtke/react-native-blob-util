@@ -207,6 +207,20 @@
       "resolved": "content via resolver ✓"
     }
   },
+  "android-download-listed": {
+    "defaults": {
+      "resolved": {
+        "size": 256,
+        "status": 200
+      }
+    },
+    "named": {
+      "resolved": {
+        "size": 256,
+        "status": 200
+      }
+    }
+  },
   "android-download-manager": {
     "again": {
       "resolved": {
@@ -808,6 +822,12 @@
       "taskId": "undefined"
     },
     "secondType": "path"
+  },
+  "fetch-no-resend": {
+    "droppedHits": 1,
+    "droppedRejected": true,
+    "timedOut": "ETIMEDOUT",
+    "timedOutHits": 1
   },
   "fetch-path": {
     "exists": true,

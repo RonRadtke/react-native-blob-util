@@ -155,6 +155,7 @@ const BINARY_BUFFER = Buffer.from(Array.from({length: 256}, (_, i) => i));
 // misplaced range shows in the hash.
 const RANGE_BUFFER = Buffer.from(Array.from({length: 256 * 1024}, (_, i) => (i * 31 + (i >> 8)) & 0xff));
 const RANGE_LOG = new Map();
+const COUNT_HITS = new Map();
 const RANGE_DROPPED = new Set();
 
 const handleRange = (req, res, url) => {
@@ -280,6 +281,27 @@ const handler = async (req, res) => {
     // closes the connection after n bytes, once per token; noRange=1 ignores
     // Range; etag=<v> changes the validator. /range/log?token=t lists the Range
     // and If-Range headers the requests for that token carried.
+    // Counts the requests per token, so a case can tell a request sent once from
+    // one sent again. reset=1 drops the connection without an answer; ms=<n>
+    // answers after n milliseconds. /count/hits?token=t says how many arrived.
+    if (url.pathname === "/count/hits") {
+        return sendJson(res, 200, {hits: COUNT_HITS.get(url.searchParams.get("token") || "") || 0});
+    }
+    if (url.pathname === "/count") {
+        const token = url.searchParams.get("token") || "";
+        COUNT_HITS.set(token, (COUNT_HITS.get(token) || 0) + 1);
+        req.resume();
+        req.on("end", () => {
+            if (url.searchParams.get("reset") === "1") {
+                req.socket.destroy();
+                return;
+            }
+            const ms = Math.min(Number(url.searchParams.get("ms") || 0), 30000);
+            setTimeout(() => sendJson(res, 200, {ok: true}), ms);
+        });
+        return;
+    }
+
     if (method === "GET" && url.pathname === "/range/log") {
         return sendJson(res, 200, {requests: RANGE_LOG.get(url.searchParams.get("token") || "") || []});
     }
