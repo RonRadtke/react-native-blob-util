@@ -55,6 +55,7 @@ let package = Package(
             dependencies: ["ReactNativeBlobUtilObjC"],
             path: "ios",
             sources: [
+                "ReactNativeBlobUtilBackground.swift",
                 "ReactNativeBlobUtilBase64.swift",
                 "ReactNativeBlobUtilConst.swift",
                 "ReactNativeBlobUtilFS.swift",

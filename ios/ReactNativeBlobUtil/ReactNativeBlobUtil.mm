@@ -261,6 +261,20 @@ RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(double
     [self.core pickFiles:options resolve:resolve reject:reject];
 }
 
+#pragma mark - background downloads
+
+- (void)listBackgroundTasks:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core listBackgroundTasks:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(attachBackgroundTask:(NSString *)identifier callback:(RCTResponseSenderBlock)callback) {
+    [self.core attachBackgroundTask:identifier callback:callback];
+}
+
+- (void)forgetBackgroundTask:(NSString *)identifier resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core forgetBackgroundTask:identifier resolve:resolve reject:reject];
+}
+
 #pragma mark - document menus
 
 - (void)presentOptionsMenu:(NSString *)uri scheme:(NSString *)scheme resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

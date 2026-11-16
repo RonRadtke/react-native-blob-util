@@ -67,6 +67,10 @@
 - (void)bundlePath:(NSString * _Nonnull)name resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)getExternalDirs:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)pickFiles:(NSDictionary<NSString *, id> * _Nonnull)options resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)listBackgroundTasks:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)attachBackgroundTask:(NSString * _Nonnull)identifier callback:(void (^ _Nonnull)(NSArray * _Nonnull))callback
+    NS_SWIFT_NAME(attachBackgroundTask(_:callback:));
+- (void)forgetBackgroundTask:(NSString * _Nonnull)identifier resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)hash:(NSString * _Nonnull)path algorithm:(NSString * _Nonnull)algorithm resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)slice:(NSString * _Nonnull)src dest:(NSString * _Nonnull)dest start:(double)start end:(double)end resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)df:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;

@@ -77,7 +77,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     /// alone: a caller that wants to show something reads that, and a caller
     /// that wants to retry reads the code. Anything unrecognised stays
     /// EUNSPECIFIED rather than being guessed at.
-    private static func networkErrorCode(_ error: NSError) -> String {
+    static func networkErrorCode(_ error: NSError) -> String {
         guard error.domain == NSURLErrorDomain else { return "EUNSPECIFIED" }
         switch error.code {
         case NSURLErrorTimedOut:

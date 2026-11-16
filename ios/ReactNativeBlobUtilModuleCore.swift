@@ -156,6 +156,17 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     public func fetchBlob(_ options: [String: Any]?, taskId: String, method: String,
                           url: String, headers: [String: Any]?, body: String?,
                           callback: @escaping RNBUCallbackNonNull) {
+        // A download that outlives the app is run by the system, not by the
+        // request layer: no body, no transform, nothing for us to do to the
+        // bytes on the way. JS has already checked that (utils/background.js).
+        if let background = options?["background"] as? [String: Any],
+           let id = background["id"] as? String, !id.isEmpty {
+            ReactNativeBlobUtilBackground.shared.eventSink = eventSink
+            return ReactNativeBlobUtilBackground.shared.start(
+                withId: id, url: url, path: options?[ReactNativeBlobUtilConst.configFilePath] as? String ?? "",
+                headers: headers, callback: { callback($0 ?? []) })
+        }
+
         let network = ReactNativeBlobUtilNetwork.sharedInstance()
         network.beginTask(taskId)
         if !ReactNativeBlobUtilFS.isSafeExtension(options?[ReactNativeBlobUtilConst.configFileExt] as? String) {
@@ -374,8 +385,37 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
 
     // MARK: - network forwards
 
+    // MARK: - background downloads
+
+    @objc(listBackgroundTasks:reject:)
+    public func listBackgroundTasks(_ resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilBackground.shared.listTasks { records in
+            resolve(records)
+        }
+    }
+
+    @objc(attachBackgroundTask:callback:)
+    public func attachBackgroundTask(_ id: String, callback: @escaping RNBUCallbackNonNull) {
+        ReactNativeBlobUtilBackground.shared.eventSink = eventSink
+        ReactNativeBlobUtilBackground.shared.attach(withId: id, callback: { callback($0 ?? []) })
+    }
+
+    @objc(forgetBackgroundTask:resolve:reject:)
+    public func forgetBackgroundTask(_ id: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilBackground.shared.forget(withId: id) { _ in
+            // Resolves whether or not there was a record: forgetting something
+            // that is already forgotten is not a failure.
+            resolve(nil)
+        }
+    }
+
     @objc(cancelRequest:resolve:reject:)
     public func cancelRequest(_ taskId: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        // A background download has no request object to cancel: the system is
+        // running it, and cancelling one is the same as forgetting it.
+        if ReactNativeBlobUtilBackground.shared.record(for: taskId) != nil {
+            return ReactNativeBlobUtilBackground.shared.forget(withId: taskId) { _ in resolve(nil) }
+        }
         ReactNativeBlobUtilNetwork.sharedInstance().cancelRequest(taskId)
         resolve(nil)
     }
