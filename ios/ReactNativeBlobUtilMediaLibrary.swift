@@ -87,11 +87,8 @@ final class ReactNativeBlobUtilMediaLibrary {
         guard let asset = asset(for: uri) else {
             return reject("ENOENT", "No photo library item at '\(uri)'", nil)
         }
-        let parent = (destpath as NSString).deletingLastPathComponent
-        var parentIsDir: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: parent, isDirectory: &parentIsDir),
-              parentIsDir.boolValue else {
-            return reject("ENOENT", "Cannot create the directory of '\(destpath)'", nil)
+        if let problem = ensureParentDirectory(of: destpath) {
+            return reject(problem.code, problem.message, nil)
         }
 
         if asset.mediaType == .video {
@@ -120,6 +117,25 @@ final class ReactNativeBlobUtilMediaLibrary {
             } catch let error as NSError {
                 reject("EUNSPECIFIED", error.localizedDescription, nil)
             }
+        }
+    }
+
+    /// Makes sure the destination's directory exists, creating it and anything
+    /// above it. Android does the same (ReactNativeBlobUtilMediaCollection
+    /// .copyToInternal calls mkdirs and only fails when that fails), so a caller
+    /// writing into a folder of its own does not have to create it first.
+    ///
+    /// Separated out because it is the part that can be tested without a photo
+    /// library, which the simulator does not give us.
+    static func ensureParentDirectory(of destpath: String) -> (code: String, message: String)? {
+        let parent = (destpath as NSString).deletingLastPathComponent
+        guard !parent.isEmpty else { return nil }
+        do {
+            try FileManager.default.createDirectory(atPath: parent, withIntermediateDirectories: true)
+            return nil
+        } catch let error as NSError {
+            return (ReactNativeBlobUtilFS.errorCode(error),
+                    "Cannot create the directory of '\(destpath)': \(error.localizedDescription)")
         }
     }
 

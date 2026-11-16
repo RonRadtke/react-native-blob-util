@@ -119,21 +119,36 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     public func fetchBlobForm(_ options: [String: Any]?, taskId: String, method: String,
                               url: String, headers: [String: Any]?, form: [[String: Any]]?,
                               callback: @escaping RNBUCallbackNonNull) {
+        // From here a cancel for this id is kept rather than dropped, because
+        // the body below is built asynchronously and the task does not exist yet.
+        let network = ReactNativeBlobUtilNetwork.sharedInstance()
+        network.beginTask(taskId)
         if !ReactNativeBlobUtilFS.isSafeExtension(options?[ReactNativeBlobUtilConst.configFileExt] as? String) {
+            network.removeRequest(forTaskId: taskId)
             return callback([["code": "EINVAL", "message": "appendExt must be a file extension, without path separators"]])
+        }
+        // A file part that could not be read used to go out with its headers and
+        // an empty body, so the server stored a zero-byte file and the upload
+        // reported success (#502). Checked for every part before the body is
+        // built, so nothing is sent at all.
+        if let problem = ReactNativeBlobUtilReqBuilder.unreadableSource(options, body: nil, form: form) {
+            network.removeRequest(forTaskId: taskId)
+            return callback([problem])
         }
         ReactNativeBlobUtilReqBuilder.buildMultipartRequest(
             options, taskId: taskId, method: method, url: url, headers: headers, form: form
         ) { [weak self] req, bodyLength in
             guard let req = req else {
+                network.removeRequest(forTaskId: taskId)
                 return callback([[
                     "code": "EUNSPECIFIED",
                     "message": "ReactNativeBlobUtil.fetchBlobForm failed to create request body",
                 ]])
             }
-            ReactNativeBlobUtilNetwork.sharedInstance().sendRequest(
+            network.sendRequest(
                 options, contentLength: bodyLength, baseModule: self?.eventSink,
-                taskId: taskId, withRequest: req, callback: { callback($0 ?? []) })
+                taskId: taskId, withRequest: req, uploadFile: nil,
+                callback: { callback($0 ?? []) })
         }
     }
 
@@ -141,24 +156,31 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     public func fetchBlob(_ options: [String: Any]?, taskId: String, method: String,
                           url: String, headers: [String: Any]?, body: String?,
                           callback: @escaping RNBUCallbackNonNull) {
+        let network = ReactNativeBlobUtilNetwork.sharedInstance()
+        network.beginTask(taskId)
         if !ReactNativeBlobUtilFS.isSafeExtension(options?[ReactNativeBlobUtilConst.configFileExt] as? String) {
+            network.removeRequest(forTaskId: taskId)
             return callback([["code": "EINVAL", "message": "appendExt must be a file extension, without path separators"]])
         }
-        if let missing = ReactNativeBlobUtilReqBuilder.missingFileBody(options, body: body) {
-            return callback([["code": "ENOENT", "message": "No such file '\(missing)'"]])
+        // Before the body is built, and so before anything is sent (#502).
+        if let problem = ReactNativeBlobUtilReqBuilder.unreadableSource(options, body: body, form: nil) {
+            network.removeRequest(forTaskId: taskId)
+            return callback([problem])
         }
         ReactNativeBlobUtilReqBuilder.buildOctetRequest(
             options, taskId: taskId, method: method, url: url, headers: headers, body: body
-        ) { [weak self] req, bodyLength in
+        ) { [weak self] req, bodyLength, uploadFile in
             guard let req = req else {
+                network.removeRequest(forTaskId: taskId)
                 return callback([[
                     "code": "EUNSPECIFIED",
                     "message": "ReactNativeBlobUtil.fetchBlob failed to create request body",
                 ]])
             }
-            ReactNativeBlobUtilNetwork.sharedInstance().sendRequest(
+            network.sendRequest(
                 options, contentLength: bodyLength, baseModule: self?.eventSink,
-                taskId: taskId, withRequest: req, callback: { callback($0 ?? []) })
+                taskId: taskId, withRequest: req, uploadFile: uploadFile,
+                callback: { callback($0 ?? []) })
         }
     }
 
@@ -434,7 +456,14 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     public func writeChunk(_ streamId: String, withData data: String,
                            resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         guard let stream = stream(streamId, reject) else { return }
-        stream.writeEncodeChunk(data)
+        // A chunk that does not decode used to be dropped in silence: the write
+        // resolved and the stream carried on, so the file ended up missing that
+        // chunk and nobody was told. writeChunk is the one call in the stream
+        // that holds a reject, so this is where it is reported.
+        guard stream.writeEncodeChunk(data) else {
+            let encoding = (stream.encoding ?? "utf8").lowercased()
+            return reject("EINVAL", "Data for stream '\(streamId)' is not valid \(encoding)", nil)
+        }
         resolve(nil)
     }
 

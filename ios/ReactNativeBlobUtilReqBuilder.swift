@@ -166,24 +166,94 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
         advance()
     }
 
-    // MARK: - octet
+    // MARK: - upload sources
 
-    /// The path of a file body that does not exist, or nil. The module rejects
-    /// such a request with ENOENT before building it; it used to go out with an
-    /// empty body. Android's message, so the platforms agree.
-    @objc(missingFileBody:body:)
-    public static func missingFileBody(_ options: [String: Any]?, body: String?) -> String? {
-        guard options?["bodyType"] as? String == "file", let body = body,
-              body.hasPrefix(ReactNativeBlobUtilConst.filePrefix) else { return nil }
-        let raw = String(body.dropFirst(ReactNativeBlobUtilConst.filePrefix.count))
-        var orgPath = ReactNativeBlobUtilFS.getPathOfAsset(raw)
-        if orgPath.hasPrefix(ReactNativeBlobUtilConst.alPrefix) { return nil }
-        orgPath = URL(string: orgPath)?.path ?? orgPath
+    /// Why a file cannot be uploaded, as (code, message), or nil when it can:
+    /// ENOENT when it is not there, EISDIR for a directory, EACCES when the app
+    /// may not read it. A readable empty file is fine - it uploads as an empty
+    /// body, which is what it is.
+    ///
+    /// Pure, and the messages are Android's word for word
+    /// (ReactNativeBlobUtilBody.fileSourceError), so the parity signatures of
+    /// the two platforms compare.
+    static func fileSourceError(_ path: String) -> (code: String, message: String)? {
         var isDirectory: ObjCBool = false
-        let exists = FileManager.default.fileExists(atPath: orgPath, isDirectory: &isDirectory)
-        return exists && !isDirectory.boolValue ? nil : raw
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: path, isDirectory: &isDirectory) {
+            return ("ENOENT", "No such file '\(path)'")
+        }
+        if isDirectory.boolValue {
+            return ("EISDIR", "Expecting a file but '\(path)' is a directory")
+        }
+        // chmod 000 denies the owner too, so this is false for a file the app
+        // itself wrote and then locked.
+        if !fm.isReadableFile(atPath: path) {
+            return ("EACCES", "Not allowed to read '\(path)'")
+        }
+        return nil
     }
 
+    /// The local path an upload source names, or nil when it is not one this
+    /// can check from here: a photo library URL, which Photos reads rather than
+    /// the file system.
+    private static func uploadPath(of value: String) -> String? {
+        let prefix = ReactNativeBlobUtilConst.filePrefix
+        let raw = value.hasPrefix(prefix) ? String(value.dropFirst(prefix.count)) : value
+        let resolved = ReactNativeBlobUtilFS.getPathOfAsset(raw)
+        if resolved.hasPrefix(ReactNativeBlobUtilConst.alPrefix) { return nil }
+        // A bundle asset that is not there resolves to "", and naming "" in the
+        // rejection says nothing; keep what the caller wrote.
+        let path = resolved.isEmpty ? raw : resolved
+        return URL(string: path)?.path ?? path
+    }
+
+    /// Whether a form field is a file part, by the same rule the body builder
+    /// uses: the kind JS sends since 1.0, or the filename for an older caller.
+    private static func isFilePart(_ field: [String: Any], content: String) -> Bool {
+        let filename = field["filename"] as? String
+        let kind = (field["kind"] as? String)
+            ?? (filename == nil ? "text" : (content.hasPrefix(ReactNativeBlobUtilConst.filePrefix) ? "file" : "base64"))
+        return kind == "file" && content.hasPrefix(ReactNativeBlobUtilConst.filePrefix)
+    }
+
+    /// The first upload source of a request that cannot be read - the single
+    /// file body, or a file part of the form - as the {code, message} pair the
+    /// fetch callback carries. Nil when every source is readable.
+    ///
+    /// Checked before the body is built, and so before anything is sent (#502).
+    /// A part whose file could not be read used to go out with its headers and
+    /// an empty body, so the server stored a zero-byte file and the upload
+    /// reported success; a single file body that existed but could not be read
+    /// did the same.
+    @objc(unreadableSource:body:form:)
+    public static func unreadableSource(_ options: [String: Any]?,
+                                        body: String?,
+                                        form: [[String: Any]]?) -> [String: String]? {
+        func pair(_ error: (code: String, message: String)) -> [String: String] {
+            ["code": error.code, "message": error.message]
+        }
+
+        let bodyType = options?["bodyType"] as? String
+        if let body = body, body.hasPrefix(ReactNativeBlobUtilConst.filePrefix),
+           bodyType == "file" || bodyType == nil,
+           let path = uploadPath(of: body), let error = fileSourceError(path) {
+            return pair(error)
+        }
+
+        for field in form ?? [] {
+            guard let content = field["data"] as? String, isFilePart(field, content: content) else { continue }
+            if let path = uploadPath(of: content), let error = fileSourceError(path) {
+                return pair(error)
+            }
+        }
+        return nil
+    }
+
+    // MARK: - octet
+
+    /// The third argument is a file to send from disk rather than from memory:
+    /// set for a plain file body, nil for everything else. The request then has
+    /// no httpBody at all and the sender turns it into an upload task.
     @objc(buildOctetRequest:taskId:method:url:headers:body:onComplete:)
     public static func buildOctetRequest(_ options: [String: Any]?,
                                          taskId: String?,
@@ -191,14 +261,15 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
                                          url: String,
                                          headers: [String: Any]?,
                                          body: String?,
-                                         onComplete: @escaping (URLRequest?, Int) -> Void) {
-        guard let requestURL = URL(string: url) else { return onComplete(nil, 0) }
+                                         onComplete: @escaping (URLRequest?, Int, URL?) -> Void) {
+        guard let requestURL = URL(string: url) else { return onComplete(nil, 0, nil) }
         var request = URLRequest(url: requestURL)
         var mheaders = ReactNativeBlobUtilNetwork.normalizeHeaders(headers)
 
         DispatchQueue.global(qos: .default).async {
             // -1, not 0, when nothing is sent.
             var size = -1
+            var uploadFile: URL?
 
             let lowered = method.lowercased()
             // JS says what the body is (bodyType, since 1.0) and sends a Content-Type
@@ -223,12 +294,12 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
 
                     if orgPath.hasPrefix(ReactNativeBlobUtilConst.alPrefix) {
                         ReactNativeBlobUtilFS.readFile(orgPath, encoding: nil, transformFile: false) { content, _, err in
-                            if err != nil { return onComplete(nil, 0) }
+                            if err != nil { return onComplete(nil, 0, nil) }
                             let data = content as? Data
                             request.httpBody = data
                             request.httpMethod = method
                             request.allHTTPHeaderFields = mheaders.compactMapValues { $0 as? String }
-                            onComplete(request, data?.count ?? 0)
+                            onComplete(request, data?.count ?? 0, nil)
                         }
                         return
                     }
@@ -237,7 +308,8 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
                     if transferEncoding?.lowercased() == "chunked" {
                         request.httpBodyStream = InputStream(fileAtPath: orgPath)
                     } else {
-                        request.httpBody = FileManager.default.contents(atPath: orgPath)
+                        // Handed on as a file rather than read into memory here.
+                        uploadFile = URL(fileURLWithPath: orgPath)
                     }
                 } else {
                     let cType = getHeaderIgnoreCases("content-type", fromHeaders: mheaders)
@@ -266,7 +338,7 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
 
             request.httpMethod = method
             request.allHTTPHeaderFields = mheaders.compactMapValues { $0 as? String }
-            onComplete(request, size)
+            onComplete(request, size, uploadFile)
         }
     }
 }

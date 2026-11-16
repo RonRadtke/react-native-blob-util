@@ -46,6 +46,17 @@ public class ReactNativeBlobUtilNetwork: NSObject {
     @objc public var rebindProgressDict: [String: ReactNativeBlobUtilProgress] = [:]
     @objc public var rebindUploadProgressDict: [String: ReactNativeBlobUtilProgress] = [:]
 
+    /// Task ids that have begun and not yet ended, and the ones cancelled while
+    /// their request was still being built.
+    ///
+    /// A request is not in requestsTable until its URLSessionTask exists, and
+    /// building the body happens first and asynchronously - reading a file,
+    /// walking a multipart form. A cancel arriving in that window used to find
+    /// nothing to cancel and was simply lost; the request then went out anyway
+    /// and the caller, who had asked for it to stop, got a response (#491).
+    private var startedTasks: Set<String> = []
+    private var cancelledBeforeSend: Set<String> = []
+
     private static let lock = NSLock()
 
     @objc(sharedInstance)
@@ -55,19 +66,57 @@ public class ReactNativeBlobUtilNetwork: NSObject {
 
     private static let shared = ReactNativeBlobUtilNetwork()
 
-    @objc(sendRequest:contentLength:baseModule:taskId:withRequest:callback:)
+    /// Remembers that a task has begun, before its body is built. From here on
+    /// a cancel for this id is kept rather than dropped.
+    @objc(beginTask:)
+    public func beginTask(_ taskId: String) {
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        startedTasks.insert(taskId)
+        cancelledBeforeSend.remove(taskId)
+    }
+
+    /// Whether a cancel arrived while this task's request was still being built.
+    @objc(wasCancelledBeforeSending:)
+    public func wasCancelledBeforeSending(_ taskId: String) -> Bool {
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
+        return cancelledBeforeSend.contains(taskId)
+    }
+
+    /// What a request cancelled before it was sent answers with: the shape a
+    /// task cancelled mid-flight produces, so JS cannot tell the two apart and
+    /// both become a ReactNativeBlobUtilCanceledFetch.
+    static let cancelledBeforeSendingResult: [Any] = [
+        ["code": "ECANCELED", "message": "task cancelled"],
+        "",
+        NSNull(),
+        ["status": NSNumber(value: 0)],
+    ]
+
+    @objc(sendRequest:contentLength:baseModule:taskId:withRequest:uploadFile:callback:)
     public func sendRequest(_ options: [String: Any]?,
                             contentLength: Int,
                             baseModule: ReactNativeBlobUtilEventSink?,
                             taskId: String?,
                             withRequest req: URLRequest?,
+                            uploadFile: URL?,
                             callback: RNBUCallback?) {
+        // Checked here rather than inside the request, because this is the last
+        // point before the task exists and the one place every caller passes
+        // through.
+        if let taskId = taskId, wasCancelledBeforeSending(taskId) {
+            removeRequest(forTaskId: taskId)
+            callback?(Self.cancelledBeforeSendingResult)
+            return
+        }
         let request = ReactNativeBlobUtilRequest()
         request.sendRequest(options,
                             contentLength: contentLength,
                             baseModule: baseModule,
                             taskId: taskId,
                             withRequest: req,
+                            uploadFile: uploadFile,
                             taskOperationQueue: taskQueue,
                             callback: callback)
 
@@ -121,6 +170,11 @@ public class ReactNativeBlobUtilNetwork: NSObject {
         var task: URLSessionTask?
         Self.lock.lock()
         task = requestsTable.object(forKey: taskId as NSString)?.task
+        // Nothing to cancel yet, but the request is on its way to being sent:
+        // remember the cancel so the send can refuse it.
+        if task == nil && startedTasks.contains(taskId) {
+            cancelledBeforeSend.insert(taskId)
+        }
         requestsTable.removeObject(forKey: taskId as NSString)
         rebindProgressDict.removeValue(forKey: taskId)
         rebindUploadProgressDict.removeValue(forKey: taskId)
@@ -132,6 +186,8 @@ public class ReactNativeBlobUtilNetwork: NSObject {
         }
     }
 
+    /// The end of a task, whatever ended it. Clears the cancel marks too, so an
+    /// id reused later does not inherit them.
     @objc(removeRequestForTaskId:)
     public func removeRequest(forTaskId taskId: String) {
         Self.lock.lock()
@@ -139,6 +195,8 @@ public class ReactNativeBlobUtilNetwork: NSObject {
         requestsTable.removeObject(forKey: taskId as NSString)
         rebindProgressDict.removeValue(forKey: taskId)
         rebindUploadProgressDict.removeValue(forKey: taskId)
+        startedTasks.remove(taskId)
+        cancelledBeforeSend.remove(taskId)
     }
 
     /// Lowercases every key, so a header can be looked up without knowing how the

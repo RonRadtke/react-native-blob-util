@@ -843,6 +843,10 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         // onto an existing directory reports. Android and Windows call that
         // EEXIST; it used to arrive here as EUNSPECIFIED.
         case NSFileWriteFileExistsError: return "EEXIST"
+        // Android reports a refused read or write as EACCES (a SecurityException
+        // there), and ErrorCode has the code; these used to arrive as
+        // EUNSPECIFIED, which says nothing a caller can act on.
+        case NSFileReadNoPermissionError, NSFileWriteNoPermissionError: return "EACCES"
         default: return "EUNSPECIFIED"
         }
     }
@@ -1198,8 +1202,13 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         return uuid
     }
 
+    /// Whether the chunk decoded and was written. False means nothing was
+    /// written and the caller has to report it: a chunk that did not decode
+    /// used to be dropped in silence, so the file ended up missing it while
+    /// every write resolved.
+    @discardableResult
     @objc(writeEncodeChunk:)
-    public func writeEncodeChunk(_ chunk: String) {
+    public func writeEncodeChunk(_ chunk: String) -> Bool {
         var decoded: Data?
         switch encoding?.lowercased() {
         case "base64":
@@ -1215,8 +1224,9 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         default:
             decoded = nil
         }
-        guard let data = decoded else { return }
+        guard let data = decoded else { return false }
         write(data)
+        return true
     }
 
     @objc(write:)

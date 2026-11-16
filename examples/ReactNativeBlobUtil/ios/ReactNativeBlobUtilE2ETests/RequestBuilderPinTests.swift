@@ -33,12 +33,24 @@ final class RequestBuilderPinTests: XCTestCase {
                             headers: [String: Any] = [:],
                             body: String?,
                             options: [String: Any] = [:]) throws -> (URLRequest?, Int) {
+        let (request, length, _) = try buildOctetWithFile(method: method, url: url, headers: headers,
+                                                          body: body, options: options)
+        return (request, length)
+    }
+
+    /// The same, keeping the third value: the file a body is sent from rather
+    /// than read into memory.
+    private func buildOctetWithFile(method: String,
+                                    url: String = "http://127.0.0.1:19076/echo",
+                                    headers: [String: Any] = [:],
+                                    body: String?,
+                                    options: [String: Any] = [:]) throws -> (URLRequest?, Int, URL?) {
         let done = expectation(description: "octet")
-        var out: (URLRequest?, Int)?
+        var out: (URLRequest?, Int, URL?)?
         var fired = false
         ReactNativeBlobUtilReqBuilder.buildOctetRequest(options, taskId: "t", method: method,
-                                                        url: url, headers: headers, body: body) { req, length in
-            if !fired { fired = true; out = (req as URLRequest?, length); done.fulfill() }
+                                                        url: url, headers: headers, body: body) { req, length, file in
+            if !fired { fired = true; out = (req as URLRequest?, length, file); done.fulfill() }
         }
         wait(for: [done], timeout: 5)
         return try XCTUnwrap(out)
@@ -151,14 +163,20 @@ final class RequestBuilderPinTests: XCTestCase {
         }
     }
 
-    func testPostReadsABodyGivenAsAFilePath() throws {
+    /// A file body is sent from the file, not read into memory first: the
+    /// request carries no httpBody and names the file instead, and the sender
+    /// turns that into an upload task. Uploading a 2 GB file used to need 2 GB
+    /// of RAM.
+    func testPostSendsABodyGivenAsAFilePathFromDisk() throws {
         let path = "\(dir)/payload.txt"
         try "from disk".write(toFile: path, atomically: true, encoding: .utf8)
-        let (request, length) = try buildOctet(method: "POST",
-                                               headers: ["content-type": "text/plain"],
-                                               body: ReactNativeBlobUtilConst.filePrefix + path)
+        let (request, length, uploadFile) = try buildOctetWithFile(
+            method: "POST", headers: ["content-type": "text/plain"],
+            body: ReactNativeBlobUtilConst.filePrefix + path)
         let req = try XCTUnwrap(request)
-        XCTAssertEqual(String(data: try XCTUnwrap(req.httpBody), encoding: .utf8), "from disk")
+        XCTAssertNil(req.httpBody, "the file is not read into memory")
+        XCTAssertNil(req.httpBodyStream)
+        XCTAssertEqual(uploadFile?.path, path)
         XCTAssertEqual(length, 9, "the length comes from the file's size")
     }
 
@@ -173,6 +191,29 @@ final class RequestBuilderPinTests: XCTestCase {
         let req = try XCTUnwrap(request)
         XCTAssertNotNil(req.httpBodyStream, "a chunked body is streamed")
         XCTAssertNil(req.httpBody, "and not loaded into memory")
+    }
+
+    /// Only a file body is handed over as a file; everything else still builds
+    /// its bytes here, so nothing else changes shape.
+    func testOnlyAFileBodyIsSentFromDisk() throws {
+        let (_, _, text) = try buildOctetWithFile(method: "POST", headers: ["content-type": "text/plain"],
+                                                  body: "plain", options: ["bodyType": "text"])
+        XCTAssertNil(text)
+        let (_, _, base64) = try buildOctetWithFile(method: "POST", headers: ["content-type": "application/octet-stream"],
+                                                    body: "YWJj", options: ["bodyType": "base64"])
+        XCTAssertNil(base64)
+        let (_, _, none) = try buildOctetWithFile(method: "GET", body: nil)
+        XCTAssertNil(none)
+    }
+
+    func testAChunkedFileBodyIsStreamedRatherThanUploadedFromDisk() throws {
+        let path = "\(dir)/chunked-upload.txt"
+        try "streamed".write(toFile: path, atomically: true, encoding: .utf8)
+        let (_, _, uploadFile) = try buildOctetWithFile(
+            method: "POST",
+            headers: ["content-type": "text/plain", "transfer-encoding": "chunked"],
+            body: ReactNativeBlobUtilConst.filePrefix + path)
+        XCTAssertNil(uploadFile, "chunked already streams, through httpBodyStream")
     }
 
     // MARK: - multipart requests
@@ -257,12 +298,15 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertEqual(length, 3)
     }
 
-    func testBodyTypeFileReadsTheFile() throws {
+    func testBodyTypeFileSendsTheFile() throws {
         let path = "\(dir)/explicit.txt"
         try "explicit".write(toFile: path, atomically: true, encoding: .utf8)
-        let (request, _) = try buildOctet(method: "PUT", headers: ["content-type": "text/plain"],
-                                          body: ReactNativeBlobUtilConst.filePrefix + path, options: ["bodyType": "file"])
-        XCTAssertEqual(try bodyText(request), "explicit")
+        let (request, _, uploadFile) = try buildOctetWithFile(
+            method: "PUT", headers: ["content-type": "text/plain"],
+            body: ReactNativeBlobUtilConst.filePrefix + path, options: ["bodyType": "file"])
+        XCTAssertNil(try XCTUnwrap(request).httpBody)
+        XCTAssertEqual(uploadFile?.path, path)
+        XCTAssertEqual(try String(contentsOf: try XCTUnwrap(uploadFile), encoding: .utf8), "explicit")
     }
 
     /// DELETE and OPTIONS dropped their body; with bodyType any method but GET/HEAD sends it.
@@ -273,12 +317,15 @@ final class RequestBuilderPinTests: XCTestCase {
     }
 
     /// A missing file used to go out as an empty body.
-    func testAMissingFileBodyIsReported() {
+    func testAMissingFileBodyIsReported() throws {
         let missing = "\(dir)/missing.txt"
-        XCTAssertEqual(ReactNativeBlobUtilReqBuilder.missingFileBody(["bodyType": "file"],
-                                                                   body: ReactNativeBlobUtilConst.filePrefix + missing), missing)
-        XCTAssertNil(ReactNativeBlobUtilReqBuilder.missingFileBody(["bodyType": "text"],
-                                                                 body: ReactNativeBlobUtilConst.filePrefix + missing))
+        let problem = try XCTUnwrap(ReactNativeBlobUtilReqBuilder.unreadableSource(
+            ["bodyType": "file"], body: ReactNativeBlobUtilConst.filePrefix + missing, form: nil))
+        XCTAssertEqual(problem["code"], "ENOENT")
+        XCTAssertEqual(problem["message"], "No such file '\(missing)'")
+        // Not a file body, so nothing is checked.
+        XCTAssertNil(ReactNativeBlobUtilReqBuilder.unreadableSource(
+            ["bodyType": "text"], body: ReactNativeBlobUtilConst.filePrefix + missing, form: nil))
     }
 
     func testMultipartKindDecidesTheContentNotTheFilename() throws {

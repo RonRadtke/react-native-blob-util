@@ -206,6 +206,51 @@ final class ModuleCoreTests: XCTestCase {
         XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "hello")
     }
 
+    /// Opens a base64 write stream and hands back its id.
+    private func base64Stream(_ path: String) throws -> String {
+        let opened = try settle { r, j in
+            self.core.writeStream(path, withEncoding: "base64", appendData: false, resolve: r, reject: j)
+        }
+        guard case .resolved(let value) = opened else { throw XCTSkip("stream did not open") }
+        return try XCTUnwrap(value as? String)
+    }
+
+    /// A chunk that does not decode used to be dropped in silence: the write
+    /// resolved, nothing was written, and the file quietly ended up missing
+    /// that chunk. writeChunk holds a reject, so it is reported there.
+    func testAChunkThatIsNotValidBase64RejectsAndWritesNothing() throws {
+        let path = "\(dir)/stream-bad.bin"
+        let streamId = try base64Stream(path)
+        guard case .resolved = try settle({ r, j in
+            self.core.writeChunk(streamId, withData: "YWJj", resolve: r, reject: j)
+        }) else { return XCTFail("a good chunk should resolve") }
+
+        let bad = try settle { r, j in
+            self.core.writeChunk(streamId, withData: "!!not base64!!", resolve: r, reject: j)
+        }
+        guard case .rejected(let code, let message) = bad else { return XCTFail("expected a rejection") }
+        XCTAssertEqual(code, "EINVAL")
+        XCTAssertEqual(message, "Data for stream '\(streamId)' is not valid base64")
+
+        _ = try settle { r, j in self.core.closeStream(streamId, resolve: r, reject: j) }
+        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "abc",
+                       "only the chunk that decoded is in the file")
+    }
+
+    /// And the leniency the one decoder brings: a chunk wrapped across lines or
+    /// missing its padding is written rather than refused.
+    func testALineWrappedOrUnpaddedChunkIsWritten() throws {
+        let path = "\(dir)/stream-lenient.bin"
+        let streamId = try base64Stream(path)
+        for chunk in ["SGVsbG8s\nIA", "d29ybGQh"] {
+            guard case .resolved = try settle({ r, j in
+                self.core.writeChunk(streamId, withData: chunk, resolve: r, reject: j)
+            }) else { return XCTFail("\(chunk) should have been accepted") }
+        }
+        _ = try settle { r, j in self.core.closeStream(streamId, resolve: r, reject: j) }
+        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "Hello, world!")
+    }
+
     func testWriteStreamOntoADirectoryRejectsEISDIR() throws {
         let result = try settle { r, j in
             self.core.writeStream(self.dir, withEncoding: "utf8", appendData: false, resolve: r, reject: j)

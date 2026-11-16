@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		040D12F297B9996FBCFFF20C /* FilePickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9A158C827511D917C29259 /* FilePickerTests.swift */; };
+		61A8DDB5DC814D7A6CEA3057 /* RequestHardeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F297F00627428B1D663E36F /* RequestHardeningTests.swift */; };
 		0C80B921A6F3F58F76C31292 /* libPods-ReactNativeBlobUtilE2E.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-ReactNativeBlobUtilE2E.a */; };
 		1180FA0F02EBA00ED2E28443 /* ModuleCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A7CC319B78869ACD1AE76F /* ModuleCoreTests.swift */; };
 		138D1E0702CF1983B6E705AD /* RequestBuilderPinTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC9FC46F59DB2566A2F2E3C /* RequestBuilderPinTests.swift */; };
@@ -56,6 +57,7 @@
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = ReactNativeBlobUtilE2E/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1CD3A67D945C63F123763F68 /* ReactNativeBlobUtilE2ETests-Bridging-Header.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "ReactNativeBlobUtilE2ETests-Bridging-Header.h"; sourceTree = "<group>"; };
 		1F9A158C827511D917C29259 /* FilePickerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FilePickerTests.swift; sourceTree = "<group>"; };
+		3F297F00627428B1D663E36F /* RequestHardeningTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequestHardeningTests.swift; sourceTree = "<group>"; };
 		289807EEC2863B2FA6AC9E5F /* FileRangeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileRangeTests.swift; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-ReactNativeBlobUtilE2E.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeBlobUtilE2E.debug.xcconfig"; path = "Target Support Files/Pods-ReactNativeBlobUtilE2E/Pods-ReactNativeBlobUtilE2E.debug.xcconfig"; sourceTree = "<group>"; };
 		47B416002D05443254A6FC58 /* libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ReactNativeBlobUtilE2E-ReactNativeBlobUtilE2ETests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -150,6 +152,7 @@
 				A23D9238BF77BB3D3834EB29 /* Base64DecoderTests.swift */,
 				289807EEC2863B2FA6AC9E5F /* FileRangeTests.swift */,
 				1F9A158C827511D917C29259 /* FilePickerTests.swift */,
+				3F297F00627428B1D663E36F /* RequestHardeningTests.swift */,
 				EDD8B897CE72BEE83261AE5D /* MediaLibraryTests.swift */,
 			);
 			name = ReactNativeBlobUtilE2ETests;
@@ -477,6 +480,7 @@
 				5BD5E371DD99A27645F08593 /* Base64DecoderTests.swift in Sources */,
 				E46B2652D117DB6C28940BE6 /* FileRangeTests.swift in Sources */,
 				040D12F297B9996FBCFFF20C /* FilePickerTests.swift in Sources */,
+				61A8DDB5DC814D7A6CEA3057 /* RequestHardeningTests.swift in Sources */,
 				6D69F5DB41B32E9332FB75B6 /* MediaLibraryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

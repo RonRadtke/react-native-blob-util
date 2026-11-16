@@ -152,6 +152,7 @@
     [request sendRequest:@{@"path": path, @"transformFile": @YES} contentLength:0 baseModule:nil
         taskId:NSUUID.UUID.UUIDString
         withRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://rnbu-regression.invalid/file"]]
+        uploadFile:nil
         taskOperationQueue:queue callback:^(NSArray *args) {
             XCTAssertEqual(args.count, 4u);
             // The error slot is a dictionary of {code, message} now, so JS reads

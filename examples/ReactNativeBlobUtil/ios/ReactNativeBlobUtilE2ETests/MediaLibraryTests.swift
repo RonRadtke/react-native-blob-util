@@ -266,10 +266,39 @@ final class MediaLibraryTests: XCTestCase {
         }
     }
 
-    func testAMissingDestinationDirectoryIsENOENT() throws {
+    func testAMissingDestinationDirectoryIsCreated() throws {
         try requirePhotoLibrary()
         try withAsset { identifier in
-            XCTAssertEqual(code(try copyToInternal("ph://\(identifier)", "\(self.dir)/nope/out.jpg")), "ENOENT")
+            let dest = "\(self.dir)/nope/deeper/out.jpg"
+            XCTAssertNil(code(try copyToInternal("ph://\(identifier)", dest)))
+            XCTAssertTrue(FileManager.default.fileExists(atPath: dest))
         }
+    }
+
+    // MARK: - the destination's directory, without a photo library
+
+    func testTheParentDirectoryIsCreatedWithEverythingAboveIt() {
+        let dest = "\(dir)/one/two/three/out.jpg"
+        XCTAssertNil(ReactNativeBlobUtilMediaLibrary.ensureParentDirectory(of: dest))
+        var isDir: ObjCBool = false
+        XCTAssertTrue(FileManager.default.fileExists(atPath: "\(dir)/one/two/three", isDirectory: &isDir))
+        XCTAssertTrue(isDir.boolValue)
+    }
+
+    func testAnExistingParentIsLeftAlone() throws {
+        let dest = "\(dir)/out.jpg"
+        try "keep".write(toFile: "\(dir)/other.txt", atomically: true, encoding: .utf8)
+        XCTAssertNil(ReactNativeBlobUtilMediaLibrary.ensureParentDirectory(of: dest))
+        XCTAssertEqual(try String(contentsOfFile: "\(dir)/other.txt", encoding: .utf8), "keep")
+    }
+
+    /// The one way creating the parents fails on a path the app owns: a file is
+    /// already sitting where a directory has to go.
+    func testAFileWhereTheDirectoryMustGoIsReported() throws {
+        try "in the way".write(toFile: "\(dir)/blocked", atomically: true, encoding: .utf8)
+        let problem = ReactNativeBlobUtilMediaLibrary.ensureParentDirectory(of: "\(dir)/blocked/out.jpg")
+        XCTAssertNotNil(problem)
+        XCTAssertEqual(problem?.code, "EEXIST")
+        XCTAssertTrue(problem?.message.contains("blocked/out.jpg") ?? false, problem?.message ?? "")
     }
 }

@@ -109,12 +109,15 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
 
     // MARK: - sending
 
-    @objc(sendRequest:contentLength:baseModule:taskId:withRequest:taskOperationQueue:callback:)
+    /// `uploadFile` is a file body that is sent from disk instead of being read
+    /// into memory first - see the task creation below.
+    @objc(sendRequest:contentLength:baseModule:taskId:withRequest:uploadFile:taskOperationQueue:callback:)
     public func sendRequest(_ options: [String: Any]?,
                             contentLength: Int,
                             baseModule: ReactNativeBlobUtilEventSink?,
                             taskId: String?,
                             withRequest req: URLRequest?,
+                            uploadFile: URL?,
                             taskOperationQueue operationQueue: OperationQueue,
                             callback: RNBUCallback?) {
         self.taskId = taskId
@@ -203,6 +206,22 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             let downloadTask = session.downloadTask(with: req)
             downloadTask.resume()
             task = downloadTask
+        } else if let uploadFile = uploadFile {
+            // From the file, not from memory. A file body used to be read whole
+            // into an NSData and handed over as httpBody, so uploading a 2 GB
+            // file needed 2 GB of RAM and was killed long before that. An upload
+            // task streams it and sets Content-Length from the file itself, so
+            // what goes on the wire is byte for byte what httpBody sent.
+            //
+            // httpBodyStream would also stream, but Foundation only trusts a
+            // Content-Length it set itself; without one it falls back to chunked
+            // transfer encoding, which is a different request on the wire.
+            //
+            // URLSessionUploadTask is a URLSessionDataTask, so the response
+            // still arrives through the data-task delegate methods below.
+            let uploadTask = session.uploadTask(with: req, fromFile: uploadFile)
+            uploadTask.resume()
+            task = uploadTask
         } else {
             let dataTask = session.dataTask(with: req)
             dataTask.resume()
@@ -370,6 +389,21 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         completionHandler(.allow)
     }
 
+    /// The (written, total) a download progress event carries.
+    ///
+    /// A response without a Content-Length reports what has arrived so far
+    /// against an unknown total, and the total is only known once the body has
+    /// ended - at which point what arrived IS the total. iOS used to report 0
+    /// written for the whole of such a download (#235, #292), so a chunked
+    /// download looked stuck at zero until the moment it finished, and an app
+    /// drawing a progress bar from `written` drew nothing.
+    ///
+    /// Pure, and tested as such: it is the whole of the decision.
+    static func progressCounts(bytes: Int64, expected: Int64, ended: Bool) -> (written: Int64, total: Int64) {
+        guard expected == NSURLSessionTransferSizeUnknown else { return (bytes, expected) }
+        return ended ? (bytes, bytes) : (bytes, NSURLSessionTransferSizeUnknown)
+    }
+
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         // #143: multipart/x-mixed-replace is buffered, not reported.
         if isServerPush {
@@ -397,13 +431,10 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         }
 
         if progressConfig?.shouldReport(now) == true {
-            let body: [String: Any]
-            if expectedBytes == NSURLSessionTransferSizeUnknown {
-                body = ["taskId": taskId ?? "", "written": 0, "total": expectedBytes, "chunk": chunkString]
-            } else {
-                body = ["taskId": taskId ?? "", "written": receivedBytes, "total": expectedBytes, "chunk": chunkString]
-            }
-            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgress, body: body)
+            let counts = Self.progressCounts(bytes: receivedBytes, expected: expectedBytes, ended: false)
+            baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgress, body: [
+                "taskId": taskId ?? "", "written": counts.written, "total": counts.total, "chunk": chunkString,
+            ])
         }
     }
 
@@ -433,8 +464,9 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             // shouldReport: mutates the tick and timestamp it throttles on, so
             // asking about a download we will not report advances that state
             // for nothing.
+            let counts = Self.progressCounts(bytes: receivedBytes, expected: expectedBytes, ended: true)
             baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgress, body: [
-                "taskId": taskId ?? "", "written": receivedBytes, "total": receivedBytes, "chunk": "",
+                "taskId": taskId ?? "", "written": counts.written, "total": counts.total, "chunk": "",
             ])
         }
 
@@ -582,10 +614,17 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                            totalBytesWritten: Int64,
                            totalBytesExpectedToWrite: Int64) {
         if totalBytesExpectedToWrite == 0 { return }
-        let now = NSNumber(value: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
+        // Unknown here too, and for the same reason: a ratio of a size nobody
+        // knows is not a ratio, so the throttle sees 0 and the counts come from
+        // the one rule.
+        let now = totalBytesExpectedToWrite == NSURLSessionTransferSizeUnknown
+            ? NSNumber(value: 0)
+            : NSNumber(value: Float(totalBytesWritten) / Float(totalBytesExpectedToWrite))
         if progressConfig?.shouldReport(now) == true {
+            let counts = Self.progressCounts(bytes: totalBytesWritten,
+                                             expected: totalBytesExpectedToWrite, ended: false)
             baseModule?.emitEventDict(ReactNativeBlobUtilConst.eventProgress, body: [
-                "taskId": taskId ?? "", "written": totalBytesWritten, "total": totalBytesExpectedToWrite,
+                "taskId": taskId ?? "", "written": counts.written, "total": counts.total,
             ])
         }
     }
