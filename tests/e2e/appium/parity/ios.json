@@ -150,7 +150,11 @@
   "errors-write": {
     "afterwards": {
       "bad": {
-        "resolved": ""
+        "rejected": {
+          "code": "ENOENT",
+          "message": "No such file '<DocumentDir>/parity/errors-write/bad.bin'",
+          "name": "Error"
+        }
       },
       "file": {
         "resolved": "x"
@@ -1735,6 +1739,24 @@
       "resolved": "abcdef"
     },
     "utf8Write": {
+      "resolved": true
+    }
+  },
+  "writestream-base64-chunks": {
+    "content": {
+      "resolved": "QUJDREU="
+    },
+    "next": {
+      "resolved": true
+    },
+    "notBase64": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Data for stream '<uuid>' is not valid base64",
+        "name": "Error"
+      }
+    },
+    "wrappedUnpadded": {
       "resolved": true
     }
   }
