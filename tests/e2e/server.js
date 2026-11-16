@@ -151,6 +151,67 @@ const handleEcho = async (req, res) => {
 // responses unchanged, including the NUL and high bytes.
 const BINARY_BUFFER = Buffer.from(Array.from({length: 256}, (_, i) => i));
 
+// 256 KB of a byte pattern that does not repeat with any small period, so a
+// misplaced range shows in the hash.
+const RANGE_BUFFER = Buffer.from(Array.from({length: 256 * 1024}, (_, i) => (i * 31 + (i >> 8)) & 0xff));
+const RANGE_LOG = new Map();
+const RANGE_DROPPED = new Set();
+
+const handleRange = (req, res, url) => {
+    const token = url.searchParams.get("token") || "";
+    const etag = `"range-${url.searchParams.get("etag") || "v1"}"`;
+    const log = RANGE_LOG.get(token) || [];
+    log.push({range: req.headers.range ?? null, ifRange: req.headers["if-range"] ?? null});
+    RANGE_LOG.set(token, log);
+
+    const size = RANGE_BUFFER.length;
+    let start = 0;
+    let status = 200;
+    const asked = /^bytes=(\d+)-$/.exec(req.headers.range || "");
+    const ifRange = req.headers["if-range"];
+    if (asked && url.searchParams.get("noRange") !== "1" && (!ifRange || ifRange === etag)) {
+        start = Number(asked[1]);
+        if (start >= size) {
+            res.writeHead(416, {"Content-Range": `bytes */${size}`, "Content-Length": 0, ETag: etag});
+            res.end();
+            return;
+        }
+        status = 206;
+    }
+    const body = RANGE_BUFFER.subarray(start);
+    const headers = {"Content-Type": "application/octet-stream", "Content-Length": body.length, ETag: etag, "Accept-Ranges": "bytes"};
+    if (status === 206) {
+        headers["Content-Range"] = `bytes ${start}-${size - 1}/${size}`;
+    }
+    res.writeHead(status, headers);
+
+    const ms = Math.min(Number(url.searchParams.get("ms") || 0), 2000);
+    const drop = url.searchParams.has("drop") && !RANGE_DROPPED.has(token) ? Number(url.searchParams.get("drop")) : -1;
+    let sent = 0;
+    const pump = () => {
+        if (res.destroyed) return;
+        if (drop >= 0 && sent >= drop) {
+            RANGE_DROPPED.add(token);
+            // Closed after what was written has gone out, short of Content-Length.
+            // destroy() reset the connection with data still queued, and the
+            // Android emulator's network stack then garbled what it had received.
+            res.socket.end();
+            return;
+        }
+        const end = Math.min(body.length, sent + 16 * 1024, drop >= 0 ? drop : Infinity);
+        res.write(body.subarray(sent, end));
+        sent = end;
+        if (sent >= body.length) {
+            res.end();
+        } else if (ms > 0) {
+            setTimeout(pump, ms);
+        } else {
+            setImmediate(pump);
+        }
+    };
+    pump();
+};
+
 const handler = async (req, res) => {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     const method = req.method || "GET";
@@ -204,6 +265,18 @@ const handler = async (req, res) => {
             setTimeout(() => res.end("chunk-3\n"), 50);
         }, 50);
         return;
+    }
+
+    // A file that honours Range and If-Range, for pause/resume and resumable
+    // downloads. Query switches: ms=<n> delays every 16 KB chunk; drop=<n>
+    // closes the connection after n bytes, once per token; noRange=1 ignores
+    // Range; etag=<v> changes the validator. /range/log?token=t lists the Range
+    // and If-Range headers the requests for that token carried.
+    if (method === "GET" && url.pathname === "/range/log") {
+        return sendJson(res, 200, {requests: RANGE_LOG.get(url.searchParams.get("token") || "") || []});
+    }
+    if (method === "GET" && url.pathname === "/range") {
+        return handleRange(req, res, url);
     }
 
     const status = /^\/status\/(\d{3})$/.exec(url.pathname);

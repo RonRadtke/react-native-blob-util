@@ -7,6 +7,7 @@ import {normalizeConfig} from './utils/config';
 import {addCode} from './utils/errors';
 import {getEventEmitter, requireNativeModule} from './utils/nativeModule';
 import {escapeForm, invalidAppendExt, invalidFormField, invalidHeader, nativeOptions, prepareBody} from './utils/request';
+import {completeAt, continuesAt, invalidResumable, validatorOf} from './utils/resume';
 import getUUID from './utils/uuid';
 import type {ReactNativeBlobUtilConfig} from './types';
 
@@ -106,12 +107,28 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
 
     // Refused here, before any listener exists, so all platforms agree.
     const prepared = prepareBody(method, headers, body);
+    const resumable = Boolean(options.resumable);
     const invalid = headersNotAnObject || invalidAppendExt(options) || prepared.error || invalidHeader(headers)
-        || (Array.isArray(body) ? invalidFormField(body) : null);
+        || (Array.isArray(body) ? invalidFormField(body) : null)
+        || (resumable ? invalidResumable(method, options, body) : null);
     headers = prepared.headers;
     body = Array.isArray(prepared.body) ? escapeForm(prepared.body) : prepared.body;
+    // `range` is set here for a resumed request only; `resumable` is handled here.
+    delete options.range;
+    delete options.resumable;
     // The kind of a single body travels in the options; native no longer infers it.
     options = nativeOptions(prepared.bodyType ? {...options, bodyType: prepared.bodyType} : options);
+
+    // A download to a path can pause and resume: GET, written to a file the
+    // caller named, by the library rather than the DownloadManager or an iOS
+    // background session.
+    const pausable = String(method).toUpperCase() === 'GET' && typeof options.path === 'string'
+        && !options.addAndroidDownloads && !options.IOSBackgroundTask;
+    // A resumable download writes to <path>.part, with what it needs to continue
+    // in <path>.part.json, and moves the part file to path once it is complete.
+    const target = options.path;
+    const part = resumable ? target + '.part' : null;
+    const meta = resumable ? target + '.part.json' : null;
 
     // Every listener this task registers, so that settling or cancelling removes
     // all of them: a task must leave nothing behind for the life of the app.
@@ -125,10 +142,30 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         }
     }
 
+    let promiseResolve;
     let promiseReject;
+
+    // One task can take several native requests: the first, and one per resume.
+    // Only the one in `nativeId` counts; events and the callback of any other
+    // (paused, or replaced) are ignored. null while paused.
+    let nativeId = null;
+    let attempts = 0;
+    let paused = false;
+    // What the server identified the file by, for If-Range: a strong ETag, or
+    // else Last-Modified, from the response that started the download.
+    let validator = null;
+    // The progress settings, sent again for each resumed request.
+    const progressSettings = {};
+
+    function fail(error) {
+        if (settled) return;
+        settle();
+        promiseReject(error);
+    }
 
     // from remote HTTP(S)
     const promise = new Promise((resolve, reject) => {
+        promiseResolve = resolve;
         promiseReject = reject;
 
         if (invalid) {
@@ -137,14 +174,13 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
             return;
         }
 
-        const nativeMethodName = Array.isArray(body) ? 'fetchBlobForm' : 'fetchBlob';
         const emitter = getEventEmitter();
 
-        // Listens for an event of this task only; iOS sends events as JSON strings.
+        // Listens for an event of the request that counts; iOS sends events as JSON strings.
         function listen(eventName, handler) {
             subscriptions.push(emitter.addListener(eventName, (e) => {
                 if (typeof e === 'string') e = JSON.parse(e);
-                if (e.taskId === taskId) handler(e);
+                if (nativeId !== null && e.taskId === nativeId) handler(e);
             }));
         }
 
@@ -156,12 +192,51 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         });
         listen('ReactNativeBlobUtilState', (e) => {
             respInfo = e;
+            started(e);
             if (promise.onStateChange) promise.onStateChange(e);
         });
         listen('ReactNativeBlobUtilServerPush', (e) => {
             if (promise.onPartData) promise.onPartData(e.chunk);
         });
 
+        if (!resumable) {
+            send(null);
+            return;
+        }
+        // A part file left by an earlier request for the same URL is continued.
+        partToContinue(url, part, meta).then((found) => {
+            validator = found ? found.validator : null;
+            if (!settled && !paused) {
+                send(found ? {from: found.size, ifRange: validator} : null);
+            }
+        }, fail);
+    });
+
+    /**
+     * Sends a native request: the first one, or a resumed one asking for the
+     * bytes from `range.from` on.
+     */
+    function send(range: ?{from: number, ifRange: ?string}) {
+        const id = attempts === 0 ? taskId : `${taskId}-${attempts}`;
+        attempts++;
+        nativeId = id;
+        // The first request gets its settings from progress() itself.
+        if (attempts > 1) {
+            if (progressSettings.enableProgressReport) {
+                requireNativeModule().enableProgressReport(id, ...progressSettings.enableProgressReport);
+            }
+            if (progressSettings.enableUploadProgressReport) {
+                requireNativeModule().enableUploadProgressReport(id, ...progressSettings.enableUploadProgressReport);
+            }
+        }
+        const sendOptions = {...options};
+        if (resumable) {
+            sendOptions.path = part;
+        }
+        if (range) {
+            sendOptions.range = range.ifRange ? range : {from: range.from};
+        }
+        const nativeMethodName = Array.isArray(body) ? 'fetchBlobForm' : 'fetchBlob';
         const req = requireNativeModule()[nativeMethodName];
 
         /**
@@ -175,43 +250,91 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
          * @param data {string} Response data or its reference.
          * @param responseInfo {Object.<>}
          */
-        req(options, taskId, method, url, headers || {}, body, (err, rawType, data, responseInfo) => {
-
-            // task done, remove event listeners
-            settle();
-
-            if (!responseInfo) responseInfo = {}; // should not be null / undefined
-
-            if (err) {
-                // {code, message} from native; a plain string is tolerated.
-                const message = typeof err === 'string' ? err : String(err.message);
-                const code = typeof err === 'object' && err.code || 'EUNSPECIFIED';
-                const error = addCode(code, new Error(message));
-                error.respInfo = 'uninit' in respInfo ? responseInfo : respInfo;
-                reject(error);
+        req(sendOptions, id, method, url, headers || {}, body, (err, rawType, data, responseInfo) => {
+            // A paused or replaced request: its outcome is not the task's.
+            if (id !== nativeId || settled) {
+                return;
             }
-            else {
-                // response data is saved to storage, create a session for it
-                if (options.path || options.fileCache || options.addAndroidDownloads
-                    || options.key || options.auto && respInfo.respType === 'blob') {
-                    if (options.session)
-                        fs.session(options.session).add(data);
-                }
-                if ('uninit' in respInfo && respInfo.uninit) // event didn't fire yet so we override it here
-                    respInfo = responseInfo;
-
-                respInfo.rnfbEncode = rawType;
-                resolve(new FetchBlobResponse(taskId, respInfo, data));
-            }
-
+            finish(range, err, rawType, data, responseInfo);
         });
+    }
 
-    });
+    /** The response of a request has started: note what identifies the file. */
+    function started(info: Object) {
+        const status = Number(info.status);
+        const continuable = status === 200 || status === 206;
+        if (!pausable || !continuable) {
+            return;
+        }
+        const found = validatorOf(info.headers);
+        if (status === 200 || found) {
+            validator = found;
+        }
+        if (resumable && status === 200) {
+            // Written while the body arrives; without it a later request starts over.
+            fs.writeFile(meta, JSON.stringify({url, validator}), 'utf8').catch(() => undefined);
+        }
+    }
 
-    // Extend the promise with `progress`, `uploadProgress`, `stateChange`, `part`
-    // and `cancel`. They stay callable after the task has settled and do
-    // nothing then, so a handler registered late, or a cancel of a finished task,
-    // is not an error.
+    /** The native callback of the request that counts. */
+    function finish(range, err, rawType, data, responseInfo) {
+        // task done, remove event listeners
+        settle();
+
+        if (!responseInfo) responseInfo = {}; // should not be null / undefined
+
+        if (err) {
+            // {code, message} from native; a plain string is tolerated.
+            const message = typeof err === 'string' ? err : String(err.message);
+            const code = typeof err === 'object' && err.code || 'EUNSPECIFIED';
+            const error = addCode(code, new Error(message));
+            error.respInfo = 'uninit' in respInfo ? responseInfo : respInfo;
+            promiseReject(error);
+            return;
+        }
+        if ('uninit' in respInfo && respInfo.uninit) // event didn't fire yet so we override it here
+            respInfo = responseInfo;
+        respInfo.rnfbEncode = rawType;
+
+        const status = Number(respInfo.status);
+        // A range the server got wrong left the file as it was (native wrote none of it).
+        const wrongRange = range && (status === 416 && !completeAt(respInfo.headers, range.from)
+            || status === 206 && !continuesAt(respInfo.headers, range.from));
+        if (wrongRange) {
+            const error = addCode('EUNSPECIFIED', new Error(`The server did not continue the download from byte ${range.from}`));
+            error.respInfo = respInfo;
+            promiseReject(error);
+            return;
+        }
+        if (resumable) {
+            const complete = status >= 200 && status < 300 || range && status === 416;
+            if (!complete) {
+                // An error status: nothing to continue from when the body was
+                // written to the part file, the partial data kept when it was not.
+                const error = addCode('EUNSPECIFIED', new Error(`The download failed with HTTP ${status}`));
+                error.respInfo = respInfo;
+                const cleanup = range ? Promise.resolve() : removePart(part, meta);
+                cleanup.then(() => promiseReject(error));
+                return;
+            }
+            fs.mv(part, target)
+                .then(() => fs.unlink(meta).catch(() => undefined))
+                .then(() => promiseResolve(new FetchBlobResponse(taskId, respInfo, target)), promiseReject);
+            return;
+        }
+        // response data is saved to storage, create a session for it
+        if (options.path || options.fileCache || options.addAndroidDownloads
+            || options.key || options.auto && respInfo.respType === 'blob') {
+            if (options.session)
+                fs.session(options.session).add(data);
+        }
+        promiseResolve(new FetchBlobResponse(taskId, respInfo, data));
+    }
+
+    // Extend the promise with `progress`, `uploadProgress`, `stateChange`, `part`,
+    // `cancel`, `pause` and `resume`. They stay callable after the task has
+    // settled and do nothing then, so a handler registered late, or a cancel of
+    // a finished task, is not an error.
     // `progress` and `uploadProgress` take an optional first argument #140: when
     // there is only one argument, the default `interval` and `count` are used.
     function progressReporter(handlerName, nativeMethodName) {
@@ -229,7 +352,8 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
                 fn = args[1];
             }
             promise[handlerName] = fn;
-            requireNativeModule()[nativeMethodName](taskId, interval, count);
+            progressSettings[nativeMethodName] = [interval, count];
+            requireNativeModule()[nativeMethodName](nativeId ?? taskId, interval, count);
             return promise;
         };
     }
@@ -245,19 +369,84 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
         return promise;
     };
     // Resolves once native has cancelled the task. The task itself rejects
-    // with CanceledFetchError right away.
+    // with CanceledFetchError right away. A resumable download's part file
+    // goes too: cancel means the file is not wanted.
     promise.cancel = (fn: ?Function): Promise<void> => {
         if (settled) return Promise.resolve();
         settle();
-        const cancelled = requireNativeModule().cancelRequest(taskId).then(() => undefined);
+        const id = nativeId;
+        nativeId = null;
+        let cancelled = id === null ? Promise.resolve() : requireNativeModule().cancelRequest(id).then(() => undefined);
+        if (resumable) {
+            cancelled = cancelled.then(() => removePart(part, meta));
+        }
         if (typeof fn === 'function') {
             cancelled.then(() => fn(), (err) => fn(err));
         }
         promiseReject(new CanceledFetchError('canceled'));
         return cancelled;
     };
+    // Stops the transfer and keeps what has arrived; the task stays pending
+    // until resume() finishes it (or cancel() ends it).
+    promise.pause = (): Promise<void> => {
+        if (settled || paused) return Promise.resolve();
+        if (!pausable) {
+            return Promise.reject(addCode('ENOTSUP', new Error('Only a GET downloading to `path` can pause')));
+        }
+        paused = true;
+        const id = nativeId;
+        nativeId = null;
+        return id === null ? Promise.resolve() : requireNativeModule().cancelRequest(id).then(() => undefined);
+    };
+    // Continues a paused download from the bytes on disk: the server is asked
+    // for the rest (Range, with If-Range), and one that cannot continue sends
+    // the whole file again, which replaces the partial one.
+    promise.resume = (): Promise<void> => {
+        if (settled || !paused) return Promise.resolve();
+        paused = false;
+        return fs.stat(resumable ? part : target)
+            .then((stat) => stat.size, () => 0)
+            .then((from) => {
+                if (!settled && !paused) {
+                    send(from > 0 ? {from, ifRange: validator} : null);
+                }
+            });
+    };
     promise.taskId = taskId;
 
     return promise;
 
+}
+
+/**
+ * The part file of an earlier request for the same URL, and the validator it
+ * started with; null when there is nothing to continue.
+ */
+function partToContinue(url: string, part: string, meta: string): Promise<?{size: number, validator: ?string}> {
+    return fs.readFile(meta, 'utf8')
+        .then(parseNotes, () => null)
+        .then((saved) => {
+            if (!saved || saved.url !== url) {
+                return null;
+            }
+            return fs.stat(part).then(
+                (stat) => stat.size > 0 ? {size: stat.size, validator: typeof saved.validator === 'string' ? saved.validator : null} : null,
+                () => null,
+            );
+        });
+}
+
+/** The notes of a part file; null when they are not JSON, as after a crash mid-write. */
+function parseNotes(text: string): ?Object {
+    try {
+        const notes = JSON.parse(text);
+        return notes !== null && typeof notes === 'object' ? notes : null;
+    } catch {
+        return null;
+    }
+}
+
+/** Removes a part file and its JSON; a missing one is fine. */
+function removePart(part: string, meta: string): Promise<void> {
+    return Promise.all([fs.unlink(part).catch(() => undefined), fs.unlink(meta).catch(() => undefined)]).then(() => undefined);
 }

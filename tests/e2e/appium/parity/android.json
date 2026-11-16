@@ -790,6 +790,54 @@
     "size": 256,
     "type": "path"
   },
+  "fetch-pause-resume": {
+    "hash": {
+      "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+    },
+    "ifRange": "\"range-v1\"",
+    "lastProgress": [
+      262144,
+      262144
+    ],
+    "partialBetween": true,
+    "paused": {
+      "resolved": "<undefined>"
+    },
+    "progressMonotonic": true,
+    "requests": 2,
+    "result": {
+      "resolved": 206
+    },
+    "resumed": {
+      "resolved": "<undefined>"
+    },
+    "resumedFrom": true,
+    "size": 262144,
+    "started": true
+  },
+  "fetch-pause-unsupported": {
+    "fileCache": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "Only a GET downloading to `path` can pause",
+        "name": "Error"
+      }
+    },
+    "memory": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "Only a GET downloading to `path` can pause",
+        "name": "Error"
+      }
+    },
+    "resumableWithPost": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "`resumable` needs a GET request",
+        "name": "Error"
+      }
+    }
+  },
   "fetch-redirect": {
     "follow": {
       "resolved": {
@@ -820,6 +868,77 @@
         "status": 302,
         "text": ""
       }
+    }
+  },
+  "fetch-resumable": {
+    "firstAskedForNoRange": true,
+    "firstRejected": true,
+    "hash": {
+      "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+    },
+    "ifRange": "\"range-v1\"",
+    "notes": {
+      "resolved": "\"range-v1\""
+    },
+    "notesGone": true,
+    "partGone": true,
+    "partKept": true,
+    "requests": 2,
+    "resumedFrom": true,
+    "second": {
+      "resolved": {
+        "path": "<DocumentDir>/parity/fetch-resumable/big.bin",
+        "status": 206
+      }
+    },
+    "targetAfterFailure": false
+  },
+  "fetch-resumable-cancel": {
+    "cancelled": {
+      "resolved": "<undefined>"
+    },
+    "notesGone": true,
+    "partGone": true,
+    "rejected": {
+      "rejected": {
+        "code": "ECANCELED",
+        "message": "canceled",
+        "name": "ReactNativeBlobUtilCanceledFetch"
+      }
+    },
+    "started": true,
+    "target": false
+  },
+  "fetch-resumable-restart": {
+    "changedFile": {
+      "hash": {
+        "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+      },
+      "log": [
+        {
+          "ifRange": "\"range-old\"",
+          "range": "bytes=5000-"
+        }
+      ],
+      "result": {
+        "resolved": 200
+      },
+      "size": 262144
+    },
+    "noRangeSupport": {
+      "hash": {
+        "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+      },
+      "log": [
+        {
+          "ifRange": "\"range-v1\"",
+          "range": "bytes=5000-"
+        }
+      ],
+      "result": {
+        "resolved": 200
+      },
+      "size": 262144
     }
   },
   "fetch-state-change": {

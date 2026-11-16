@@ -1344,6 +1344,154 @@ define('fs-platform-only-1.2', async () => ({
     resource: await settle(async () => fs.resource('raw/parity_sample')),
 }), ['android', 'windows']);
 
+// ---------------------------------------------------------------------------
+// 1.2.0 pause, resume and resumable downloads, against the server's /range.
+
+const RANGE_SIZE = 256 * 1024;
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitUntil(check, timeoutMs) {
+    const start = Date.now();
+    while (!check()) {
+        if (Date.now() - start > timeoutMs) {
+            return false;
+        }
+        await pause(50);
+    }
+    return true;
+}
+
+// The Range and If-Range headers the server received for a token.
+async function rangeLog(ctx, token) {
+    const res = await ReactNativeBlobUtil.fetch('GET', ctx.url(`/range/log?token=${token}`));
+    return (await res.json()).requests;
+}
+
+// The server keeps state per token; a new one per run keeps runs apart.
+const rangeToken = (name) => `${name}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+
+define('fetch-pause-resume', async (ctx) => {
+    const dir = await freshDir('fetch-pause-resume');
+    const path = `${dir}/big.bin`;
+    const token = rangeToken('pause');
+    const task = ReactNativeBlobUtil.config({path}).fetch('GET', ctx.url(`/range?token=${token}&ms=40`));
+    const progress = [];
+    task.progress({interval: 0}, (written, total) => progress.push([written, total]));
+    const started = await waitUntil(() => progress.length > 0 && progress[progress.length - 1][0] > 0, 15000);
+    const paused = await settle(() => task.pause());
+    await pause(300);
+    const partial = (await fs.stat(path)).size;
+    const resumed = await settle(() => task.resume());
+    const result = await settle(async () => (await task).info().status);
+    const log = await rangeLog(ctx, token);
+    return {
+        started,
+        paused,
+        resumed,
+        result,
+        partialBetween: partial > 0 && partial < RANGE_SIZE,
+        hash: await settleRaw(() => fs.hash(path, 'sha256')),
+        size: (await fs.stat(path)).size,
+        requests: log.length,
+        resumedFrom: log.length >= 2 && log[1].range === `bytes=${partial}-`,
+        ifRange: log.length >= 2 ? log[1].ifRange : null,
+        lastProgress: progress[progress.length - 1],
+        // Counting on from the bytes on disk after the resume, never back to 0.
+        progressMonotonic: progress.every(([written], i) => i === 0 || written >= progress[i - 1][0]),
+    };
+});
+
+define('fetch-pause-unsupported', async (ctx) => {
+    const memory = ReactNativeBlobUtil.fetch('GET', ctx.url('/health'));
+    const cached = ReactNativeBlobUtil.config({fileCache: true}).fetch('GET', ctx.url('/health'));
+    const out = {
+        memory: await settle(() => memory.pause()),
+        fileCache: await settle(() => cached.pause()),
+    };
+    await Promise.allSettled([memory, cached]);
+    out.resumableWithPost = await settle(() => ReactNativeBlobUtil.config({path: `${fs.dirs.DocumentDir}/x`, resumable: true})
+        .fetch('POST', ctx.url('/echo'), {}, 'x'));
+    return out;
+});
+
+define('fetch-resumable', async (ctx) => {
+    const dir = await freshDir('fetch-resumable');
+    const path = `${dir}/big.bin`;
+    const token = rangeToken('resumable');
+    // Paced: the emulator's network loses bytes of a fast burst, which is not what this checks.
+    const url = ctx.url(`/range?token=${token}&drop=100000&ms=20`);
+    const first = await settle(() => ReactNativeBlobUtil.config({path, resumable: true}).fetch('GET', url));
+    const partSize = await settle(async () => (await fs.stat(`${path}.part`)).size);
+    const notes = await settle(async () => JSON.parse(await fs.readFile(`${path}.part.json`, 'utf8')).validator);
+    const targetAfterFailure = await fs.exists(path);
+    const second = await settle(async () => {
+        const res = await ReactNativeBlobUtil.config({path, resumable: true}).fetch('GET', url);
+        return {status: res.info().status, path: res.path()};
+    });
+    const log = await rangeLog(ctx, token);
+    const size = typeof partSize.resolved === 'number' ? partSize.resolved : -1;
+    return {
+        firstRejected: 'rejected' in first,
+        partKept: size > 0 && size < RANGE_SIZE,
+        notes,
+        targetAfterFailure,
+        second,
+        hash: await settleRaw(() => fs.hash(path, 'sha256')),
+        partGone: !(await fs.exists(`${path}.part`)),
+        notesGone: !(await fs.exists(`${path}.part.json`)),
+        requests: log.length,
+        firstAskedForNoRange: log.length > 0 && log[0].range === null,
+        resumedFrom: log.length >= 2 && log[1].range === `bytes=${size}-`,
+        ifRange: log.length >= 2 ? log[1].ifRange : null,
+    };
+});
+
+define('fetch-resumable-restart', async (ctx) => {
+    const dir = await freshDir('fetch-resumable-restart');
+    const out = {};
+    for (const [name, query, validator] of [
+        ['changedFile', '', '"range-old"'],
+        ['noRangeSupport', '&noRange=1', '"range-v1"'],
+    ]) {
+        const path = `${dir}/${name}.bin`;
+        const token = rangeToken(name);
+        const url = ctx.url(`/range?token=${token}${query}&ms=20`);
+        // A part file that cannot be continued: junk, under notes for this URL.
+        await fs.writeFile(`${path}.part`, 'x'.repeat(5000), 'utf8');
+        await fs.writeFile(`${path}.part.json`, JSON.stringify({url, validator}), 'utf8');
+        const result = await settle(async () => (await ReactNativeBlobUtil.config({path, resumable: true}).fetch('GET', url)).info().status);
+        out[name] = {
+            result,
+            hash: await settleRaw(() => fs.hash(path, 'sha256')),
+            size: (await fs.stat(path)).size,
+            log: await rangeLog(ctx, token),
+        };
+    }
+    return out;
+});
+
+define('fetch-resumable-cancel', async (ctx) => {
+    const dir = await freshDir('fetch-resumable-cancel');
+    const path = `${dir}/big.bin`;
+    const task = ReactNativeBlobUtil.config({path, resumable: true}).fetch('GET', ctx.url(`/range?token=${rangeToken('cancel')}&ms=40`));
+    let received = 0;
+    task.progress({interval: 0}, (written) => {
+        received = written;
+    });
+    const started = await waitUntil(() => received > 0, 15000);
+    const cancelled = await settle(() => task.cancel());
+    const rejected = await settle(() => task);
+    await pause(300);
+    return {
+        started,
+        cancelled,
+        rejected,
+        partGone: !(await fs.exists(`${path}.part`)),
+        notesGone: !(await fs.exists(`${path}.part.json`)),
+        target: await fs.exists(path),
+    };
+});
+
 define('ios-misc', async () => {
     const dir = await freshDir('ios-misc');
     const file = `${dir}/backup.txt`;

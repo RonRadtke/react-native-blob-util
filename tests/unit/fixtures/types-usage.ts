@@ -355,3 +355,13 @@ async function additions120() {
     void resource; void bundle; void external; void created; void dirs; void one; void many; void unknown;
 }
 void additions120;
+
+// 1.2.0: pause, resume, resumable.
+async function resumableDownloads() {
+    const task = ReactNativeBlobUtil.config({path: '/p/big.bin'}).fetch('GET', 'https://example.test/big.bin');
+    const paused: void = await task.pause();
+    const resumed: void = await task.resume();
+    const res = await ReactNativeBlobUtil.config({path: '/p/big.bin', resumable: true}).fetch('GET', 'https://example.test/big.bin');
+    void paused; void resumed; void res;
+}
+void resumableDownloads;

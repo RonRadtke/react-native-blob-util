@@ -135,9 +135,29 @@ export interface StatefulPromise<T> extends Promise<T> {
 
     /**
      * Cancel the request. The task rejects with `CanceledFetchError` at once;
-     * the returned promise resolves once native has cancelled.
+     * the returned promise resolves once native has cancelled. A `resumable`
+     * download's part file is removed.
      */
     cancel(callback?: (reason?: any) => void): Promise<void>;
+
+    /**
+     * Stop a download to `path` and keep what has arrived; the task stays
+     * pending until `resume()` finishes it or `cancel()` ends it. Resolves
+     * once the transfer has stopped. Rejects ENOTSUP for anything but a GET to
+     * `path` (a download to memory or `fileCache`, an upload, the Android
+     * DownloadManager, an iOS background task).
+     */
+    pause(): Promise<void>;
+
+    /**
+     * Continue a paused download: the server is asked for the rest of the file
+     * (Range, with If-Range set to the first response's ETag or
+     * Last-Modified). A server that cannot continue, or whose file has
+     * changed, sends all of it again, which replaces the partial file. The
+     * task settles with the response that completed it (206 when the server
+     * continued). Progress counts on from the bytes already on disk.
+     */
+    resume(): Promise<void>;
 }
 
 export interface ProgressConfig {
@@ -280,6 +300,19 @@ export interface ReactNativeBlobUtilConfig {
      * response to the existing file.
      */
     overwrite?: boolean;
+
+    /**
+     * Download to `path` so that an interrupted download can continue: the
+     * data goes to `<path>.part`, with what is needed to continue in
+     * `<path>.part.json`, and the part file becomes `path` once it is
+     * complete. A failure (a lost connection, the app ended) keeps both, and
+     * the next resumable request for the same URL and path continues from
+     * there; headers are not stored, so pass them again. `cancel()` removes
+     * them. An HTTP error status rejects. Needs GET and `path`; rejects
+     * EINVAL with `overwrite: false`, `transform`, a body, or the
+     * DownloadManager.
+     */
+    resumable?: boolean;
 
     /**
      * Request timeout in milliseconds. Default 60000.
