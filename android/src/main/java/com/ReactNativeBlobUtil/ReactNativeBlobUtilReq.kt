@@ -587,10 +587,10 @@ class ReactNativeBlobUtilReq(
      */
     private fun done(resp: Response) {
         val isBlobResp = isBlobResponse(resp)
+        // One state event per response, as on iOS and Windows. The same info went
+        // out twice, so a stateChange handler ran twice for every response.
         val respmap = getResponseInfo(resp, isBlobResp)
         emitStateEvent(respmap.copy())
-
-        emitStateEvent(getResponseInfo(resp, isBlobResp))
         when (responseType) {
             ResponseType.KeepInMemory -> {
                 try {

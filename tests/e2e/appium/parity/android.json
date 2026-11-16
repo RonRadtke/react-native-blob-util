@@ -664,7 +664,7 @@
         "http://<http-server>/health"
       ],
       "respType": "json",
-      "rnfbEncode": "<undefined>",
+      "rnfbEncode": "utf8",
       "state": "2",
       "status": 200,
       "taskId": "string"
@@ -699,7 +699,8 @@
       "status": 200,
       "taskId": "string"
     },
-    "sawStateChange": true
+    "sawStateChange": true,
+    "stateCount": 1
   },
   "fetch-status": {
     "s201": {

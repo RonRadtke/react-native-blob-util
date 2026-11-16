@@ -818,7 +818,12 @@ define('fetch-chunked', async (ctx) => {
 define('fetch-state-change', async (ctx) => {
     const states = [];
     const res = await ReactNativeBlobUtil.fetch('GET', ctx.url('/health')).stateChange((state) => states.push(state));
-    return {sawStateChange: states.length > 0, firstState: states.length > 0 ? infoSummary(states[0]) : null, info: infoSummary(res.info())};
+    return {
+        sawStateChange: states.length > 0,
+        stateCount: states.length,
+        firstState: states.length > 0 ? infoSummary(states[0]) : null,
+        info: infoSummary(res.info()),
+    };
 });
 
 define('fetch-cookies', async (ctx) => {
