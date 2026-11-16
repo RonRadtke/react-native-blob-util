@@ -26,6 +26,9 @@ struct BlobUtilsSpec_Constants {
     std::string MusicDir;
     std::string PictureDir;
     std::string ApplicationSupportDir;
+    std::string TemporaryDir;
+    std::string ExternalCacheDir;
+    std::string RoamingDir;
     std::string RingtoneDir;
     std::string SDCardDir;
     std::string SDCardApplicationDir;

@@ -19,7 +19,7 @@ export default {
     writeToMediafileWithTransform: alias('writeToMediafileWithTransform', 'write(uri, path, {transform: true})', writeRaw('writeToMediafileWithTransform', true)),
     // Keeps resolving what native resolves, as it did; media.copyToInternal resolves undefined.
     copyToInternal: alias('copyToInternal', 'copyToInternal', platformOnly('android', 'ReactNativeBlobUtil.MediaCollection.copyToInternal',
-        (uri: string, dest: string) => requireNativeModule().copyToInternal(uri, dest))),
+        (uri: string, dest: string) => requireNativeModule().copyToInternal(uri, dest, {}))),
     getBlob: alias('getBlob', 'read', media.read),
     copyToMediaStore: alias('copyToMediaStore', 'copyToMediaStore', media.copyToMediaStore),
 };

@@ -16,16 +16,22 @@ const record = (name, result) => (...args) => {
 rn.setNativeModule({
     getConstants: () => ({}),
     actionViewIntent: record('actionViewIntent', true),
-    getContentIntent: record('getContentIntent', 'content://picked'),
+    pickFiles: (options) => {
+        calls.push(['pickFiles', options]);
+        return Promise.resolve(picked);
+    },
     presentPreview: record('presentPreview', [null]),
     presentOpenInMenu: record('presentOpenInMenu', [null]),
     presentOptionsMenu: record('presentOptionsMenu', [null]),
 });
 
+let picked = ['content://picked'];
+
 const {default: open} = await import('../../open.js');
 
 test.beforeEach(() => {
     calls.length = 0;
+    picked = ['content://picked'];
 });
 
 test('open.file shows a view intent on Android and a preview on iOS, resolving undefined', async () => {
@@ -54,26 +60,55 @@ test('open.chooser shows an app chooser on Android and the open-in menu on iOS',
     ]);
 });
 
-test('open.optionsMenu is iOS only and open.pick is Android only', async () => {
+test('open.optionsMenu is iOS only; open.pick works on every platform', async () => {
     rn.setPlatform('ios');
     await open.optionsMenu('/a.pdf');
-    await assert.rejects(open.pick(), {code: 'ENOTSUP'});
 
+    for (const platform of ['android', 'ios', 'windows']) {
+        rn.setPlatform(platform);
+        assert.equal(await open.pick('image/*'), 'content://picked', platform);
+    }
     rn.setPlatform('android');
-    assert.equal(await open.pick('image/*'), 'content://picked');
     assert.equal(await open.pick(), 'content://picked');
     await assert.rejects(open.optionsMenu('/a.pdf'), {code: 'ENOTSUP'});
 
+    const one = (mime) => ['pickFiles', {mime, multiple: false}];
     assert.deepEqual(calls, [
         ['presentOptionsMenu', 'file:///a.pdf', undefined],
-        ['getContentIntent', 'image/*'],
-        ['getContentIntent', '*/*'],
+        one(['image/*']), one(['image/*']), one(['image/*']),
+        one(['*/*']),
     ]);
 });
 
-test('on Windows every open call rejects with ENOTSUP without reaching native', async () => {
+test('open.pick takes several MIME types and returns a list with multiple', async () => {
+    rn.setPlatform('android');
+    picked = ['content://a', 'content://b'];
+    assert.deepEqual(await open.pick({mime: ['image/png', 'application/pdf'], multiple: true}), ['content://a', 'content://b']);
+    assert.equal(await open.pick(['image/png', 'application/pdf']), 'content://a', 'a list of types alone picks one file');
+    assert.deepEqual(calls, [
+        ['pickFiles', {mime: ['image/png', 'application/pdf'], multiple: true}],
+        ['pickFiles', {mime: ['image/png', 'application/pdf'], multiple: false}],
+    ]);
+});
+
+test('a cancelled pick resolves null, or [] with multiple', async () => {
+    rn.setPlatform('ios');
+    picked = [];
+    assert.equal(await open.pick(), null);
+    assert.deepEqual(await open.pick({multiple: true}), []);
+});
+
+test('open.pick rejects a malformed MIME type with EINVAL before native', async () => {
+    rn.setPlatform('android');
+    for (const mime of ['image', [], ['image/png', 3], 'image/ png', {}]) {
+        await assert.rejects(open.pick({mime}), {code: 'EINVAL'}, JSON.stringify(mime));
+    }
+    assert.deepEqual(calls, []);
+});
+
+test('on Windows every open call but pick rejects with ENOTSUP without reaching native', async () => {
     rn.setPlatform('windows');
-    for (const call of [() => open.file('/a'), () => open.chooser('/a'), () => open.optionsMenu('/a'), () => open.pick()]) {
+    for (const call of [() => open.file('/a'), () => open.chooser('/a'), () => open.optionsMenu('/a')]) {
         await assert.rejects(call, {code: 'ENOTSUP'});
     }
     assert.deepEqual(calls, []);

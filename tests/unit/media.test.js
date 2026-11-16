@@ -43,7 +43,21 @@ test('createFile and copyToMediaStore default parentFolder and resolve the conte
 
 test('copyToInternal resolves undefined: the destination is the caller\'s own', async () => {
     assert.equal(await media.copyToInternal('content://media/1', '/docs/copy'), undefined);
-    assert.deepEqual(calls, [['copyToInternal', 'content://media/1', '/docs/copy']]);
+    assert.deepEqual(calls, [['copyToInternal', 'content://media/1', '/docs/copy', {}]]);
+});
+
+test('copyToInternal works on iOS too and hands on width, height and compression', async () => {
+    rn.setPlatform('ios');
+    await media.copyToInternal('ph://ABC/L0/001', 'file:///docs/a%20b.jpg', {width: 640.4, height: 480, compression: 0.5});
+    assert.deepEqual(calls, [['copyToInternal', 'ph://ABC/L0/001', '/docs/a b.jpg', {width: 640, height: 480, compression: 0.5}]]);
+});
+
+test('copyToInternal rejects bad options with EINVAL before native', async () => {
+    for (const options of [{width: 0}, {height: -1}, {width: '640'}, {compression: 1.5}, {compression: -0.1}, {compression: 'high'}]) {
+        await assert.rejects(media.copyToInternal('content://media/1', '/docs/a', options), {code: 'EINVAL'}, JSON.stringify(options));
+    }
+    await assert.rejects(media.copyToInternal('content://media/1'), {code: 'EINVAL'});
+    assert.deepEqual(calls, []);
 });
 
 test('write passes the transform flag and resolves undefined', async () => {
@@ -71,21 +85,22 @@ test('addDownload, scan and the SD card directories', async () => {
     assert.equal(media.sdCardApplicationDir, undefined);
 });
 
-test('every media call rejects with ENOTSUP on iOS and Windows', async () => {
+test('every media call but copyToInternal rejects with ENOTSUP on iOS; every one on Windows', async () => {
     for (const platform of ['ios', 'windows']) {
         rn.setPlatform(platform);
-        for (const call of [
+        const androidOnly = [
             () => media.createFile({name: 'a', mimeType: 'x/y'}, 'Image'),
             () => media.write('u', '/p'),
             () => media.copyToMediaStore({name: 'a', mimeType: 'x/y'}, 'Image', '/p'),
-            () => media.copyToInternal('u', '/p'),
             () => media.read('u'),
             () => media.addDownload({}),
             () => media.scan([]),
-        ]) {
+        ];
+        for (const call of androidOnly) {
             await assert.rejects(call, (err) => err.code === 'ENOTSUP' && /Android/.test(err.message));
         }
     }
+    await assert.rejects(media.copyToInternal('u', '/p'), (err) => err.code === 'ENOTSUP' && /Android or iOS/.test(err.message));
     assert.deepEqual(calls, []);
 });
 

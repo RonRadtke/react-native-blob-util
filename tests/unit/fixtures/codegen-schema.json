@@ -80,6 +80,27 @@
                     }
                   },
                   {
+                    "name": "TemporaryDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "ExternalCacheDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
+                    "name": "RoamingDir",
+                    "optional": false,
+                    "typeAnnotation": {
+                      "type": "StringTypeAnnotation"
+                    }
+                  },
+                  {
                     "name": "RingtoneDir",
                     "optional": false,
                     "typeAnnotation": {
@@ -1305,6 +1326,207 @@
             }
           },
           {
+            "name": "readRange",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "position",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "length",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "writeRange",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "NumberTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "data",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "position",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "touch",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "mtime",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "ctime",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "NumberTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "setAttributes",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "VoidTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "path",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "attributes",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "bundlePath",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "StringTypeAnnotation"
+                }
+              },
+              "params": [
+                {
+                  "name": "name",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "StringTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "getExternalDirs",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": []
+            }
+          },
+          {
+            "name": "pickFiles",
+            "optional": false,
+            "typeAnnotation": {
+              "type": "FunctionTypeAnnotation",
+              "returnTypeAnnotation": {
+                "type": "PromiseTypeAnnotation",
+                "elementType": {
+                  "type": "ArrayTypeAnnotation",
+                  "elementType": {
+                    "type": "AnyTypeAnnotation"
+                  }
+                }
+              },
+              "params": [
+                {
+                  "name": "options",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
+                  }
+                }
+              ]
+            }
+          },
+          {
             "name": "actionViewIntent",
             "optional": false,
             "typeAnnotation": {
@@ -1389,6 +1611,13 @@
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"
+                  }
+                },
+                {
+                  "name": "options",
+                  "optional": false,
+                  "typeAnnotation": {
+                    "type": "GenericObjectTypeAnnotation"
                   }
                 }
               ]
@@ -1483,28 +1712,6 @@
                 },
                 {
                   "name": "encoding",
-                  "optional": false,
-                  "typeAnnotation": {
-                    "type": "StringTypeAnnotation"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "name": "getContentIntent",
-            "optional": false,
-            "typeAnnotation": {
-              "type": "FunctionTypeAnnotation",
-              "returnTypeAnnotation": {
-                "type": "PromiseTypeAnnotation",
-                "elementType": {
-                  "type": "StringTypeAnnotation"
-                }
-              },
-              "params": [
-                {
-                  "name": "mime",
                   "optional": false,
                   "typeAnnotation": {
                     "type": "StringTypeAnnotation"

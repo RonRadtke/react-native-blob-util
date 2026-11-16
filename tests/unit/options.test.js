@@ -22,7 +22,7 @@ rn.setNativeModule({
     createFile: record('createFile', null),
     writeStream: record('writeStream', 'stream-1'),
     readStream: (...args) => calls.push(['readStream', ...args]),
-    getContentIntent: record('getContentIntent', 'content://picked'),
+    pickFiles: record('pickFiles', ['content://picked']),
     createMediaFile: record('createMediaFile', 'content://media/1'),
     copyToMediaStore: record('copyToMediaStore', 'content://media/2'),
     getBlob: record('getBlob', 'blob'),
@@ -77,7 +77,7 @@ test('open.pick takes {mime}', async () => {
     await open.pick({mime: 'image/*'});
     await open.pick('text/*');
     await open.pick();
-    assert.deepEqual(calls.map((c) => c[1]), ['image/*', 'text/*', '*/*']);
+    assert.deepEqual(calls.map((c) => c[1].mime), [['image/*'], ['text/*'], ['*/*']]);
 });
 
 test('media descriptors take mime as well as mimeType', async () => {

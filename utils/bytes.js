@@ -154,3 +154,37 @@ export function utf8OfBytes(bytes: Array<number>): string {
     }
     return out + String.fromCharCode.apply(null, units);
 }
+
+/**
+ * Whether a value is binary data: an ArrayBuffer or a view of one (a typed
+ * array, a DataView).
+ * @param  {any} value
+ * @return {boolean}
+ */
+export function isBinary(value: any): boolean {
+    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+
+/**
+ * The bytes of an ArrayBuffer or of a view of one.
+ * @param  {ArrayBuffer | $ArrayBufferView} value
+ * @return {Uint8Array}
+ */
+export function uint8Of(value: any): Uint8Array {
+    return value instanceof ArrayBuffer
+        ? new Uint8Array(value)
+        : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+}
+
+/**
+ * The bytes a binary string holds, one character per byte, as a Uint8Array.
+ * @param  {string} binary
+ * @return {Uint8Array}
+ */
+export function uint8OfBinaryString(binary: string): Uint8Array {
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i) & 0xff;
+    }
+    return bytes;
+}

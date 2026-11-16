@@ -442,6 +442,68 @@ export type Encoding = 'utf8' | 'ascii' | 'base64';
 /** Write encodings: `uri` copies the file the data string points at. */
 export type WriteEncoding = Encoding | 'uri';
 
+/** Read encodings of `readFile` and `read`: `bytes` resolves a Uint8Array. */
+export type ReadEncoding = Encoding | 'bytes';
+
+/**
+ * Binary data: written as it is, whatever the encoding says. A typed array
+ * writes only the bytes it views.
+ */
+export type BinaryData = ArrayBuffer | ArrayBufferView;
+
+/**
+ * An iOS data protection class (`NSFileProtectionType`): `complete`, readable
+ * only while the device is unlocked; `completeUnlessOpen`, a file open when
+ * the device locks stays readable; `untilFirstAuth`, readable after the first
+ * unlock since boot (the system default); `none`. Android and Windows have no
+ * such classes and ignore the option; an unknown value rejects EINVAL
+ * everywhere.
+ */
+export type Protection = 'complete' | 'completeUnlessOpen' | 'untilFirstAuth' | 'none';
+
+/** Options of the calls that create or move a file or directory. */
+export interface ProtectionOptions {
+    /** iOS: the data protection class of the result. Ignored elsewhere. */
+    protection?: Protection;
+}
+
+/** Options of `fs.read`. */
+export interface ReadOptions<E extends ReadEncoding = ReadEncoding> {
+    /** The first byte to read. Default 0. */
+    position?: number;
+    /** How many bytes to read; default to the end of the file. */
+    length?: number;
+    /** Default utf8. A range that ends inside a UTF-8 character decodes the broken tail as U+FFFD. */
+    encoding?: E;
+}
+
+/** Options of `fs.write`. */
+export interface WriteOptions {
+    /** The byte to start writing at; default the end of the file (append). */
+    position?: number;
+    /** How a string is encoded (default utf8), or `ascii` for byte values. Ignored for binary data. */
+    encoding?: Encoding;
+}
+
+/** Options of `fs.touch`. */
+export interface TouchOptions {
+    /** The modification time, a Date or ms since the epoch. Default now. */
+    mtime?: Date | number;
+    /**
+     * The creation time (iOS, Windows). Without it the creation time stays;
+     * Android keeps no settable creation time and ignores it.
+     */
+    ctime?: Date | number;
+}
+
+/** Options of `open.pick`. */
+export interface PickOptions {
+    /** One MIME type or several, such as "image/*" or ["application/pdf", "text/plain"]. Default any. */
+    mime?: string | string[];
+    /** Let the user pick several files; the call then resolves a list. */
+    multiple?: boolean;
+}
+
 export type HashAlgorithm = 'md5' | 'sha1' | 'sha224' | 'sha256' | 'sha384' | 'sha512';
 
 export interface FS {
@@ -451,9 +513,11 @@ export interface FS {
     unlink(path: string): Promise<void>;
 
     /**
-     * Create a directory, including missing parents. Rejects EEXIST when it exists.
+     * Create a directory, including missing parents. Rejects EEXIST when it
+     * exists. On iOS, `protection` sets the directory's data protection class,
+     * which files created in it inherit.
      */
-    mkdir(path: string): Promise<void>;
+    mkdir(path: string, options?: ProtectionOptions): Promise<void>;
 
     /**
      * Get a file cache session; created when it does not exist yet.
@@ -482,14 +546,17 @@ export interface FS {
     readStream(path: string, options: {encoding?: Encoding; bufferSize?: number; tick?: number}): Promise<ReactNativeBlobUtilReadStream>;
 
     /**
-     * Move a file. An existing destination is overwritten.
+     * Move a file or directory. An existing destination file is overwritten.
      */
-    mv(path: string, dest: string): Promise<void>;
+    mv(path: string, dest: string, options?: ProtectionOptions): Promise<void>;
 
     /**
-     * Copy a file. An existing destination is overwritten.
+     * Copy a file, or a directory with everything in it. An existing
+     * destination file is overwritten; an existing destination directory
+     * rejects EEXIST. Android also copies from a `content://` URI, an asset or
+     * a resource.
      */
-    cp(path: string, dest: string): Promise<void>;
+    cp(path: string, dest: string, options?: ProtectionOptions): Promise<void>;
 
     /**
      * A write stream to the file.
@@ -499,18 +566,21 @@ export interface FS {
     writeStream(path: string, options: {encoding?: Encoding; append?: boolean}): Promise<ReactNativeBlobUtilWriteStream>;
 
     /**
-     * Write data to a file, replacing it.
-     * @param data A string, or byte values 0..255 for the ascii encoding.
+     * Write data to a file, replacing it. Missing parent directories are created.
+     * @param data A string, byte values 0..255 for the ascii encoding, or binary data.
      * @return The number of bytes written.
      */
     writeFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
     writeFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
+    writeFile(path: string, data: BinaryData, encoding?: Encoding): Promise<number>;
 
-    writeFile(path: string, data: string, encoding: 'utf8' | 'base64' | 'uri' | undefined, options: {transform?: boolean}): Promise<number>;
+    writeFile(path: string, data: string, encoding: 'utf8' | 'base64' | 'uri' | undefined, options: {transform?: boolean} & ProtectionOptions): Promise<number>;
+    writeFile(path: string, data: BinaryData, encoding: Encoding | undefined, options: {transform?: boolean} & ProtectionOptions): Promise<number>;
     // An encoding only known at runtime.
-    writeFile(path: string, data: string | number[], encoding?: WriteEncoding, options?: {transform?: boolean}): Promise<number>;
-    writeFile(path: string, data: number[], options: FileOptions<'ascii'> & {encoding: 'ascii'}): Promise<number>;
-    writeFile(path: string, data: string, options: FileOptions<'utf8' | 'base64' | 'uri'>): Promise<number>;
+    writeFile(path: string, data: string | number[] | BinaryData, encoding?: WriteEncoding, options?: {transform?: boolean} & ProtectionOptions): Promise<number>;
+    writeFile(path: string, data: number[], options: FileOptions<'ascii'> & ProtectionOptions & {encoding: 'ascii'}): Promise<number>;
+    writeFile(path: string, data: string, options: FileOptions<'utf8' | 'base64' | 'uri'> & ProtectionOptions): Promise<number>;
+    writeFile(path: string, data: BinaryData, options: FileOptions<Encoding> & ProtectionOptions): Promise<number>;
 
     /** @deprecated use `writeFile(path, data, encoding, {transform: true})` */
     writeFileWithTransform(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
@@ -521,21 +591,54 @@ export interface FS {
      */
     appendFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<number>;
     appendFile(path: string, data: number[], encoding: 'ascii'): Promise<number>;
-    appendFile(path: string, data: string | number[], encoding?: WriteEncoding): Promise<number>;
-    appendFile(path: string, data: string | number[], options: {encoding?: WriteEncoding}): Promise<number>;
+    appendFile(path: string, data: BinaryData, encoding?: Encoding): Promise<number>;
+    appendFile(path: string, data: string | number[] | BinaryData, encoding?: WriteEncoding): Promise<number>;
+    appendFile(path: string, data: string | number[] | BinaryData, options: {encoding?: WriteEncoding}): Promise<number>;
 
     /**
-     * Read a file: text for utf8, a base64 string, or byte values 0..255 for ascii.
+     * Read a file: text for utf8, a base64 string, byte values 0..255 for
+     * ascii, or a Uint8Array for bytes.
      */
     readFile(path: string, encoding: 'ascii'): Promise<number[]>;
+    readFile(path: string, encoding: 'bytes'): Promise<Uint8Array>;
     readFile(path: string, encoding?: 'utf8' | 'base64'): Promise<string>;
 
     readFile(path: string, encoding: 'ascii', options: {transform?: boolean}): Promise<number[]>;
+    readFile(path: string, encoding: 'bytes', options: {transform?: boolean}): Promise<Uint8Array>;
     readFile(path: string, encoding: 'utf8' | 'base64' | undefined, options: {transform?: boolean}): Promise<string>;
     // An encoding only known at runtime.
     readFile(path: string, encoding?: Encoding, options?: {transform?: boolean}): Promise<string | number[]>;
+    readFile(path: string, encoding?: ReadEncoding, options?: {transform?: boolean}): Promise<string | number[] | Uint8Array>;
     readFile(path: string, options: FileOptions<'ascii'> & {encoding: 'ascii'}): Promise<number[]>;
+    readFile(path: string, options: FileOptions<'bytes'> & {encoding: 'bytes'}): Promise<Uint8Array>;
     readFile(path: string, options: FileOptions<'utf8' | 'base64'>): Promise<string>;
+
+    /**
+     * Read part of a file: `length` bytes from `position`, or to the end
+     * without a length. A range past the end reads what is there, possibly
+     * nothing. Rejects ENOENT for a missing file, EISDIR for a directory.
+     */
+    read(path: string, options: ReadOptions<'ascii'> & {encoding: 'ascii'}): Promise<number[]>;
+    read(path: string, options: ReadOptions<'bytes'> & {encoding: 'bytes'}): Promise<Uint8Array>;
+    read(path: string, options?: ReadOptions<'utf8' | 'base64'>): Promise<string>;
+    // An encoding only known at runtime.
+    read(path: string, options?: ReadOptions): Promise<string | number[] | Uint8Array>;
+
+    /**
+     * Write into a file at `position`, overwriting what is there and keeping
+     * the rest; without a position the data is appended. A missing file is
+     * created (its directory must exist, or ENOENT); a position past the end
+     * leaves zero bytes in between.
+     * @param data A string, byte values 0..255 for `encoding: 'ascii'`, or binary data.
+     * @return The number of bytes written.
+     */
+    write(path: string, data: string | number[] | BinaryData, options?: WriteOptions): Promise<number>;
+
+    /**
+     * Set the modification time, and the creation time where one can be set
+     * (iOS, Windows), as `touch` does: a missing file is created empty.
+     */
+    touch(path: string, options?: TouchOptions): Promise<void>;
 
     /** @deprecated use `readFile(path, encoding, {transform: true})` */
     readFileWithTransform(path: string, encoding: 'ascii'): Promise<number[]>;
@@ -557,7 +660,8 @@ export interface FS {
      */
     createFile(path: string, data: string, encoding?: 'utf8' | 'base64' | 'uri'): Promise<void>;
     createFile(path: string, data: number[], encoding: 'ascii'): Promise<void>;
-    createFile(path: string, data: string | number[], options: {encoding?: WriteEncoding}): Promise<void>;
+    createFile(path: string, data: BinaryData, encoding?: Encoding): Promise<void>;
+    createFile(path: string, data: string | number[] | BinaryData, options: {encoding?: WriteEncoding} & ProtectionOptions): Promise<void>;
 
     /**
      * Information about a file or directory.
@@ -574,9 +678,32 @@ export interface FS {
     slice(src: string, dest: string, start?: number, end?: number): Promise<void>;
 
     /**
-     * The path of a bundled asset, for use with the other fs calls.
+     * The path of a bundled asset, for use with the other fs calls. On Android
+     * `ls` lists an asset directory, and `exists` and `stat` see compressed
+     * assets too.
      */
     asset(path: string): string;
+
+    /**
+     * Android: the path of an app resource, "<type>/<name>" without the
+     * extension (`fs.resource('raw/sample')` for res/raw/sample.json), for
+     * `readFile`, `read`, `exists`, `stat`, `hash`, `cp` (as the source) and
+     * `readStream`. Throws an error with code ENOTSUP on iOS and Windows.
+     */
+    resource(name: string): string;
+
+    /**
+     * iOS: the path of a resource bundle (`<name>.bundle`) in the main bundle.
+     * Rejects ENOENT when there is none, ENOTSUP on Android and Windows.
+     */
+    bundlePath(name: string): Promise<string>;
+
+    /**
+     * Android: every app-specific directory on external storage, the primary
+     * one first, then one per removable volume such as an SD card. Resolves []
+     * on iOS and Windows.
+     */
+    externalDirs(): Promise<string[]>;
 
     /**
      * Free and total storage in bytes. Android also reports the internal and
@@ -598,6 +725,12 @@ export interface FS {
      * iOS: exclude the file or directory from iCloud and iTunes backups. ENOTSUP elsewhere.
      */
     excludeFromBackup(path: string): Promise<void>;
+
+    /**
+     * iOS: set the data protection class and whether the item is left out of
+     * backups. Only the attributes given change. ENOTSUP elsewhere.
+     */
+    setAttributes(path: string, attributes: ProtectionOptions & {excludeFromBackup?: boolean}): Promise<void>;
 
     /**
      * iOS: the directory shared by the apps of an app group. ENOTSUP elsewhere.
@@ -640,15 +773,20 @@ export interface OpenApi {
     optionsMenu(path: string, options?: {scheme?: string}): Promise<void>;
 
     /**
-     * Android: the system file picker. Resolves the chosen file's content URI,
-     * or null when the user cancels.
+     * The system file picker. Resolves what the user picked: a `content://`
+     * URI on Android; on iOS and Windows the path of a copy in the temporary
+     * directory. With `multiple` a list, [] when the user cancels; otherwise
+     * one entry, or null. Rejects EBUSY while another picker is open.
      */
-    pick(mime?: string | {mime?: string}): Promise<string | null>;
+    pick(options: PickOptions & {multiple: true}): Promise<string[]>;
+    pick(mime?: string | string[] | (PickOptions & {multiple?: false})): Promise<string | null>;
+    pick(options: PickOptions): Promise<string | string[] | null>;
 }
 
 /**
  * The device's shared media library (Android: MediaStore, Downloads app,
- * media scanner). Every call rejects with ENOTSUP elsewhere.
+ * media scanner). Every call but `copyToInternal`, which iOS has as well,
+ * rejects with ENOTSUP elsewhere.
  */
 export interface MediaApi {
     /** Create an empty entry in a collection; resolves its content URI. */
@@ -657,8 +795,14 @@ export interface MediaApi {
     write(uri: string, path: string, options?: {transform?: boolean}): Promise<void>;
     /** Create an entry and copy a file into it; resolves its content URI. */
     copyToMediaStore(fd: filedescriptor, collection: Mediatype, path: string): Promise<string>;
-    /** Copy an entry into the app's own storage, overwriting the destination. */
-    copyToInternal(uri: string, dest: string): Promise<void>;
+    /**
+     * Copy an entry into the app's own storage, overwriting the destination:
+     * a `content://` URI on Android, a photo library item on iOS (`ph://<local
+     * identifier>` or `assets-library://`). With `width` or `height` an image
+     * is scaled down to fit and written as JPEG with `compression` (0..1,
+     * default 0.9); a video is copied as it is. ENOTSUP on Windows.
+     */
+    copyToInternal(uri: string, dest: string, options?: {width?: number; height?: number; compression?: number}): Promise<void>;
     /** Read an entry: text, a base64 string, or bytes 0..255. */
     read(uri: string, encoding: 'ascii'): Promise<number[]>;
     read(uri: string, encoding?: 'utf8' | 'base64'): Promise<string>;
@@ -677,6 +821,12 @@ export interface ReactNativeBlobUtilStat {
     type: 'file' | 'directory' | 'asset';
     /** Milliseconds since the epoch. */
     lastModified: number;
+    /**
+     * When the file was created, in milliseconds since the epoch: iOS and
+     * Windows. null on Android, whose file systems do not report it to apps,
+     * and for assets.
+     */
+    created: number | null;
 }
 
 /** @deprecated use ReactNativeBlobUtilDf */
@@ -711,6 +861,15 @@ export interface Dirs {
     DCIMDir: string;
     /** Android: the ringtone directory; "" elsewhere. */
     RingtoneDir: string;
+    /**
+     * The directory for temporary files: iOS tmp, the Android cache
+     * directory, Windows TemporaryFolder. The system may clear it.
+     */
+    TemporaryDir: string;
+    /** Android: the app's cache directory on external storage; "" elsewhere or when none is mounted. */
+    ExternalCacheDir: string;
+    /** Windows: the roaming application data folder; "" elsewhere. */
+    RoamingDir: string;
     /** @deprecated */
     SDCardDir: string;
     /** @deprecated */

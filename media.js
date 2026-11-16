@@ -2,11 +2,13 @@
 // The device's shared media library: Android's MediaStore, the Downloads
 // app and the media scanner. Every call rejects with ENOTSUP elsewhere.
 
+import {Platform} from 'react-native';
 import {toUnsignedBytes} from './utils/bytes';
 import {warnOnce} from './utils/deprecate';
 import {addCode} from './utils/errors';
 import {requireNativeModule} from './utils/nativeModule';
-import {platformOnly} from './utils/platform';
+import {pathOf} from './utils/path';
+import {notSupported, platformOnly} from './utils/platform';
 import type {filedescriptor} from './types';
 
 const androidOnly = (name, fn) => platformOnly('android', `ReactNativeBlobUtil.media.${name}`, fn);
@@ -48,7 +50,7 @@ const createFile = androidOnly('createFile', (fd: filedescriptor, collection: st
  * @return {Promise<void>}
  */
 const write = androidOnly('write', (uri: string, path: string, options: ?{transform?: boolean} = null) => {
-    return requireNativeModule().writeToMediaFile(uri, path, Boolean(options && options.transform)).then(() => undefined);
+    return requireNativeModule().writeToMediaFile(uri, pathOf(path), Boolean(options && options.transform)).then(() => undefined);
 });
 
 /**
@@ -56,16 +58,45 @@ const write = androidOnly('write', (uri: string, path: string, options: ?{transf
  * @return {Promise<string>} The entry's content URI.
  */
 const copyToMediaStore = androidOnly('copyToMediaStore', (fd: filedescriptor, collection: string, path: string) => {
-    return requireNativeModule().copyToMediaStore(withParentFolder(fd), collection, path);
+    return requireNativeModule().copyToMediaStore(withParentFolder(fd), collection, pathOf(path));
 });
 
 /**
- * Copy an entry into the app's own storage, overwriting the destination.
+ * Copy an entry of the media library into the app's own storage, overwriting
+ * the destination: a content:// URI on Android, a photo library item on iOS
+ * (`ph://<local identifier>` or `assets-library://`). An image can be scaled
+ * down to fit `width` x `height` and is then written as JPEG with
+ * `compression` (0..1, default 0.9); a video is copied as it is.
+ * @param  {string} uri
+ * @param  {string} dest
+ * @param  {{width?: number, height?: number, compression?: number}} options
  * @return {Promise<void>}
  */
-const copyToInternal = androidOnly('copyToInternal', (uri: string, dest: string) => {
-    return requireNativeModule().copyToInternal(uri, dest).then(() => undefined);
-});
+function copyToInternal(uri: string, dest: string, options: ?{width?: number, height?: number, compression?: number} = null): Promise<void> {
+    if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+        return Promise.reject(notSupported('Android or iOS', 'ReactNativeBlobUtil.media.copyToInternal'));
+    }
+    if (typeof uri !== 'string' || typeof dest !== 'string') {
+        return Promise.reject(addCode('EINVAL', new TypeError('Missing argument "uri" and/or "dest"')));
+    }
+    const opts = options || {};
+    const out = {};
+    for (const key of ['width', 'height']) {
+        if (opts[key] !== undefined && opts[key] !== null) {
+            if (typeof opts[key] !== 'number' || !Number.isFinite(opts[key]) || opts[key] <= 0) {
+                return Promise.reject(addCode('EINVAL', new TypeError(`"${key}" must be a number above 0`)));
+            }
+            out[key] = Math.round(opts[key]);
+        }
+    }
+    if (opts.compression !== undefined && opts.compression !== null) {
+        if (typeof opts.compression !== 'number' || !(opts.compression >= 0 && opts.compression <= 1)) {
+            return Promise.reject(addCode('EINVAL', new TypeError('"compression" must be a number from 0 to 1')));
+        }
+        out.compression = opts.compression;
+    }
+    return requireNativeModule().copyToInternal(uri, pathOf(dest), out).then(() => undefined);
+}
 
 /**
  * Read an entry: text for utf8, a base64 string, or bytes 0..255 for ascii.

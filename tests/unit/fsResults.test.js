@@ -52,7 +52,7 @@ test('ls with {stats: true} lists entries with numeric stats; lstat is its alias
         lstat: resolves([{filename: 'a.txt', size: '3', lastModified: '1000', type: 'file'}]),
     };
     assert.deepEqual(await fs.ls('/d'), ['a.txt']);
-    const expected = [{filename: 'a.txt', size: 3, lastModified: 1000, type: 'file'}];
+    const expected = [{filename: 'a.txt', size: 3, lastModified: 1000, type: 'file', created: null}];
     assert.deepEqual(await fs.ls('/d', {stats: true}), expected);
     assert.deepEqual(await fs.lstat('/d'), expected);
 });
@@ -73,13 +73,28 @@ test('lstat entries carry numeric size and lastModified', async () => {
     const ios = {filename: 'a', path: '/a', size: '2', lastModified: 1700000000000, type: 'file'};
     for (const entry of [android, ios]) {
         native = {lstat: resolves([entry])};
-        assert.deepEqual(await fs.lstat('/'), [{filename: 'a', path: '/a', size: 2, lastModified: 1700000000000, type: 'file'}]);
+        assert.deepEqual(await fs.lstat('/'), [{filename: 'a', path: '/a', size: 2, lastModified: 1700000000000, type: 'file', created: null}]);
     }
 });
 
 test('stat keeps its numeric size and lastModified', async () => {
     native = {stat: resolves({filename: 'a', path: '/a', size: '2', lastModified: '1700000000000', type: 'file'})};
-    assert.deepEqual(await fs.stat('/a'), {filename: 'a', path: '/a', size: 2, lastModified: 1700000000000, type: 'file'});
+    assert.deepEqual(await fs.stat('/a'), {filename: 'a', path: '/a', size: 2, lastModified: 1700000000000, type: 'file', created: null});
+});
+
+test('stat and ls stats carry created as a number, or null where native has none', async () => {
+    for (const created of ['1600000000000', 1600000000000]) {
+        native = {
+            stat: resolves({filename: 'a', size: '2', lastModified: 1, type: 'file', created}),
+            lstat: resolves([{filename: 'a', size: '2', lastModified: 1, type: 'file', created}]),
+        };
+        assert.equal((await fs.stat('/a')).created, 1600000000000);
+        assert.equal((await fs.ls('/', {stats: true}))[0].created, 1600000000000);
+    }
+    for (const created of [null, undefined]) {
+        native = {stat: resolves({filename: 'a', size: '2', lastModified: 1, type: 'file', created})};
+        assert.equal((await fs.stat('/a')).created, null);
+    }
 });
 
 test('exists and isDir read the object every platform resolves', async () => {

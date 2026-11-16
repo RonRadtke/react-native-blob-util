@@ -315,3 +315,43 @@ const legacyDf: RNFetchBlobDf = {free: 1, total: 2};
 void legacyDf;
 
 void network; void filesystem; void platforms; void helpers; void namedExports; void optionObjects;
+
+// 1.2.0: read and write at an offset, touch, bytes, the protection option,
+// resources, bundles, the new directories, picking several files.
+async function additions120() {
+    const fs = ReactNativeBlobUtil.fs;
+    const head: string = await fs.read('/p/a.txt', {position: 0, length: 16});
+    const rest: string = await fs.read('/p/a.txt');
+    const rawRange: Uint8Array = await fs.read('/p/a.bin', {position: 4, encoding: 'bytes'});
+    const asciiRange: number[] = await fs.read('/p/a.bin', {length: 2, encoding: 'ascii'});
+    const b64Range: string = await fs.read('/p/a.bin', {encoding: 'base64'});
+    const written: number = await fs.write('/p/a.txt', 'patch', {position: 3});
+    const appended: number = await fs.write('/p/a.bin', new Uint8Array([1, 2]));
+    await fs.write('/p/a.bin', [1, 2, 3], {encoding: 'ascii', position: 0});
+    await fs.touch('/p/a.txt');
+    await fs.touch('/p/a.txt', {mtime: new Date(), ctime: 1600000000000});
+    const bytes: Uint8Array = await fs.readFile('/p/a.bin', 'bytes');
+    const viaOptions: Uint8Array = await fs.readFile('/p/a.bin', {encoding: 'bytes', transform: true});
+    await fs.writeFile('/p/a.bin', bytes);
+    await fs.writeFile('/p/a.bin', new ArrayBuffer(4), 'base64', {transform: true, protection: 'complete'});
+    await fs.writeFile('/p/a.txt', 'secret', {encoding: 'utf8', protection: 'completeUnlessOpen'});
+    await fs.appendFile('/p/a.bin', new DataView(new ArrayBuffer(2)));
+    await fs.createFile('/p/c.bin', new Uint8Array([0]));
+    await fs.createFile('/p/d.txt', 'x', {encoding: 'utf8', protection: 'untilFirstAuth'});
+    await fs.mkdir('/p/secure', {protection: 'complete'});
+    await fs.cp('/p/dir', '/p/dir-copy', {protection: 'none'});
+    await fs.mv('/p/dir-copy', '/p/dir2', {protection: 'complete'});
+    await fs.setAttributes('/p/a.txt', {protection: 'complete', excludeFromBackup: true});
+    const resource: string = fs.resource('raw/sample');
+    const bundle: string = await fs.bundlePath('Settings');
+    const external: string[] = await fs.externalDirs();
+    const created: number | null = (await fs.stat('/p/a.txt')).created;
+    const dirs: string = fs.dirs.TemporaryDir + fs.dirs.ExternalCacheDir + fs.dirs.RoamingDir;
+    const one: string | null = await ReactNativeBlobUtil.open.pick(['image/png', 'application/pdf']);
+    const many: string[] = await ReactNativeBlobUtil.open.pick({mime: ['image/*'], multiple: true});
+    const unknown: string | string[] | null = await ReactNativeBlobUtil.open.pick({multiple: Math.random() > 0.5});
+    await ReactNativeBlobUtil.media.copyToInternal('ph://ABC/L0/001', '/p/photo.jpg', {width: 1024, height: 1024, compression: 0.8});
+    void head; void rest; void rawRange; void asciiRange; void b64Range; void written; void appended; void viaOptions;
+    void resource; void bundle; void external; void created; void dirs; void one; void many; void unknown;
+}
+void additions120;

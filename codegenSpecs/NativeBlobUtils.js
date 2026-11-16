@@ -18,6 +18,12 @@ export interface Spec extends TurboModule {
         MusicDir: string,
         PictureDir: string,
         ApplicationSupportDir: string,
+        // The temporary directory: iOS tmp, the Android cache, Windows TemporaryFolder.
+        TemporaryDir: string,
+        // Android: the app's cache directory on external storage; "" elsewhere.
+        ExternalCacheDir: string,
+        // Windows: the roaming application data folder; "" elsewhere.
+        RoamingDir: string,
         // Android Only Constants
         RingtoneDir: string,
         SDCardDir: string,
@@ -70,14 +76,27 @@ export interface Spec extends TurboModule {
     +presentPreview: (uri: string, scheme: ?string) => Promise<Array<any>>;
     +excludeFromBackupKey: (url: string) => Promise<Array<any>>;
     +df: () => Promise<Object>;
-    // Android Only APIs
+    // The bytes [position, position + length) as base64; length -1 reads to the end.
+    +readRange: (path: string, position: number, length: number) => Promise<string>;
+    // Writes base64 data at position (-1: at the end), creating the file; resolves the bytes written.
+    +writeRange: (path: string, data: string, position: number) => Promise<number>;
+    // Sets the times in ms since the epoch, creating an empty file; ctime < 0 leaves it.
+    +touch: (path: string, mtime: number, ctime: number) => Promise<void>;
+    // iOS: {protection?: string, excludeFromBackup?: boolean}. ENOTSUP elsewhere.
+    +setAttributes: (path: string, attributes: Object) => Promise<void>;
+    // iOS: the path of a resource bundle in the main bundle. ENOTSUP elsewhere.
+    +bundlePath: (name: string) => Promise<string>;
+    // Every app-specific directory on external storage (Android); [] elsewhere.
+    +getExternalDirs: () => Promise<Array<any>>;
+    // {mime: string[], multiple: boolean}; resolves what was picked, [] when cancelled.
+    +pickFiles: (options: Object) => Promise<Array<any>>;
+    // Android Only APIs (copyToInternal: Android and iOS)
     +actionViewIntent: (path: string, mime: string, chooserTitle: ?string) => Promise<void>;
     +addCompleteDownload: (config: Object) => Promise<void>;
-    +copyToInternal: (contentUri: string, destpath: string) => Promise<string>;
+    +copyToInternal: (contentUri: string, destpath: string, options: Object) => Promise<string>;
     +copyToMediaStore: (filedata: Object, mt: string, path: string) => Promise<string>;
     +createMediaFile: (filedata: Object, mt: string) => Promise<string>;
     +getBlob: (contentUri: string, encoding: string) => Promise<Array<any>>;
-    +getContentIntent: (mime: string) => Promise<string>;
     +getSDCardDir: () => Promise<string>;
     +getSDCardApplicationDir: () => Promise<string>;
     +scanFile: (pairs: Array<any>) => Promise<void>;

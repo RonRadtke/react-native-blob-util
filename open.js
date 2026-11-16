@@ -72,18 +72,35 @@ function optionsMenu(path: string, options: OpenOptions = {}): Promise<void> {
     return requireNativeModule().presentOptionsMenu(fileUrl(path), options.scheme).then(() => undefined);
 }
 
+type PickOptions = {mime?: string | Array<string>, multiple?: boolean};
+
 /**
- * Show the system file picker (Android) and resolve the chosen file's content
- * URI, or null when the user cancels.
- * @param  {string | {mime?: string}} mimeOrOptions MIME type filter, default any.
- * @return {Promise<?string>}
+ * Show the system file picker. Resolves what the user picked: on Android a
+ * content:// URI, which the fs calls and requests read through its provider;
+ * on iOS and Windows the path of a copy in the app's temporary directory,
+ * since the original is outside the app's own storage. With `multiple` it
+ * resolves a list, [] when the user cancels; otherwise one entry, or null.
+ * @param  {string | string[] | {mime?: string | string[], multiple?: boolean}} mimeOrOptions
+ *         MIME types to offer, such as "image/*" or "application/pdf"; default any.
+ * @return {Promise<?string | Array<string>>}
  */
-function pick(mimeOrOptions: string | {mime?: string} = '*/*'): Promise<?string> {
-    if (Platform.OS !== 'android') {
-        return Promise.reject(notSupported('android', 'ReactNativeBlobUtil.open.pick'));
+function pick(mimeOrOptions: string | Array<string> | PickOptions = '*/*'): Promise<any> {
+    const options: PickOptions = mimeOrOptions !== null && typeof mimeOrOptions === 'object' && !Array.isArray(mimeOrOptions)
+        ? mimeOrOptions
+        : {mime: (mimeOrOptions: any)};
+    const given = options.mime === undefined || options.mime === null || options.mime === '' ? ['*/*'] : options.mime;
+    const mime = Array.isArray(given) ? given : [given];
+    if (mime.length === 0 || mime.some((type) => typeof type !== 'string' || !/^[^/\s]+\/[^/\s]+$/.test(type))) {
+        return Promise.reject(addCode('EINVAL', new TypeError('"mime" must be a MIME type such as "image/*", or a list of them')));
     }
-    const mime = mimeOrOptions !== null && typeof mimeOrOptions === 'object' ? mimeOrOptions.mime : mimeOrOptions;
-    return requireNativeModule().getContentIntent(mime || '*/*');
+    const multiple = Boolean(options.multiple);
+    return requireNativeModule().pickFiles({mime, multiple}).then((picked) => {
+        const list = Array.isArray(picked) ? picked : [];
+        if (multiple) {
+            return list;
+        }
+        return list.length > 0 ? list[0] : null;
+    });
 }
 
 export default {file, chooser, optionsMenu, pick};

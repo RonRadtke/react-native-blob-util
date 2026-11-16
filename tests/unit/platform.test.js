@@ -17,7 +17,7 @@ const record = (name, result) => (...args) => {
 rn.setNativeModule({
     getConstants: () => ({}),
     actionViewIntent: record('actionViewIntent', null),
-    getContentIntent: record('getContentIntent', 'content://x'),
+    pickFiles: record('pickFiles', ['content://x']),
     addCompleteDownload: record('addCompleteDownload', null),
     getSDCardDir: record('getSDCardDir', '/sdcard'),
     getSDCardApplicationDir: record('getSDCardApplicationDir', '/sdcard/app'),

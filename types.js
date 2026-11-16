@@ -119,4 +119,5 @@ export type ReactNativeBlobUtilStat = {
   size: number,
   type: 'file' | 'directory' | 'asset',
   lastModified: number,
+  created: number | null,
 };
