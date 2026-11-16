@@ -117,6 +117,11 @@ public:
 	bool trustSystemCerts;
 	// What a single request body is - "text", "base64" or "file" - as JS decided it.
 	std::string bodyType;
+	// A resumed download (fetch.js pause/resume and resumable): the bytes from
+	// rangeFrom on are asked for, with If-Range when there is a validator. -1
+	// for any other request.
+	int64_t rangeFrom{ -1 };
+	std::string rangeIfRange;
 };
 
 
@@ -167,7 +172,8 @@ struct ReactNativeBlobUtil
     // Upload and download progress events for one operation.
     void WatchProgress(
         winrt::Windows::Foundation::IAsyncOperationWithProgress<winrt::Windows::Web::Http::HttpResponseMessage, winrt::Windows::Web::Http::HttpProgress> const& operation,
-        std::string taskId);
+        std::string taskId,
+        bool reportDownload);
 
     winrt::fire_and_forget fetchBlob(::React::JSValue options, std::string taskId, std::string method, std::string url, ::React::JSValue headers, std::string body, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback) noexcept;
 

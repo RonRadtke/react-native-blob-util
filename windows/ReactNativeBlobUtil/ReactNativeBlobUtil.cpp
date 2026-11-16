@@ -386,6 +386,17 @@ ReactNativeBlobUtilConfig::ReactNativeBlobUtilConfig(::React::JSValue& options)
 
     trustSystemCerts = getBoolOrDefault(options["trustSystemCerts"]);
     bodyType = getStringOrDefault(options["bodyType"]);
+    if (options["range"].Type() == ::React::JSValueType::Object)
+    {
+        auto const& range{ options["range"].AsObject() };
+        auto const from{ range.find("from") };
+        if (from != range.end() && !from->second.IsNull())
+        {
+            rangeFrom = from->second.AsInt64();
+            auto const ifRange{ range.find("ifRange") };
+            rangeIfRange = ifRange != range.end() && !ifRange->second.IsNull() ? ifRange->second.AsString() : "";
+        }
+    }
 
     auto getStringList = [](const winrt::Microsoft::ReactNative::JSValue& value) -> std::vector<std::string> {
         std::vector<std::string> result;
@@ -879,12 +890,43 @@ namespace
     // when the caller asked for one through fileCache or path - the same
     // contract as Android and iOS, so res.path() resolves - and the decoded text
     // otherwise.
+    // The start offset of a 206 response's Content-Range, or -1.
+    int64_t RangeStartOf(winrt::Windows::Web::Http::HttpResponseMessage const& response)
+    {
+        if (response.Content() == nullptr)
+        {
+            return -1;
+        }
+        const auto range{ response.Content().Headers().TryLookup(L"Content-Range") };
+        if (!range)
+        {
+            return -1;
+        }
+        const std::string text{ winrt::to_string(range.value()) };
+        const auto at{ text.find("bytes ") };
+        if (at == std::string::npos)
+        {
+            return -1;
+        }
+        try
+        {
+            return std::stoll(text.substr(at + 6));
+        }
+        catch (...)
+        {
+            return -1;
+        }
+    }
+
     winrt::Windows::Foundation::IAsyncAction DeliverResponseAsync(
         winrt::Windows::Web::Http::HttpResponseMessage response,
         ReactNativeBlobUtilConfig config,
         std::string taskId,
         std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> callback,
-        ::React::JSValueObject info)
+        ::React::JSValueObject info,
+        std::function<void(uint64_t, int64_t)> progress,
+        std::function<bool(winrt::Windows::Foundation::IAsyncInfo const&)> reading,
+        std::function<void()> readDone)
     {
         if (!config.fileCache && config.path.empty())
         {
@@ -902,44 +944,105 @@ namespace
         }
 
         const std::string destination = ResponseFilePath(config, taskId);
-        const std::filesystem::path path{ destination };
-
-        winrt::Windows::Storage::Streams::IBuffer buffer{ nullptr };
-        if (response.Content() != nullptr)
-        {
-            buffer = co_await response.Content().ReadAsBufferAsync();
-        }
+        const std::filesystem::path path{ std::filesystem::path{ destination }.make_preferred() };
 
         // Android and iOS write to a path whose directory does not exist yet -
         // see the issue-453 case in the network scenario - so Windows creates
         // the missing parents rather than failing to open them.
-        std::error_code directoryError;
-        std::filesystem::create_directories(path.parent_path(), directoryError);
+        std::error_code fsError;
+        std::filesystem::create_directories(path.parent_path(), fsError);
 
-        const auto folder = co_await winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(
-            path.parent_path().wstring());
-        // overwrite: false appends to an existing file, as on Android and iOS; the
-        // option was read here but never used.
-        const bool append = !config.overwrite && std::filesystem::exists(path);
-        const auto file = co_await folder.CreateFileAsync(
-            path.filename().wstring(),
-            append ? winrt::Windows::Storage::CreationCollisionOption::OpenIfExists
-                   : winrt::Windows::Storage::CreationCollisionOption::ReplaceExisting);
-
-        if (buffer != nullptr)
+        // overwrite: false appends to an existing file, as on Android and iOS.
+        bool append{ !config.overwrite && std::filesystem::exists(path, fsError) };
+        bool write{ true };
+        int64_t offset{ 0 };
+        const int status{ static_cast<int>(response.StatusCode()) };
+        if (config.rangeFrom >= 0 && status != 200)
         {
-            if (append)
+            // A resumed download: 206 from the offset asked for continues the file
+            // there; anything else - an error status, 416, a 206 from elsewhere -
+            // leaves the file as it is, and fetch.js decides. 200 replaces it.
+            append = false;
+            write = status == 206 && RangeStartOf(response) == config.rangeFrom;
+            if (write)
             {
-                auto stream = co_await file.OpenAsync(winrt::Windows::Storage::FileAccessMode::ReadWrite);
-                stream.Seek(stream.Size());
-                co_await stream.WriteAsync(buffer);
-                co_await stream.FlushAsync();
-                stream.Close();
+                offset = config.rangeFrom;
+                if (!std::filesystem::exists(path, fsError))
+                {
+                    std::ofstream{ path, std::ios::binary };
+                }
+                std::filesystem::resize_file(path, static_cast<uintmax_t>(offset), fsError);
             }
-            else
+        }
+
+        std::ofstream out;
+        if (write)
+        {
+            out.open(path, std::ios::binary | (offset > 0 || append ? std::ios::app : std::ios::trunc));
+            if (!out)
             {
-                co_await winrt::Windows::Storage::FileIO::WriteBufferAsync(file, buffer);
+                callback(fetchError("EUNSPECIFIED", "Could not open '" + destination + "' to write the response"), std::nullopt, std::nullopt, ::React::JSValue{ std::move(info) });
+                co_return;
             }
+        }
+
+        int64_t length{ -1 };
+        uint64_t received{ 0 };
+        if (response.Content() != nullptr)
+        {
+            const auto declared{ response.Content().Headers().ContentLength() };
+            if (declared)
+            {
+                length = static_cast<int64_t>(declared.Value());
+            }
+            auto input{ co_await response.Content().ReadAsInputStreamAsync() };
+            winrt::Windows::Storage::Streams::Buffer chunk{ 64 * 1024 };
+            for (;;)
+            {
+                auto read{ input.ReadAsync(chunk, chunk.Capacity(), winrt::Windows::Storage::Streams::InputStreamOptions::Partial) };
+                if (!reading(read))
+                {
+                    read.Cancel();
+                }
+                winrt::Windows::Storage::Streams::IBuffer data{ nullptr };
+                try
+                {
+                    data = co_await read;
+                }
+                catch (...)
+                {
+                    readDone();
+                    throw;
+                }
+                readDone();
+                if (data.Length() == 0)
+                {
+                    break;
+                }
+                if (write)
+                {
+                    out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.Length()));
+                    if (!out)
+                    {
+                        callback(fetchError("EUNSPECIFIED", "Could not write '" + destination + "'"), std::nullopt, std::nullopt, ::React::JSValue{ std::move(info) });
+                        co_return;
+                    }
+                }
+                received += data.Length();
+                progress(offset + received, length < 0 ? -1 : offset + length);
+            }
+        }
+        out.close();
+
+        // A body that ended short of its Content-Length: what arrived is on disk.
+        if (length >= 0 && static_cast<int64_t>(received) < length)
+        {
+            callback(fetchError("ECONNRESET", "Download interrupted."), std::nullopt, std::nullopt, ::React::JSValue{ std::move(info) });
+            co_return;
+        }
+        if (length < 0)
+        {
+            progress(offset + received, static_cast<int64_t>(offset + received));
         }
 
         callback(std::nullopt, "path", destination, ::React::JSValue{ std::move(info) });
@@ -987,7 +1090,8 @@ namespace winrt::ReactNativeBlobUtil
 
     void ReactNativeBlobUtil::WatchProgress(
         winrt::Windows::Foundation::IAsyncOperationWithProgress<winrt::Windows::Web::Http::HttpResponseMessage, winrt::Windows::Web::Http::HttpProgress> const& operation,
-        std::string taskId)
+        std::string taskId,
+        bool reportDownload)
     {
         // SendRequestAsync reports both directions, so one handler covers upload
         // and download. The config is looked up on every callback rather than
@@ -995,7 +1099,7 @@ namespace winrt::ReactNativeBlobUtil
         // calls enableProgressReport() - at send time the entry does not exist
         // yet. Android looks it up per chunk for the same reason.
         ProgressThrottle downloadThrottle, uploadThrottle;
-        operation.Progress([this, taskId, downloadThrottle, uploadThrottle](
+        operation.Progress([this, taskId, reportDownload, downloadThrottle, uploadThrottle](
             auto const&, winrt::Windows::Web::Http::HttpProgress const& progress) mutable
         {
             const bool sending{ progress.Stage == winrt::Windows::Web::Http::HttpProgressStage::SendingContent };
@@ -1004,6 +1108,11 @@ namespace winrt::ReactNativeBlobUtil
             // connecting, negotiating TLS - would otherwise report zero-byte
             // progress for every phase of the connection.
             if (!sending && progress.Stage != winrt::Windows::Web::Http::HttpProgressStage::ReceivingContent)
+            {
+                return;
+            }
+            // A download to a file reads its body itself and reports as it writes.
+            if (!sending && !reportDownload)
             {
                 return;
             }
@@ -1056,10 +1165,26 @@ namespace winrt::ReactNativeBlobUtil
         // redirects at all before 1.0. The first URL is listed too, as Android
         // lists every URL it requested.
         redirects->push_back(winrt::to_string(request.RequestUri().AbsoluteUri()));
+        const bool toFile{ config.fileCache || !config.path.empty() };
+        const bool resumed{ toFile && config.rangeFrom >= 0 };
+        if (resumed)
+        {
+            // The bytes on disk are the identity encoding, so the range must be too.
+            request.Headers().TryAppendWithoutValidation(L"Range", winrt::to_hstring("bytes=" + std::to_string(config.rangeFrom) + "-"));
+            request.Headers().TryAppendWithoutValidation(L"Accept-Encoding", L"identity");
+            if (!config.rangeIfRange.empty())
+            {
+                request.Headers().TryAppendWithoutValidation(L"If-Range", winrt::to_hstring(config.rangeIfRange));
+            }
+        }
         for (int hop = 0;; ++hop)
         {
             winrt::Windows::Web::Http::Filters::HttpBaseProtocolFilter filter;
             filter.AllowAutoRedirect(false);
+            if (resumed)
+            {
+                filter.AutomaticDecompression(false);
+            }
             if (config.trusty)
             {
                 filter.IgnorableServerCertificateErrors().Append(
@@ -1076,12 +1201,18 @@ namespace winrt::ReactNativeBlobUtil
             {
                 throw winrt::hresult_canceled();
             }
-            auto operation{ httpClient.SendRequestAsync(request) };
+            // A download to a file returns once the headers are in and writes the
+            // body as it arrives, so what came before a cancel or a lost
+            // connection is on disk to continue from. It was read into memory in
+            // full first, and nothing was written until the end.
+            auto operation{ httpClient.SendRequestAsync(request, toFile
+                ? winrt::Windows::Web::Http::HttpCompletionOption::ResponseHeadersRead
+                : winrt::Windows::Web::Http::HttpCompletionOption::ResponseContentRead) };
             if (!RequestSending(taskId, operation))
             {
                 operation.Cancel();
             }
-            WatchProgress(operation, taskId);
+            WatchProgress(operation, taskId, !toFile);
             // HttpClient has no timeout of its own: the operation is cancelled
             // when config.timeout runs out, and the caller reports ETIMEDOUT.
             auto timer = winrt::Windows::System::Threading::ThreadPoolTimer::CreateTimer(
@@ -1169,7 +1300,35 @@ namespace winrt::ReactNativeBlobUtil
         const bool toFile{ config.fileCache || !config.path.empty() };
         m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilState",
             ResponseInfo(response, taskId, *redirects, toFile));
-        co_await DeliverResponseAsync(response, config, taskId, callback, ResponseInfo(response, taskId, *redirects, toFile));
+        // Download progress of a body written to a file, throttled as WatchProgress throttles.
+        auto throttle{ std::make_shared<ProgressThrottle>() };
+        auto progress = [this, taskId, throttle](uint64_t written, int64_t total)
+        {
+            {
+                std::scoped_lock lock{ m_mutex };
+                const auto entry{ downloadProgressMap.find(taskId) };
+                if (entry == downloadProgressMap.end())
+                {
+                    return;
+                }
+                throttle->config = entry->second;
+            }
+            if (!throttle->ShouldReport(written, total > 0 ? static_cast<uint64_t>(total) : 0))
+            {
+                return;
+            }
+            m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilProgress",
+                winrt::Microsoft::ReactNative::JSValueObject{
+                    {"taskId", taskId},
+                    {"written", static_cast<int64_t>(written)},
+                    {"total", total},
+                    {"chunk", ""},
+                });
+        };
+        // Each read of the body is what cancelRequest cancels while it streams.
+        auto reading = [this, taskId](winrt::Windows::Foundation::IAsyncInfo const& read) { return RequestSending(taskId, read); };
+        auto readDone = [this, taskId]() { RequestSent(taskId); };
+        co_await DeliverResponseAsync(response, config, taskId, callback, ResponseInfo(response, taskId, *redirects, toFile), progress, reading, readDone);
     }
 
     winrt::fire_and_forget ReactNativeBlobUtil::fetchBlobForm(
