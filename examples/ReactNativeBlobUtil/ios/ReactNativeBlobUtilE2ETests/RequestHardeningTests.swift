@@ -237,6 +237,57 @@ final class RequestHardeningTests: XCTestCase {
                        "the rule keys on this value; the native payload fixture records -1 too")
     }
 
+    // MARK: - A16: what a response does to a partly downloaded file
+
+    private func mode(_ from: Int64, _ status: Int, _ contentRange: String?) -> Int64 {
+        ReactNativeBlobUtilRequest.rangeMode(from: from, status: status, contentRange: contentRange)
+    }
+
+    private var replace: Int64 { ReactNativeBlobUtilRequest.replaceFile }
+    private var discard: Int64 { ReactNativeBlobUtilRequest.discardFile }
+
+    func testARequestThatIsNotContinuingReplacesTheFile() {
+        XCTAssertEqual(mode(-1, 200, nil), replace)
+        XCTAssertEqual(mode(-1, 206, "bytes 0-9/10"), replace)
+    }
+
+    /// 200 means the server ignored the range and sent the whole file, so what
+    /// is on disk is worthless.
+    func testAWholeFileReplacesThePartialOne() {
+        XCTAssertEqual(mode(500, 200, nil), replace)
+        XCTAssertEqual(mode(500, 200, "bytes 500-999/1000"), replace)
+    }
+
+    func testA206FromTheRequestedOffsetContinuesTheFile() {
+        XCTAssertEqual(mode(500, 206, "bytes 500-999/1000"), 500)
+        XCTAssertEqual(mode(500, 206, "  bytes   500-999/1000"), 500)
+        XCTAssertEqual(mode(0, 206, "bytes 0-9/10"), 0)
+    }
+
+    /// The dangerous one: appending a body that starts somewhere else would
+    /// corrupt the file rather than continue it.
+    func testA206FromAnotherOffsetIsDiscarded() {
+        XCTAssertEqual(mode(500, 206, "bytes 0-999/1000"), discard)
+        XCTAssertEqual(mode(500, 206, "bytes 400-999/1000"), discard)
+        XCTAssertEqual(mode(500, 206, nil), discard)
+        XCTAssertEqual(mode(500, 206, "not a range"), discard)
+        XCTAssertEqual(mode(500, 206, "items 500-999/1000"), discard)
+    }
+
+    func testAnythingElseIsDiscarded() {
+        XCTAssertEqual(mode(500, 416, "bytes */500"), discard)
+        XCTAssertEqual(mode(500, 404, nil), discard)
+        XCTAssertEqual(mode(500, 500, nil), discard)
+        XCTAssertEqual(mode(500, 304, nil), discard)
+    }
+
+    /// The same rule Android's ReactNativeBlobUtilFileResp.rangeMode follows,
+    /// including the two sentinels.
+    func testTheSentinelsAreTheOnesAndroidUses() {
+        XCTAssertEqual(replace, -1)
+        XCTAssertEqual(discard, -2)
+    }
+
     // MARK: - #491: a cancel that arrives while the request is still being built
 
     func testACancelBeforeTheTaskExistsIsRemembered() {

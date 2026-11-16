@@ -216,6 +216,43 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertNil(uploadFile, "chunked already streams, through httpBodyStream")
     }
 
+    // MARK: - continuing a download
+
+    /// JS works out where to continue from and what identifies the file; the
+    /// builder only sends it.
+    func testARangeRequestAsksForTheRestOfTheFile() throws {
+        let (request, _) = try buildOctet(method: "GET", body: nil,
+                                          options: ["range": ["from": 500]])
+        let headers = try XCTUnwrap(request).allHTTPHeaderFields ?? [:]
+        XCTAssertEqual(headers["Range"], "bytes=500-")
+        // A range of a compressed body is a range of the compressed bytes,
+        // which cannot be appended to the decompressed bytes on disk.
+        XCTAssertEqual(headers["Accept-Encoding"], "identity")
+        XCTAssertNil(headers["If-Range"])
+    }
+
+    func testAValidatorIsSentAsIfRange() throws {
+        let (request, _) = try buildOctet(method: "GET", body: nil,
+                                          options: ["range": ["from": 500, "ifRange": "\"abc\""]])
+        let headers = try XCTUnwrap(request).allHTTPHeaderFields ?? [:]
+        XCTAssertEqual(headers["If-Range"], "\"abc\"")
+        XCTAssertEqual(headers["Range"], "bytes=500-")
+    }
+
+    func testNoRangeHeadersWithoutARange() throws {
+        let (request, _) = try buildOctet(method: "GET", body: nil)
+        let headers = try XCTUnwrap(request).allHTTPHeaderFields ?? [:]
+        XCTAssertNil(headers["Range"])
+        XCTAssertNil(headers["Accept-Encoding"])
+    }
+
+    /// Continuing from byte 0 is just downloading the file.
+    func testARangeFromZeroSendsNoRangeHeader() throws {
+        let (request, _) = try buildOctet(method: "GET", body: nil,
+                                          options: ["range": ["from": 0]])
+        XCTAssertNil(try XCTUnwrap(request).allHTTPHeaderFields?["Range"])
+    }
+
     // MARK: - multipart requests
 
     func testMultipartSetsTheBoundaryContentLengthAndExpectHeaders() throws {

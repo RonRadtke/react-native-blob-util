@@ -267,6 +267,21 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
         var mheaders = ReactNativeBlobUtilNetwork.normalizeHeaders(headers)
 
         DispatchQueue.global(qos: .default).async {
+            // A download being continued asks for the rest of the file. JS works
+            // out where from and what identifies the file; this only sends it.
+            //
+            // Accept-Encoding: identity because a range of a compressed body is
+            // a range of the *compressed* bytes, which cannot be appended to the
+            // decompressed bytes already on disk.
+            if let range = options?["range"] as? [String: Any],
+               let from = (range["from"] as? NSNumber)?.int64Value, from > 0 {
+                mheaders["Range"] = "bytes=\(from)-"
+                mheaders["Accept-Encoding"] = "identity"
+                if let ifRange = range["ifRange"] as? String, !ifRange.isEmpty {
+                    mheaders["If-Range"] = ifRange
+                }
+            }
+
             // -1, not 0, when nothing is sent.
             var size = -1
             var uploadFile: URL?

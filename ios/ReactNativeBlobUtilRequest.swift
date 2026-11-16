@@ -57,6 +57,10 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     private var writeStream: OutputStream?
     private var bodyLength: Int = 0
     private var respStatus: Int = 0
+    /// Where a continued download is writing from, or REPLACE; and whether the
+    /// body is being thrown away because the server answered the wrong range.
+    private var rangeStart: Int64 = ReactNativeBlobUtilRequest.replaceFile
+    private var discardBody = false
     private var redirects: [String] = []
     private var responseFormat: ResponseFormat = .auto
     private var followRedirect = true
@@ -238,7 +242,7 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     // MARK: - writing
 
     private func configureWriteStream() {
-        guard respFile else { return }
+        guard respFile, !discardBody else { return }
         let fm = FileManager.default
         let folder = (destPath as NSString).deletingLastPathComponent
         if !fm.fileExists(atPath: folder) {
@@ -261,12 +265,27 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             fm.createFile(atPath: destPath, contents: Data())
         }
 
+        if rangeStart >= 0 {
+            // Cut the file back to the byte the server is continuing from. It
+            // should already be that long, but a server may answer a range
+            // earlier than the one asked for, and appending then would corrupt
+            // the file rather than continue it.
+            if let handle = FileHandle(forWritingAtPath: destPath) {
+                try? handle.truncate(atOffset: UInt64(rangeStart))
+                try? handle.close()
+            }
+            appendToExistingFile = true
+        }
+
         writeStream = OutputStream(toFileAtPath: destPath, append: appendToExistingFile)
         writeStream?.schedule(in: .current, forMode: .common)
         writeStream?.open()
     }
 
     private func processData(_ data: Data) {
+        // The server answered a range nobody can use. Read the body to the end
+        // so the connection is not left hanging, and write none of it.
+        if discardBody { return }
         if respFile && !shouldTransformFile() {
             _ = data.withUnsafeBytes { raw -> Int in
                 guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { return 0 }
@@ -316,6 +335,21 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         let statusCode = httpResponse?.statusCode ?? 0
         var respType = ""
         respStatus = statusCode
+
+        // What this response does to a file that is already partly there.
+        let requestedFrom = ((options?["range"] as? [String: Any])?["from"] as? NSNumber)?.int64Value ?? -1
+        let contentRange = ReactNativeBlobUtilReqBuilder.getHeaderIgnoreCases(
+            "Content-Range", fromHeaders: httpResponse?.allHeaderFields as? [String: Any])
+        rangeStart = Self.rangeMode(from: requestedFrom, status: statusCode, contentRange: contentRange)
+        discardBody = rangeStart == Self.discardFile
+        if rangeStart >= 0 {
+            // The bytes already on disk count as received, so progress carries
+            // on from where it left off rather than restarting at zero.
+            receivedBytes = rangeStart
+            if expectedBytes != NSURLSessionTransferSizeUnknown {
+                expectedBytes += rangeStart
+            }
+        }
 
         guard let headers = httpResponse?.allHeaderFields else {
             NSLog("oops")
@@ -387,6 +421,36 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
 
         configureWriteStream()
         completionHandler(.allow)
+    }
+
+    /// What a response does to the file of a download that asked to continue
+    /// from `from`, matching Android's ReactNativeBlobUtilFileResp.rangeMode:
+    ///
+    /// - `replaceFile` - not a continued download, or a 200: the server sent the
+    ///   whole file, so the partial one is replaced.
+    /// - an offset - a 206 continuing at exactly that byte: cut the file back to
+    ///   it and append.
+    /// - `discardFile` - anything else, including a 206 from another offset and
+    ///   a 416: none of the body is written and the file is left as it is.
+    ///   fetch.js decides what that means.
+    ///
+    /// Pure, and the whole of the decision.
+    static let replaceFile: Int64 = -1
+    static let discardFile: Int64 = -2
+
+    static func rangeMode(from: Int64, status: Int, contentRange: String?) -> Int64 {
+        if from < 0 || status == 200 { return replaceFile }
+        if status == 206 {
+            guard let contentRange = contentRange,
+                  let match = try? NSRegularExpression(pattern: "^\\s*bytes\\s+(\\d+)-"),
+                  let found = match.firstMatch(in: contentRange, range: NSRange(contentRange.startIndex..., in: contentRange)),
+                  let digits = Range(found.range(at: 1), in: contentRange),
+                  let start = Int64(contentRange[digits]) else {
+                return discardFile
+            }
+            return start == from ? from : discardFile
+        }
+        return discardFile
     }
 
     /// The (written, total) a download progress event carries.
