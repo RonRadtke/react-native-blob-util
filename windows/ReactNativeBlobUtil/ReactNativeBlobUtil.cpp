@@ -23,6 +23,7 @@
 #include <sstream>
 #include <fstream>
 #include <shobjidl_core.h>
+#include <bits.h>
 
 using namespace winrt;
 using namespace winrt::Windows::ApplicationModel;
@@ -154,6 +155,104 @@ namespace
     int64_t MillisOf(winrt::Windows::Foundation::DateTime const& time)
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count() - 11644473600000LL;
+    }
+
+    winrt::Windows::Storage::ApplicationDataContainer BackgroundRecords()
+    {
+        return ApplicationData::Current().LocalSettings().CreateContainer(L"rnbu-background", ApplicationDataCreateDisposition::Always);
+    }
+
+    // One field per line; a line break inside a value becomes a space.
+    std::string EncodeBackgroundRecord(BackgroundRecord const& record)
+    {
+        auto clean = [](std::string value)
+        {
+            std::replace(value.begin(), value.end(), '\n', ' ');
+            std::replace(value.begin(), value.end(), '\r', ' ');
+            return value;
+        };
+        return clean(record.url) + "\n" + clean(record.path) + "\n" + record.guid + "\n" + record.state + "\n"
+            + std::to_string(record.written) + "\n" + std::to_string(record.total) + "\n"
+            + clean(record.errorCode) + "\n" + clean(record.errorMessage);
+    }
+
+    std::optional<BackgroundRecord> DecodeBackgroundRecord(std::string const& id, std::string const& text)
+    {
+        std::vector<std::string> parts;
+        size_t from{ 0 };
+        for (;;)
+        {
+            const auto at{ text.find('\n', from) };
+            parts.push_back(text.substr(from, at == std::string::npos ? std::string::npos : at - from));
+            if (at == std::string::npos) break;
+            from = at + 1;
+        }
+        if (parts.size() < 8)
+        {
+            return std::nullopt;
+        }
+        BackgroundRecord record{ id, parts[0], parts[1], parts[2], parts[3] };
+        try
+        {
+            record.written = std::stoll(parts[4]);
+            record.total = std::stoll(parts[5]);
+        }
+        catch (...)
+        {
+        }
+        record.errorCode = parts[6];
+        record.errorMessage = parts[7];
+        return record;
+    }
+
+    std::optional<BackgroundRecord> ReadBackgroundRecord(std::string const& id)
+    {
+        const auto value{ BackgroundRecords().Values().TryLookup(winrt::to_hstring(id)) };
+        if (!value)
+        {
+            return std::nullopt;
+        }
+        return DecodeBackgroundRecord(id, winrt::to_string(winrt::unbox_value_or<winrt::hstring>(value, L"")));
+    }
+
+    void WriteBackgroundRecord(BackgroundRecord const& record)
+    {
+        BackgroundRecords().Values().Insert(winrt::to_hstring(record.id), winrt::box_value(winrt::to_hstring(EncodeBackgroundRecord(record))));
+    }
+
+    void RemoveBackgroundRecord(std::string const& id)
+    {
+        BackgroundRecords().Values().Remove(winrt::to_hstring(id));
+    }
+
+    std::vector<BackgroundRecord> AllBackgroundRecords()
+    {
+        std::vector<BackgroundRecord> out;
+        for (auto const& entry : BackgroundRecords().Values())
+        {
+            const auto text{ winrt::unbox_value_or<winrt::hstring>(entry.Value(), L"") };
+            if (auto record{ DecodeBackgroundRecord(winrt::to_string(entry.Key()), winrt::to_string(text)) })
+            {
+                out.push_back(*record);
+            }
+        }
+        return out;
+    }
+
+    // The response info a finished background download reports.
+    ::React::JSValueObject BackgroundInfo(BackgroundRecord const& record)
+    {
+        ::React::JSValueObject info;
+        info["taskId"] = record.id;
+        info["state"] = "2";
+        info["status"] = record.state == "completed" ? 200 : 0;
+        info["headers"] = ::React::JSValueObject{};
+        ::React::JSValueArray redirects;
+        redirects.push_back(::React::JSValue{ record.url });
+        info["redirects"] = std::move(redirects);
+        info["respType"] = "blob";
+        info["timeout"] = false;
+        return info;
     }
 
     // The contents of a request body's file. Throws when it cannot be read.
@@ -796,39 +895,6 @@ namespace
     // once at least `interval` milliseconds have passed and, when `count` is
     // set, once the transfer has crossed into a new 1/count slice. Both default
     // to -1, which reports on every callback.
-    struct ProgressThrottle
-    {
-        ReactNativeBlobUtilProgressConfig config;
-        int64_t lastTickMs{ 0 };
-        int64_t tick{ 0 };
-
-        bool ShouldReport(uint64_t written, uint64_t total)
-        {
-            const int64_t nowMs{ winrt::clock::now().time_since_epoch().count() / 10000 };
-            const double progress{ total > 0 ? static_cast<double>(written) / static_cast<double>(total) : 0.0 };
-
-            bool crossedSlice{ true };
-            if (config.count > 0 && progress > 0)
-            {
-                crossedSlice = static_cast<int64_t>(progress * config.count) > tick;
-            }
-
-            // Always report completion. Otherwise the final event is dropped
-            // whenever it lands inside the interval window, which is what
-            // happened to the upload here: the last event (written == total)
-            // was thrown away and the only survivor carried zero bytes.
-            const bool complete{ total > 0 && written >= total };
-
-            if (!complete && (!crossedSlice || nowMs - lastTickMs <= static_cast<int64_t>(config.interval)))
-            {
-                return false;
-            }
-
-            ++tick;
-            lastTickMs = nowMs;
-            return true;
-        }
-    };
 
     // A malformed URL used to take the whole process down - a fast-fail in
     // ucrtbase - rather than reporting an error, so the URL is parsed here,
@@ -1492,6 +1558,13 @@ namespace winrt::ReactNativeBlobUtil
         ::React::JSValue& optionsRef = options;
         ::React::JSValue& headersRef = headers;
 
+        // A background download claims its id here, on the caller's thread and so
+        // in the order JS made its calls: a second start, a forget or a cancel that
+        // follows sees it, although each goes on to a background thread.
+        const bool background{ optionsRef["background"].Type() == ::React::JSValueType::Object };
+        const bool backgroundTaken{ background && !ClaimBackgroundStart(taskId, url,
+            optionsRef["path"].Type() == ::React::JSValueType::String ? optionsRef["path"].AsString() : std::string{}) };
+
         try
         {
             // Off the caller's thread before anything else - see fetchBlobForm.
@@ -1516,6 +1589,17 @@ namespace winrt::ReactNativeBlobUtil
             if (!IsSafeExtension(config.appendExt))
             {
                 callback(fetchError("EINVAL", "appendExt must be a file extension, without path separators"), std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
+            // A download that outlives the app: BITS runs it.
+            if (background)
+            {
+                if (backgroundTaken)
+                {
+                    callback(fetchError("EEXIST", "A background download \"" + taskId + "\" is already running"), std::nullopt, std::nullopt, std::nullopt);
+                    co_return;
+                }
+                StartBackgroundDownload(taskId, url, config.path, headersRef.Copy(), callback);
                 co_return;
             }
 
@@ -2675,6 +2759,17 @@ void ReactNativeBlobUtil::cancelRequest(
             operation.Cancel();
         }
         m_tasks.Cancel(taskId);
+        {
+            std::scoped_lock lock{ m_backgroundMutex };
+            if (m_backgroundStarting.count(taskId) > 0)
+            {
+                m_backgroundForgotten.insert(taskId);
+            }
+        }
+        if (ReadBackgroundRecord(taskId))
+        {
+            ForgetBackground(taskId);
+        }
         promise.Resolve();
     }
     catch (const winrt::hresult_error& ex)
@@ -3379,6 +3474,516 @@ catch (const hresult_error& ex)
 }
 catch (...) {
 	co_return;
+}
+
+
+// ---------------------------------------------------------------------------
+// Downloads that outlive the app (config({path, background: {id}})), run by
+// BITS, the Background Intelligent Transfer Service: a system service that
+// downloads for the user while the app is suspended or closed, across
+// restarts. BackgroundDownloader only works in an app container, which a React
+// Native for Windows app is not. BITS writes the file at its path once the job
+// is completed. A record per id, in LocalSettings, holds the job's GUID; it
+// stays until the outcome has been handed to JS (the fetch that started it, or
+// background.attach) or until background.forget.
+
+namespace
+{
+    winrt::com_ptr<IBackgroundCopyManager> BitsManager()
+    {
+        winrt::com_ptr<IBackgroundCopyManager> manager;
+        winrt::check_hresult(CoCreateInstance(__uuidof(BackgroundCopyManager), nullptr, CLSCTX_LOCAL_SERVER,
+            __uuidof(IBackgroundCopyManager), manager.put_void()));
+        return manager;
+    }
+
+    std::optional<GUID> GuidOf(std::string const& text)
+    {
+        GUID guid{};
+        if (FAILED(CLSIDFromString(winrt::to_hstring(text).c_str(), &guid)))
+        {
+            return std::nullopt;
+        }
+        return guid;
+    }
+
+    std::string TextOfGuid(GUID const& guid)
+    {
+        wchar_t text[64]{};
+        StringFromGUID2(guid, text, 64);
+        return winrt::to_string(text);
+    }
+
+    winrt::com_ptr<IBackgroundCopyJob> BitsJob(std::string const& guidText)
+    {
+        const auto guid{ GuidOf(guidText) };
+        if (!guid)
+        {
+            return nullptr;
+        }
+        winrt::com_ptr<IBackgroundCopyJob> job;
+        if (FAILED(BitsManager()->GetJob(*guid, job.put())))
+        {
+            return nullptr;
+        }
+        return job;
+    }
+
+    // Why a BITS job failed, in its own words.
+    std::string BitsError(winrt::com_ptr<IBackgroundCopyJob> const& job)
+    {
+        winrt::com_ptr<IBackgroundCopyError> error;
+        if (FAILED(job->GetError(error.put())) || !error)
+        {
+            return "The background download failed";
+        }
+        LPWSTR description{ nullptr };
+        std::string text{ "The background download failed" };
+        if (SUCCEEDED(error->GetErrorDescription(GetUserDefaultLangID(), &description)) && description)
+        {
+            text = winrt::to_string(description);
+            CoTaskMemFree(description);
+            while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' '))
+            {
+                text.pop_back();
+            }
+        }
+        return text;
+    }
+}
+
+void ReactNativeBlobUtil::StartBackgroundDownload(std::string id, std::string url, std::string path, ::React::JSValue headers, FetchCallback callback) noexcept
+{
+    [](ReactNativeBlobUtil* self, std::string id, std::string url, std::string path, ::React::JSValue headers, FetchCallback callback) -> winrt::fire_and_forget
+    {
+        co_await winrt::resume_background();
+        try
+        {
+            if (path.empty())
+            {
+                self->BackgroundStartEnded(id, false);
+                callback(fetchError("EINVAL", "A background download needs a path"), std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
+            winrt::Windows::Foundation::Uri uri{ nullptr };
+            if (!TryParseRequestUri(url, uri))
+            {
+                self->BackgroundStartEnded(id, false);
+                callback(fetchError("EINVAL", "Invalid URL: " + url), std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
+            const std::filesystem::path target{ std::filesystem::path{ path }.make_preferred() };
+            std::error_code ec;
+            std::filesystem::create_directories(target.parent_path(), ec);
+
+            GUID guid{};
+            winrt::com_ptr<IBackgroundCopyJob> job;
+            winrt::check_hresult(BitsManager()->CreateJob(winrt::to_hstring("react-native-blob-util " + id).c_str(), BG_JOB_TYPE_DOWNLOAD, &guid, job.put()));
+            std::wstring custom;
+            if (headers.Type() == ::React::JSValueType::Object)
+            {
+                for (auto const& [name, value] : headers.AsObject())
+                {
+                    if (_stricmp(name.c_str(), "RNFB-Response") != 0)
+                    {
+                        custom += winrt::to_hstring(name + ": " + value.AsString()) + L"\r\n";
+                    }
+                }
+            }
+            if (!custom.empty())
+            {
+                if (auto options{ job.try_as<IBackgroundCopyJobHttpOptions>() })
+                {
+                    winrt::check_hresult(options->SetCustomHeaders(custom.c_str()));
+                }
+            }
+            winrt::check_hresult(job->AddFile(winrt::to_hstring(url).c_str(), target.c_str()));
+            winrt::check_hresult(job->Resume());
+
+            WriteBackgroundRecord(BackgroundRecord{ id, url, path, TextOfGuid(guid), "running" });
+            {
+                std::scoped_lock lock{ self->m_backgroundMutex };
+                self->m_backgroundCallbacks.insert_or_assign(id, callback);
+            }
+            self->BackgroundStartEnded(id, true);
+        }
+        catch (const hresult_error& ex)
+        {
+            self->BackgroundStartEnded(id, false);
+            callback(fetchError("EUNSPECIFIED", "Could not start the background download: " + winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
+        }
+    }(this, std::move(id), std::move(url), std::move(path), std::move(headers), std::move(callback));
+}
+
+// Asks BITS about a download that is not finished and acts on the answer: a
+// transferred job is completed (BITS then moves the file to its path), a failed
+// one cancelled. Returns the record as it now is.
+BackgroundRecord ReactNativeBlobUtil::RefreshBackgroundRecord(BackgroundRecord record) noexcept
+{
+    // Finished, or still being started (no job yet).
+    if (record.Finished() || record.guid.empty())
+    {
+        return record;
+    }
+    try
+    {
+        auto job{ BitsJob(record.guid) };
+        if (!job)
+        {
+            record.state = "failed";
+            record.errorCode = "EUNSPECIFIED";
+            record.errorMessage = "The system no longer knows this background download";
+        }
+        else
+        {
+            BG_JOB_STATE state{};
+            winrt::check_hresult(job->GetState(&state));
+            BG_JOB_PROGRESS progress{};
+            if (SUCCEEDED(job->GetProgress(&progress)))
+            {
+                record.written = static_cast<int64_t>(progress.BytesTransferred);
+                record.total = progress.BytesTotal == BG_SIZE_UNKNOWN ? -1 : static_cast<int64_t>(progress.BytesTotal);
+            }
+            switch (state)
+            {
+            case BG_JOB_STATE_TRANSFERRED:
+            {
+                const std::filesystem::path target{ std::filesystem::path{ record.path }.make_preferred() };
+                HRESULT completed{ job->Complete() };
+                if (FAILED(completed))
+                {
+                    // A file already there: replaced, as any download to a path replaces it.
+                    std::error_code ec;
+                    std::filesystem::remove(target, ec);
+                    completed = job->Complete();
+                }
+                if (FAILED(completed))
+                {
+                    record.state = "failed";
+                    record.errorCode = "EUNSPECIFIED";
+                    record.errorMessage = "Could not put the download at '" + record.path + "'";
+                }
+                else
+                {
+                    record.state = "completed";
+                    record.total = record.written;
+                }
+                break;
+            }
+            case BG_JOB_STATE_ACKNOWLEDGED:
+                record.state = "completed";
+                record.total = record.written;
+                break;
+            case BG_JOB_STATE_ERROR:
+                record.state = "failed";
+                record.errorCode = "EUNSPECIFIED";
+                record.errorMessage = BitsError(job);
+                job->Cancel();
+                break;
+            case BG_JOB_STATE_CANCELLED:
+                record.state = "failed";
+                record.errorCode = "ECANCELED";
+                record.errorMessage = "The background download was cancelled";
+                break;
+            case BG_JOB_STATE_SUSPENDED:
+                record.state = "paused";
+                break;
+            default:
+                // Queued, connecting, transferring, or a transient error BITS retries.
+                record.state = "running";
+                break;
+            }
+        }
+    }
+    catch (const hresult_error& ex)
+    {
+        record.state = "failed";
+        record.errorCode = "EUNSPECIFIED";
+        record.errorMessage = winrt::to_string(ex.message());
+    }
+    if (ReadBackgroundRecord(record.id))
+    {
+        WriteBackgroundRecord(record);
+    }
+    return record;
+}
+
+// Follows a background download while the app runs: progress, and its outcome
+// to the task waiting for it.
+void ReactNativeBlobUtil::WatchBackgroundDownload(std::string id) noexcept
+{
+    {
+        std::scoped_lock lock{ m_backgroundMutex };
+        if (!m_watchedBackground.insert(id).second)
+        {
+            return;
+        }
+    }
+    [](ReactNativeBlobUtil* self, std::string id) -> winrt::fire_and_forget
+    {
+        ProgressThrottle throttle;
+        for (;;)
+        {
+            co_await winrt::resume_after(std::chrono::milliseconds{ 400 });
+            auto stored{ ReadBackgroundRecord(id) };
+            if (!stored)
+            {
+                break; // forgotten
+            }
+            const auto record{ self->RefreshBackgroundRecord(*stored) };
+            if (record.state == "running" && record.written > 0)
+            {
+                self->ReportDownloadProgress(id, static_cast<uint64_t>(record.written), record.total, throttle);
+            }
+            if (record.Finished())
+            {
+                if (record.state == "completed")
+                {
+                    self->ReportDownloadProgress(id, static_cast<uint64_t>(record.written), record.written, throttle);
+                }
+                self->DeliverBackground(record);
+                break;
+            }
+        }
+        std::scoped_lock lock{ self->m_backgroundMutex };
+        self->m_watchedBackground.erase(id);
+    }(this, std::move(id));
+}
+
+void ReactNativeBlobUtil::DeliverBackground(BackgroundRecord const& record) noexcept
+{
+    FetchCallback callback;
+    {
+        std::scoped_lock lock{ m_backgroundMutex };
+        const auto found{ m_backgroundCallbacks.find(record.id) };
+        if (found == m_backgroundCallbacks.end())
+        {
+            return;
+        }
+        callback = found->second;
+        m_backgroundCallbacks.erase(found);
+    }
+    // Handed over: the record goes.
+    RemoveBackgroundRecord(record.id);
+    if (record.state == "completed")
+    {
+        callback(std::nullopt, "path", record.path, ::React::JSValue{ BackgroundInfo(record) });
+    }
+    else
+    {
+        callback(fetchError(record.errorCode.empty() ? "EUNSPECIFIED" : record.errorCode, record.errorMessage), std::nullopt, std::nullopt, ::React::JSValue{ BackgroundInfo(record) });
+    }
+}
+
+void ReactNativeBlobUtil::ReportDownloadProgress(std::string const& taskId, uint64_t written, int64_t total, ProgressThrottle& throttle) noexcept
+{
+    {
+        std::scoped_lock lock{ m_mutex };
+        const auto entry{ downloadProgressMap.find(taskId) };
+        if (entry == downloadProgressMap.end())
+        {
+            return;
+        }
+        throttle.config = entry->second;
+    }
+    if (!throttle.ShouldReport(written, total > 0 ? static_cast<uint64_t>(total) : 0))
+    {
+        return;
+    }
+    m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilProgress",
+        winrt::Microsoft::ReactNative::JSValueObject{
+            {"taskId", taskId},
+            {"written", static_cast<int64_t>(written)},
+            {"total", total},
+            {"chunk", ""},
+        });
+}
+
+void ReactNativeBlobUtil::listBackgroundTasks(::React::ReactPromise<::React::JSValueArray>&& promise) noexcept
+{
+    [](ReactNativeBlobUtil* self, ::React::ReactPromise<::React::JSValueArray> promise) -> winrt::fire_and_forget
+    {
+        co_await winrt::resume_background();
+        try
+        {
+            ::React::JSValueArray out;
+            for (auto record : AllBackgroundRecords())
+            {
+                record = self->RefreshBackgroundRecord(record);
+                ::React::JSValueObject entry;
+                entry["id"] = record.id;
+                entry["url"] = record.url;
+                entry["path"] = record.path;
+                entry["state"] = record.state;
+                entry["written"] = record.written;
+                entry["total"] = record.total;
+                if (!record.errorCode.empty())
+                {
+                    entry["errorCode"] = record.errorCode;
+                    entry["errorMessage"] = record.errorMessage;
+                }
+                out.push_back(::React::JSValue{ std::move(entry) });
+            }
+            promise.Resolve(std::move(out));
+        }
+        catch (const hresult_error& ex)
+        {
+            promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
+        }
+    }(this, std::move(promise));
+}
+
+void ReactNativeBlobUtil::attachBackgroundTask(std::string id, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const& callback) noexcept
+{
+    [](ReactNativeBlobUtil* self, std::string id, FetchCallback callback) -> winrt::fire_and_forget
+    {
+        co_await winrt::resume_background();
+        try
+        {
+            auto stored{ ReadBackgroundRecord(id) };
+            if (!stored)
+            {
+                callback(fetchError("ENOENT", "No background download \"" + id + "\""), std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
+            {
+                std::scoped_lock lock{ self->m_backgroundMutex };
+                self->m_backgroundCallbacks.insert_or_assign(id, callback);
+            }
+            const auto record{ self->RefreshBackgroundRecord(*stored) };
+            if (record.Finished())
+            {
+                self->DeliverBackground(record);
+            }
+            else
+            {
+                self->WatchBackgroundDownload(id);
+            }
+        }
+        catch (const hresult_error& ex)
+        {
+            callback(fetchError("EUNSPECIFIED", winrt::to_string(ex.message())), std::nullopt, std::nullopt, std::nullopt);
+        }
+    }(this, std::move(id), callback);
+}
+
+void ReactNativeBlobUtil::forgetBackgroundTask(std::string id, ::React::ReactPromise<void>&& promise) noexcept
+{
+    {
+        std::scoped_lock lock{ m_backgroundMutex };
+        if (m_backgroundStarting.count(id) > 0)
+        {
+            m_backgroundForgotten.insert(id);
+        }
+    }
+    [](ReactNativeBlobUtil* self, std::string id, ::React::ReactPromise<void> promise) -> winrt::fire_and_forget
+    {
+        co_await winrt::resume_background();
+        try
+        {
+            self->ForgetBackground(id);
+            promise.Resolve();
+        }
+        catch (const hresult_error& ex)
+        {
+            promise.Reject(rejection("EUNSPECIFIED", winrt::to_string(ex.message())));
+        }
+    }(this, std::move(id), std::move(promise));
+}
+
+// Claims an id for a start; false when it is taken (a start in flight, or a
+// download that runs).
+bool ReactNativeBlobUtil::ClaimBackgroundStart(std::string const& id, std::string const& url, std::string const& path) noexcept
+{
+    std::scoped_lock lock{ m_backgroundMutex };
+    if (m_backgroundStarting.count(id) > 0)
+    {
+        return false;
+    }
+    try
+    {
+        if (auto existing{ ReadBackgroundRecord(id) }; existing && !existing->Finished())
+        {
+            return false;
+        }
+        // Listed from now on, without a job yet; the start fills it in.
+        WriteBackgroundRecord(BackgroundRecord{ id, url, std::filesystem::path{ path }.make_preferred().string(), "", "running" });
+    }
+    catch (...)
+    {
+    }
+    m_backgroundStarting.insert(id);
+    m_backgroundForgotten.erase(id);
+    return true;
+}
+
+// A start is done: followed from now on, or forgotten at once when a forget or
+// cancel came while it was in flight.
+void ReactNativeBlobUtil::BackgroundStartEnded(std::string const& id, bool started) noexcept
+{
+    bool forgotten{ false };
+    {
+        std::scoped_lock lock{ m_backgroundMutex };
+        m_backgroundStarting.erase(id);
+        forgotten = m_backgroundForgotten.erase(id) > 0;
+    }
+    if (!started)
+    {
+        try
+        {
+            RemoveBackgroundRecord(id);
+        }
+        catch (...)
+        {
+        }
+        return;
+    }
+    if (forgotten)
+    {
+        ForgetBackground(id);
+    }
+    else
+    {
+        WatchBackgroundDownload(id);
+    }
+}
+
+// Removes a record, cancelling the job when it still runs; a task waiting for
+// it settles with ECANCELED.
+void ReactNativeBlobUtil::ForgetBackground(std::string const& id) noexcept
+{
+    auto record{ ReadBackgroundRecord(id) };
+    if (!record)
+    {
+        return;
+    }
+    RemoveBackgroundRecord(id);
+    if (!record->Finished())
+    {
+        try
+        {
+            if (auto job{ BitsJob(record->guid) })
+            {
+                job->Cancel();
+            }
+        }
+        catch (...)
+        {
+        }
+    }
+    FetchCallback callback;
+    {
+        std::scoped_lock lock{ m_backgroundMutex };
+        if (auto found{ m_backgroundCallbacks.find(id) }; found != m_backgroundCallbacks.end())
+        {
+            callback = found->second;
+            m_backgroundCallbacks.erase(found);
+        }
+    }
+    if (callback)
+    {
+        callback(fetchError("ECANCELED", "The background download was forgotten"), std::nullopt, std::nullopt, ::React::JSValue{ BackgroundInfo(*record) });
+    }
 }
 
 } // namespace winrt::ReactNativeBlobUtil

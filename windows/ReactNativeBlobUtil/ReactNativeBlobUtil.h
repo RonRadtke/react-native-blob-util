@@ -134,6 +134,58 @@ public:
 	double interval{ -1.0 };
 };
 
+// Decides whether a progress event goes out: at most one per interval, at most
+// `count` in all, and always the one that completes a transfer.
+struct ProgressThrottle
+{
+    ReactNativeBlobUtilProgressConfig config;
+    int64_t lastTickMs{ 0 };
+    int64_t tick{ 0 };
+
+    bool ShouldReport(uint64_t written, uint64_t total)
+    {
+        const int64_t nowMs{ winrt::clock::now().time_since_epoch().count() / 10000 };
+        const double progress{ total > 0 ? static_cast<double>(written) / static_cast<double>(total) : 0.0 };
+
+        bool crossedSlice{ true };
+        if (config.count > 0 && progress > 0)
+        {
+            crossedSlice = static_cast<int64_t>(progress * config.count) > tick;
+        }
+
+        // Always report completion. Otherwise the final event is dropped
+        // whenever it lands inside the interval window, which is what
+        // happened to the upload here: the last event (written == total)
+        // was thrown away and the only survivor carried zero bytes.
+        const bool complete{ total > 0 && written >= total };
+
+        if (!complete && (!crossedSlice || nowMs - lastTickMs <= static_cast<int64_t>(config.interval)))
+        {
+            return false;
+        }
+
+        ++tick;
+        lastTickMs = nowMs;
+        return true;
+    }
+};
+
+// What is known about a download that outlives the app (config({background})).
+struct BackgroundRecord
+{
+    std::string id;
+    std::string url;
+    std::string path;
+    std::string guid;
+    std::string state;
+    int64_t written{ 0 };
+    int64_t total{ -1 };
+    std::string errorCode;
+    std::string errorMessage;
+
+    bool Finished() const { return state == "completed" || state == "failed"; }
+};
+
 namespace winrt::ReactNativeBlobUtil
 {
 
@@ -360,6 +412,25 @@ struct ReactNativeBlobUtil
     REACT_METHOD(pickFiles)
     void pickFiles(::React::JSValue&& options, ::React::ReactPromise<::React::JSValueArray>&& promise) noexcept;
 
+    REACT_METHOD(listBackgroundTasks)
+    void listBackgroundTasks(::React::ReactPromise<::React::JSValueArray>&& promise) noexcept;
+
+    REACT_METHOD(attachBackgroundTask)
+    void attachBackgroundTask(std::string id, std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)> const& callback) noexcept;
+
+    REACT_METHOD(forgetBackgroundTask)
+    void forgetBackgroundTask(std::string id, ::React::ReactPromise<void>&& promise) noexcept;
+
+    using FetchCallback = std::function<void(std::optional<::React::JSValue>, std::optional<std::string>, std::optional<std::string>, std::optional<::React::JSValue>)>;
+    void StartBackgroundDownload(std::string id, std::string url, std::string path, ::React::JSValue headers, FetchCallback callback) noexcept;
+    BackgroundRecord RefreshBackgroundRecord(BackgroundRecord record) noexcept;
+    void WatchBackgroundDownload(std::string id) noexcept;
+    void DeliverBackground(BackgroundRecord const& record) noexcept;
+    void ReportDownloadProgress(std::string const& taskId, uint64_t written, int64_t total, ProgressThrottle& throttle) noexcept;
+    void ForgetBackground(std::string const& id) noexcept;
+    bool ClaimBackgroundStart(std::string const& id, std::string const& url, std::string const& path) noexcept;
+    void BackgroundStartEnded(std::string const& id, bool started) noexcept;
+
     REACT_METHOD(getSDCardDir)
     void getSDCardDir(::React::ReactPromise<std::string>&& result) noexcept;
 
@@ -421,6 +492,17 @@ private:
     // once there is one, and the ones cancelled before it existed. cancelRequest
     // cancels the operation; a cancel that comes while the request is still being
     // built is remembered and stops it before it is sent.
+    // Background downloads: the fetch or attach callback of each, and the ones
+    // this process follows while it runs.
+    std::mutex m_backgroundMutex;
+    std::map<std::string, FetchCallback> m_backgroundCallbacks;
+    std::set<std::string> m_watchedBackground;
+    // Starts claimed on the caller's thread and not done yet, and the ones a
+    // forget or cancel reached first: every native call here goes on to a
+    // background thread, so a forget that follows a start can run before it.
+    std::set<std::string> m_backgroundStarting;
+    std::set<std::string> m_backgroundForgotten;
+
     std::mutex m_requestsMutex;
     std::set<std::string> m_startedRequests;
     std::set<std::string> m_cancelledRequests;
