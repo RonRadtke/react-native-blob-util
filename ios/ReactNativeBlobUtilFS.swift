@@ -137,6 +137,12 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         // Returning nil here would be a behaviour change: the Objective-C
         // assigned the lookup result straight back, so a missing resource
         // produced nil and the caller dealt with it.
+        //
+        // No bundle-path fallback, and that was measured rather than assumed:
+        // path(forResource:ofType:) does resolve a directory inside the bundle
+        // and a nested "dir/name" subpath, for every non-empty directory the
+        // test host's bundle holds. ls(fs.asset('dir')) failed because ls never
+        // called this at all, not because this could not answer.
         return Bundle.main.path(forResource: name, ofType: ext) ?? ""
     }
 
@@ -397,6 +403,22 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             return reject("EISDIR", "Expecting a file but '\(path)' is a directory", nil)
         }
 
+        // Decoded before anything is created, and deliberately so (#267). The
+        // payload used to be decoded *after* the file had been created - and,
+        // for an existing file, after the write below truncated it - so a
+        // base64 string that did not decode left an empty file behind and
+        // rejected EINVAL about a file the call had just emptied. Nothing
+        // touches the disk until the bytes are in hand.
+        var content: Data?
+        if lowered.contains("base64") {
+            content = ReactNativeBlobUtilBase64.decode(data)
+            if content == nil {
+                // Writing nil silently produced NO with no NSError, so an
+                // unparseable payload read as a filesystem fault.
+                return reject("EINVAL", "Data for '\(path)' is not valid base64", nil)
+            }
+        }
+
         if !exists {
             do {
                 try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
@@ -410,15 +432,7 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
             }
         }
 
-        var content: Data?
-        if lowered.contains("base64") {
-            content = Data(base64Encoded: data)
-            if content == nil {
-                // Writing nil silently produced NO with no NSError, so an
-                // unparseable payload read as a filesystem fault.
-                return reject("EINVAL", "Data for '\(path)' is not valid base64", nil)
-            }
-        } else if lowered == "uri" {
+        if lowered == "uri" {
             writeFileFromFile(data, toFile: path, append: append) { errMsg, size in
                 if let errMsg = errMsg {
                     reject("EUNSPECIFIED", errMsg, nil)
@@ -427,7 +441,8 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
                 }
             }
             return
-        } else {
+        }
+        if !lowered.contains("base64") {
             content = data.data(using: .utf8)
         }
 
@@ -773,9 +788,11 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         }
 
         var fileSize: UInt64 = 0
+        var created: Date?
         do {
             let info = try FileManager.default.attributesOfItem(atPath: path)
             fileSize = (info[.size] as? NSNumber)?.uint64Value ?? 0
+            created = info[.creationDate] as? Date
         } catch let caught as NSError {
             error?.pointee = caught
         }
@@ -795,13 +812,250 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         // `(time_t)[date timeIntervalSince1970]*1000` did, so the value always
         // ends in 000.
         let millis = Int(lastModified?.timeIntervalSince1970 ?? 0) * 1000
+        // `created` is NSNull rather than absent where the file system keeps no
+        // creation time, because the New Architecture declares one shape for
+        // every platform and fs.js turns both null and a missing key into null.
+        // Truncated to whole seconds first, exactly as lastModified is, so the
+        // two never disagree about the same file by a few milliseconds.
+        let createdMillis: Any = created
+            .map { NSNumber(value: Int($0.timeIntervalSince1970) * 1000) } ?? NSNull()
         return [
             "size": String(format: "%llu", fileSize),
             "filename": (path as NSString).lastPathComponent,
             "path": path,
             "lastModified": NSNumber(value: millis),
+            "created": createdMillis,
             "type": isDir.boolValue ? "directory" : "file",
         ]
+    }
+
+    // MARK: - error codes
+
+    /// The error code a Foundation file error becomes. Every file call shares
+    /// this, so a condition reported under two NSError codes - which Foundation
+    /// does - still reaches JS as one code.
+    @objc(errorCode:)
+    public static func errorCode(_ error: NSError) -> String {
+        switch error.code {
+        case NSFileNoSuchFileError, NSFileReadNoSuchFileError: return "ENOENT"
+        // Foundation refuses to write over anything that is already there, and
+        // clearDestination only clears a *file* - so this is what a cp or mv
+        // onto an existing directory reports. Android and Windows call that
+        // EEXIST; it used to arrive here as EUNSPECIFIED.
+        case NSFileWriteFileExistsError: return "EEXIST"
+        default: return "EUNSPECIFIED"
+        }
+    }
+
+    // MARK: - ranges
+
+    /// A byte offset a Double from JS can be used as. JS has already checked
+    /// that it is a whole number, 0 or more; this keeps a caller reaching
+    /// native directly from trapping the conversion.
+    private static func offset(_ value: Double) -> UInt64 {
+        guard value.isFinite, value > 0 else { return 0 }
+        return UInt64(min(value, Double(Int64.max)))
+    }
+
+    /// The bytes [position, position + length) as base64; length -1 reads to
+    /// the end of the file. A position past the end is not an error - there are
+    /// simply no bytes there, which is "".
+    @objc(readRange:position:length:resolver:rejecter:)
+    public static func readRange(_ path: String,
+                                 position: Double,
+                                 length: Double,
+                                 resolver resolve: @escaping RNBUResolve,
+                                 rejecter reject: @escaping RNBUReject) {
+        let resolved = getPathOfAsset(path)
+        // A bundle asset that is not there resolves to "", and naming "" in the
+        // rejection tells the caller nothing. Keep the URI they passed.
+        let target = resolved.isEmpty ? path : resolved
+
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: target, isDirectory: &isDir) else {
+            return reject("ENOENT", "No such file '\(target)'", nil)
+        }
+        if isDir.boolValue {
+            return reject("EISDIR", "Expecting a file but '\(target)' is a directory", nil)
+        }
+        guard let handle = FileHandle(forReadingAtPath: target) else {
+            return reject("EUNSPECIFIED", "Could not open '\(target)' for reading", nil)
+        }
+        do {
+            try handle.seek(toOffset: offset(position))
+            let data: Data
+            if length < 0 {
+                data = try handle.readToEnd() ?? Data()
+            } else {
+                let count = length.isFinite ? Int(min(length, Double(Int.max))) : 0
+                data = try handle.read(upToCount: count) ?? Data()
+            }
+            try handle.close()
+            resolve(data.base64EncodedString())
+        } catch let error as NSError {
+            try? handle.close()
+            reject(errorCode(error), error.localizedDescription, nil)
+        }
+    }
+
+    /// Writes base64 `data` at `position`, -1 meaning the end of the file, and
+    /// resolves the number of bytes written. What follows the written range is
+    /// kept; a position past the end leaves zero bytes in between, which is
+    /// what seeking past the end and writing does on every file system here.
+    @objc(writeRange:data:position:resolver:rejecter:)
+    public static func writeRange(_ path: String,
+                                  data: String,
+                                  position: Double,
+                                  resolver resolve: @escaping RNBUResolve,
+                                  rejecter reject: @escaping RNBUReject) {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        let exists = fm.fileExists(atPath: path, isDirectory: &isDir)
+        if isDir.boolValue {
+            return reject("EISDIR", "Expecting a file but '\(path)' is a directory", nil)
+        }
+        // Before the file is created, as writeFile does it (#267): a payload
+        // that does not decode must leave the disk exactly as it was.
+        guard let payload = ReactNativeBlobUtilBase64.decode(data) else {
+            return reject("EINVAL", "Data for '\(path)' is not valid base64", nil)
+        }
+
+        if !exists {
+            // The parent is not created here, unlike writeFile. A ranged write
+            // names an offset in a file the caller believes exists, so a
+            // missing directory is far more likely to be a wrong path than an
+            // invitation to build a tree.
+            let parent = (path as NSString).deletingLastPathComponent
+            var parentIsDir: ObjCBool = false
+            guard fm.fileExists(atPath: parent, isDirectory: &parentIsDir), parentIsDir.boolValue else {
+                return reject("ENOENT", "Cannot create the directory of '\(path)'", nil)
+            }
+            guard fm.createFile(atPath: path, contents: nil) else {
+                return reject("EUNSPECIFIED", "File '\(path)' could not be created", nil)
+            }
+        }
+
+        guard let handle = FileHandle(forWritingAtPath: path) else {
+            return reject("EUNSPECIFIED", "Could not open '\(path)' for writing", nil)
+        }
+        do {
+            if position < 0 {
+                try handle.seekToEnd()
+            } else {
+                try handle.seek(toOffset: offset(position))
+            }
+            try handle.write(contentsOf: payload)
+            try handle.close()
+            resolve(NSNumber(value: payload.count))
+        } catch let error as NSError {
+            try? handle.close()
+            reject(errorCode(error), error.localizedDescription, nil)
+        }
+    }
+
+    // MARK: - times
+
+    /// Sets the modification time, and the creation time when ctime is 0 or
+    /// more. Both arrive as milliseconds since the epoch. A missing file is
+    /// created empty, which is what the tool this is named after does.
+    @objc(touch:mtime:ctime:resolver:rejecter:)
+    public static func touch(_ path: String,
+                             mtime: Double,
+                             ctime: Double,
+                             resolver resolve: @escaping RNBUResolve,
+                             rejecter reject: @escaping RNBUReject) {
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: path) {
+            let parent = (path as NSString).deletingLastPathComponent
+            var parentIsDir: ObjCBool = false
+            guard fm.fileExists(atPath: parent, isDirectory: &parentIsDir), parentIsDir.boolValue else {
+                return reject("ENOENT", "Cannot create the directory of '\(path)'", nil)
+            }
+            guard fm.createFile(atPath: path, contents: nil) else {
+                return reject("EUNSPECIFIED", "File '\(path)' could not be created", nil)
+            }
+        }
+        var attributes: [FileAttributeKey: Any] = [
+            .modificationDate: Date(timeIntervalSince1970: mtime / 1000),
+        ]
+        // A negative ctime is "leave it alone", not a time before 1970: fs.js
+        // sends -1 when the caller gave no ctime.
+        if ctime >= 0 {
+            attributes[.creationDate] = Date(timeIntervalSince1970: ctime / 1000)
+        }
+        do {
+            try fm.setAttributes(attributes, ofItemAtPath: path)
+            resolve(nil)
+        } catch let error as NSError {
+            reject(errorCode(error), error.localizedDescription, nil)
+        }
+    }
+
+    // MARK: - attributes
+
+    /// The data protection class a `protection` name asks for, or nil when the
+    /// name is not one of them. Pure, and tested as such: a typo here would
+    /// silently leave a file unprotected.
+    static func protectionType(for name: String) -> FileProtectionType? {
+        switch name {
+        case "complete": return .complete
+        case "completeUnlessOpen": return .completeUnlessOpen
+        case "untilFirstAuth": return .completeUntilFirstUserAuthentication
+        // Spelled out: `.none` in a FileProtectionType? context is
+        // Optional.none, so this case would return nil and read as an unknown
+        // name - the one protection class that silently did nothing.
+        case "none": return FileProtectionType.none
+        default: return nil
+        }
+    }
+
+    /// Sets the iOS-only file attributes: the data protection class, and
+    /// whether the item is left out of iCloud and iTunes backups. Only the keys
+    /// present in `attributes` are changed.
+    @objc(setAttributes:attributes:resolver:rejecter:)
+    public static func setAttributes(_ path: String,
+                                     attributes: [String: Any],
+                                     resolver resolve: @escaping RNBUResolve,
+                                     rejecter reject: @escaping RNBUReject) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: path) else {
+            return reject("ENOENT", "No such file '\(path)'", nil)
+        }
+
+        // Both values are read and checked before either is applied, so a
+        // rejected protection name does not leave the backup flag already
+        // changed - the call either does everything it was asked or nothing.
+        var protection: FileProtectionType?
+        if let name = attributes["protection"] as? String {
+            guard let type = protectionType(for: name) else {
+                return reject("EINVAL", "Unsupported protection '\(name)'", nil)
+            }
+            protection = type
+        }
+        let excludeFromBackup = (attributes["excludeFromBackup"] as? NSNumber)?.boolValue
+
+        do {
+            if let protection = protection {
+                try fm.setAttributes([.protectionKey: protection], ofItemAtPath: path)
+            }
+            if let excludeFromBackup = excludeFromBackup {
+                var url = URL(fileURLWithPath: path)
+                var values = URLResourceValues()
+                values.isExcludedFromBackup = excludeFromBackup
+                try url.setResourceValues(values)
+            }
+            resolve(nil)
+        } catch let error as NSError {
+            reject(errorCode(error), error.localizedDescription, nil)
+        }
+    }
+
+    // MARK: - resource bundles
+
+    /// The path of a `<name>.bundle` inside the app's main bundle, or nil.
+    @objc(bundlePath:)
+    public static func bundlePath(_ name: String) -> String? {
+        Bundle.main.path(forResource: name, ofType: "bundle")
     }
 
     // MARK: - exists
@@ -949,7 +1203,11 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
         var decoded: Data?
         switch encoding?.lowercased() {
         case "base64":
-            decoded = Data(base64Encoded: chunk, options: .ignoreUnknownCharacters)
+            // The same decoder every other write path uses. ignoreUnknownCharacters
+            // took a chunk of pure garbage and decoded it to no bytes at all, so a
+            // corrupt chunk was written as nothing and the stream carried on; it
+            // also rejected a chunk that was merely unpadded.
+            decoded = ReactNativeBlobUtilBase64.decode(chunk)
         case "utf8":
             decoded = chunk.data(using: .utf8)
         case "ascii":

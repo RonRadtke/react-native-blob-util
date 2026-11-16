@@ -32,6 +32,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>The e2e and unit tests read photo library items through media.copyToInternal.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>The unit tests add a throwaway image to the library and delete it again.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>RCTNewArchEnabled</key>

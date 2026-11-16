@@ -193,6 +193,30 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(syncPathAppGroup:(NSString *)groupName) {
     [self.core mkdir:path resolve:resolve reject:reject];
 }
 
+- (void)readRange:(NSString *)path position:(double)position length:(double)length resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core readRange:path position:position length:length resolve:resolve reject:reject];
+}
+
+- (void)writeRange:(NSString *)path data:(NSString *)data position:(double)position resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core writeRange:path data:data position:position resolve:resolve reject:reject];
+}
+
+- (void)touch:(NSString *)path mtime:(double)mtime ctime:(double)ctime resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core touch:path mtime:mtime ctime:ctime resolve:resolve reject:reject];
+}
+
+- (void)setAttributes:(NSString *)path attributes:(NSDictionary *)attributes resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core setAttributes:path attributes:attributes resolve:resolve reject:reject];
+}
+
+- (void)bundlePath:(NSString *)name resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core bundlePath:name resolve:resolve reject:reject];
+}
+
+- (void)getExternalDirs:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core getExternalDirs:resolve reject:reject];
+}
+
 - (void)readFile:(NSString *)path encoding:(NSString *)encoding transformFile:(BOOL)transformFile resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [self.core readFile:path encoding:encoding transformFile:transformFile resolve:resolve reject:reject];
 }
@@ -231,6 +255,12 @@ RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(double
     [self.core enableUploadProgressReport:taskId interval:interval count:count];
 }
 
+#pragma mark - document picker
+
+- (void)pickFiles:(NSDictionary *)options resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core pickFiles:options resolve:resolve reject:reject];
+}
+
 #pragma mark - document menus
 
 - (void)presentOptionsMenu:(NSString *)uri scheme:(NSString *)scheme resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
@@ -245,7 +275,7 @@ RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(double
     [self.core presentPreview:uri scheme:scheme resolve:resolve reject:reject];
 }
 
-#pragma mark - Android only
+#pragma mark - Android only, and copyToInternal
 
 - (void)actionViewIntent:(NSString *)path mime:(NSString *)mime chooserTitle:(NSString *)chooserTitle resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [self.core actionViewIntent:path mime:mime chooserTitle:chooserTitle resolve:resolve reject:reject];
@@ -255,8 +285,8 @@ RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(double
     [self.core addCompleteDownload:config resolve:resolve reject:reject];
 }
 
-- (void)copyToInternal:(NSString *)contentUri destpath:(NSString *)destpath resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [self.core copyToInternal:contentUri destpath:destpath resolve:resolve reject:reject];
+- (void)copyToInternal:(NSString *)contentUri destpath:(NSString *)destpath options:(NSDictionary *)options resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [self.core copyToInternal:contentUri destpath:destpath options:options resolve:resolve reject:reject];
 }
 
 - (void)copyToMediaStore:(NSDictionary *)filedata mt:(NSString *)mt path:(NSString *)path resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
@@ -269,10 +299,6 @@ RCT_EXPORT_METHOD(enableUploadProgressReport:(NSString *)taskId interval:(double
 
 - (void)getBlob:(NSString *)contentUri encoding:(NSString *)encoding resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [self.core getBlob:contentUri encoding:encoding resolve:resolve reject:reject];
-}
-
-- (void)getContentIntent:(NSString *)mime resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [self.core getContentIntent:mime resolve:resolve reject:reject];
 }
 
 - (void)getSDCardDir:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

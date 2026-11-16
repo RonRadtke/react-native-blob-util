@@ -39,6 +39,11 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     /// `documentController` property.
     private var documentController: UIDocumentInteractionController?
 
+    /// Owns the pending file-picker promise, and so the "already picking"
+    /// state. One instance for the module's lifetime, because a picker opened
+    /// by one call must be the one the next call sees.
+    let picker = ReactNativeBlobUtilPicker()
+
     @objc public var filePathPrefix: String = ReactNativeBlobUtilConst.filePrefix
 
     /// readStream is dispatched here, as before.
@@ -71,6 +76,15 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         ReactNativeBlobUtilLog.warningHandler = handler
     }
 
+    /// NSTemporaryDirectory() is the one system path that comes back with a
+    /// trailing slash, and every other directory constant has none. A caller
+    /// joining a name onto it would otherwise get "//" - harmless to open, but
+    /// it shows up in anything that compares or records a path, the parity
+    /// goldens included.
+    private static func withoutTrailingSlash(_ path: String) -> String {
+        path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+    }
+
     @objc public static func constantsToExport() -> [String: Any] {
         return [
             "CacheDir": ReactNativeBlobUtilFS.getCacheDir(),
@@ -82,6 +96,9 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
             "MusicDir": ReactNativeBlobUtilFS.getMusicDir(),
             "PictureDir": ReactNativeBlobUtilFS.getPictureDir(),
             "ApplicationSupportDir": ReactNativeBlobUtilFS.getApplicationSupportDir(),
+            "TemporaryDir": withoutTrailingSlash(ReactNativeBlobUtilFS.getTempPath()),
+            "ExternalCacheDir": "",
+            "RoamingDir": "",
             "RingtoneDir": "",
             "SDCardDir": "",
             "SDCardApplicationDir": "",
@@ -156,7 +173,10 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         case "utf8":
             content = data.data(using: .utf8, allowLossyConversion: true)
         case "base64":
-            content = Data(base64Encoded: data)
+            // The lenient decoder, as writeFile uses: a line-wrapped or
+            // unpadded payload is what servers and command-line tools produce,
+            // and Foundation's default rejects both.
+            content = ReactNativeBlobUtilBase64.decode(data)
         case "uri":
             let orgPath = data.replacingOccurrences(of: ReactNativeBlobUtilConst.filePrefix, with: "")
             // A source that is not there used to read as nil, and a nil body
@@ -256,6 +276,52 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     @objc(mkdir:resolve:reject:)
     public func mkdir(_ path: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         ReactNativeBlobUtilFS.mkdir(path, resolver: resolve, rejecter: reject)
+    }
+
+    @objc(readRange:position:length:resolve:reject:)
+    public func readRange(_ path: String, position: Double, length: Double,
+                          resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilFS.readRange(path, position: position, length: length,
+                                        resolver: resolve, rejecter: reject)
+    }
+
+    @objc(writeRange:data:position:resolve:reject:)
+    public func writeRange(_ path: String, data: String, position: Double,
+                           resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilFS.writeRange(path, data: data, position: position,
+                                         resolver: resolve, rejecter: reject)
+    }
+
+    @objc(touch:mtime:ctime:resolve:reject:)
+    public func touch(_ path: String, mtime: Double, ctime: Double,
+                      resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilFS.touch(path, mtime: mtime, ctime: ctime,
+                                    resolver: resolve, rejecter: reject)
+    }
+
+    @objc(setAttributes:attributes:resolve:reject:)
+    public func setAttributes(_ path: String, attributes: [String: Any],
+                              resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilFS.setAttributes(path, attributes: attributes,
+                                            resolver: resolve, rejecter: reject)
+    }
+
+    @objc(bundlePath:resolve:reject:)
+    public func bundlePath(_ name: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        if let path = ReactNativeBlobUtilFS.bundlePath(name) {
+            resolve(path)
+        } else {
+            reject("ENOENT", "No bundle named '\(name).bundle' in the main bundle", nil)
+        }
+    }
+
+    /// Android's app-specific directories on external storage. iOS has no
+    /// external storage, so the list is empty rather than an error: fs.js calls
+    /// this on every platform and an app walking the result finds nothing to
+    /// walk, which is the truth.
+    @objc(getExternalDirs:reject:)
+    public func getExternalDirs(_ resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        resolve([])
     }
 
     @objc(hash:algorithm:resolve:reject:)
@@ -433,6 +499,11 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     @objc(ls:resolve:reject:)
     public func ls(_ path: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         let fm = FileManager.default
+        // stat, lstat and exists already resolved bundle-assets://; ls did not,
+        // so ls(fs.asset('dir')) looked for a directory literally named by the
+        // URI and reported ENOENT for a directory that is in the bundle.
+        let resolved = ReactNativeBlobUtilFS.getPathOfAsset(path)
+        let path = resolved.isEmpty ? path : resolved
         var isDir: ObjCBool = false
         if !fm.fileExists(atPath: path, isDirectory: &isDir) {
             return reject("ENOENT", "No such file '\(path)'", nil)
@@ -530,13 +601,10 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         }
     }
 
-    /// A missing source is ENOENT; anything else keeps EUNSPECIFIED. Foundation
-    /// reports the same condition under two codes depending on the call.
+    /// One map for every file call, shared with the FS layer's own rejections
+    /// so cp and writeRange cannot disagree about the same NSError.
     private func fileErrorCode(_ error: NSError) -> String {
-        switch error.code {
-        case NSFileNoSuchFileError, NSFileReadNoSuchFileError: return "ENOENT"
-        default: return "EUNSPECIFIED"
-        }
+        ReactNativeBlobUtilFS.errorCode(error)
     }
 
     /// Makes room for a copy or a move. NSFileManager refuses to write over an
@@ -685,6 +753,19 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
     // These need a view controller to present from, which only the adapter can
     // supply. The controller is held for as long as the menu is on screen.
 
+    /// The system file picker. The copies it makes are the answer, because iOS
+    /// gives an app no readable handle on a file outside its own storage - so
+    /// unlike Android, where the content:// URI is the answer, there is nothing
+    /// to hand back until the file has been copied in.
+    @objc(pickFiles:resolve:reject:)
+    public func pickFiles(_ options: [String: Any],
+                          resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        let mime = (options["mime"] as? [String]) ?? []
+        let multiple = (options["multiple"] as? NSNumber)?.boolValue ?? false
+        picker.pick(mimeTypes: mime, multiple: multiple, from: presentingViewController,
+                    resolve: resolve, reject: reject)
+    }
+
     @objc(presentOptionsMenu:scheme:resolve:reject:)
     public func presentOptionsMenu(_ uri: String, scheme: String?,
                                    resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
@@ -779,9 +860,14 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
         reject("ENOT_SUPPORTED", "This method is not supported on iOS", nil)
     }
 
-    @objc(copyToInternal:destpath:resolve:reject:)
-    public func copyToInternal(_ contentUri: String, destpath: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
-        reject("ENOT_SUPPORTED", "This method is not supported on iOS", nil)
+    /// Not Android-only any more: a photo library item copied into the app's
+    /// own storage is the same operation PHAsset terms, so iOS answers it too.
+    @objc(copyToInternal:destpath:options:resolve:reject:)
+    public func copyToInternal(_ contentUri: String, destpath: String, options: [String: Any],
+                               resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
+        ReactNativeBlobUtilMediaLibrary.copyToInternal(contentUri, destpath: destpath,
+                                                       options: options,
+                                                       resolve: resolve, reject: reject)
     }
 
     @objc(copyToMediaStore:mt:path:resolve:reject:)
@@ -796,11 +882,6 @@ public class ReactNativeBlobUtilModuleCore: NSObject, UIDocumentInteractionContr
 
     @objc(getBlob:encoding:resolve:reject:)
     public func getBlob(_ contentUri: String, encoding: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
-        reject("ENOT_SUPPORTED", "This method is not supported on iOS", nil)
-    }
-
-    @objc(getContentIntent:resolve:reject:)
-    public func getContentIntent(_ mime: String, resolve: @escaping RNBUResolve, reject: @escaping RNBUReject) {
         reject("ENOT_SUPPORTED", "This method is not supported on iOS", nil)
     }
 

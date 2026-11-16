@@ -138,13 +138,17 @@ final class FileSystemPinTests: XCTestCase {
         // rather than the result, so that distinction has to survive.
         let stat = try XCTUnwrap(ReactNativeBlobUtilFS.stat(path, error: nil))
         XCTAssertEqual(Set(stat.keys.compactMap { $0 as? String }),
-                       ["size", "filename", "path", "lastModified", "type"])
+                       ["size", "filename", "path", "lastModified", "created", "type"])
         // size is a string here. fs.js parseInts it before resolving, so callers
         // see a number - but the native layer really does hand back "%llu".
         XCTAssertTrue(stat["size"] is String, "size is a string at the native boundary")
         XCTAssertEqual(stat["size"] as? String, "4")
         // lastModified, unlike size, is already a number.
         XCTAssertTrue(stat["lastModified"] is NSNumber, "lastModified is a number, not a string")
+        // `created` is NSNull where the file system keeps no creation time, so
+        // the key is always there - fs.js turns both null and a missing key
+        // into null, and ios.json records which one iOS sends.
+        XCTAssertTrue(stat["created"] is NSNumber || stat["created"] is NSNull)
         XCTAssertEqual(stat["filename"] as? String, "s.txt")
         XCTAssertEqual(stat["path"] as? String, path)
         XCTAssertEqual(stat["type"] as? String, "file")

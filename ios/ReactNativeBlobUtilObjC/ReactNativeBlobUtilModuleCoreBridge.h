@@ -60,6 +60,13 @@
 - (void)writeFile:(NSString * _Nonnull)path encoding:(NSString * _Nonnull)encoding data:(NSString * _Nonnull)data transformFile:(BOOL)transformFile append:(BOOL)append resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)writeFileArray:(NSString * _Nonnull)path data:(NSArray<NSNumber *> * _Nonnull)data append:(BOOL)append resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)mkdir:(NSString * _Nonnull)path resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)readRange:(NSString * _Nonnull)path position:(double)position length:(double)length resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)writeRange:(NSString * _Nonnull)path data:(NSString * _Nonnull)data position:(double)position resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)touch:(NSString * _Nonnull)path mtime:(double)mtime ctime:(double)ctime resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)setAttributes:(NSString * _Nonnull)path attributes:(NSDictionary<NSString *, id> * _Nonnull)attributes resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)bundlePath:(NSString * _Nonnull)name resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)getExternalDirs:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
+- (void)pickFiles:(NSDictionary<NSString *, id> * _Nonnull)options resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)hash:(NSString * _Nonnull)path algorithm:(NSString * _Nonnull)algorithm resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)slice:(NSString * _Nonnull)src dest:(NSString * _Nonnull)dest start:(double)start end:(double)end resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)df:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
@@ -91,13 +98,12 @@
 - (void)presentPreview:(NSString * _Nonnull)uri scheme:(NSString * _Nullable)scheme resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)actionViewIntent:(NSString * _Nonnull)path mime:(NSString * _Nonnull)mime chooserTitle:(NSString * _Nonnull)chooserTitle resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)addCompleteDownload:(NSDictionary<NSString *, id> * _Nonnull)config resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
-- (void)copyToInternal:(NSString * _Nonnull)contentUri destpath:(NSString * _Nonnull)destpath resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject
-    NS_SWIFT_NAME(copyToInternal(_:destpath:resolve:reject:));
+- (void)copyToInternal:(NSString * _Nonnull)contentUri destpath:(NSString * _Nonnull)destpath options:(NSDictionary<NSString *, id> * _Nonnull)options resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject
+    NS_SWIFT_NAME(copyToInternal(_:destpath:options:resolve:reject:));
 - (void)copyToMediaStore:(NSDictionary<NSString *, id> * _Nonnull)filedata mt:(NSString * _Nonnull)mt path:(NSString * _Nonnull)path resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject
     NS_SWIFT_NAME(copyToMediaStore(_:mt:path:resolve:reject:));
 - (void)createMediaFile:(NSDictionary<NSString *, id> * _Nonnull)filedata mt:(NSString * _Nonnull)mt resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)getBlob:(NSString * _Nonnull)contentUri encoding:(NSString * _Nonnull)encoding resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
-- (void)getContentIntent:(NSString * _Nonnull)mime resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)getSDCardDir:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)getSDCardApplicationDir:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
 - (void)scanFile:(NSArray * _Nonnull)pairs resolve:(void (^ _Nonnull)(id _Nullable))resolve reject:(void (^ _Nonnull)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))reject;
