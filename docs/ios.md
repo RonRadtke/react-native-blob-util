@@ -63,7 +63,8 @@ Copies a photo library item into the app's storage: `ph://<local identifier>` or
 `assets-library://` URL, also when it is stored in iCloud. Without options an image is copied as it
 is. With `width`, `height` or `compression` it is written as JPEG at `compression` (0..1, default
 0.9), scaled down to fit `width` x `height` when they are given (never up, keeping its aspect
-ratio). A video is copied as it is. The destination is overwritten. The app needs Photos access;
+ratio). A video is copied as it is. The destination is overwritten, and its missing directories are
+created. The app needs Photos access;
 without it the call rejects `EACCES`, and an unknown item rejects `ENOENT`.
 
 ## Document menus

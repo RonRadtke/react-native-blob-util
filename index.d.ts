@@ -976,8 +976,9 @@ export interface MediaApi {
     /** Create an entry and copy a file into it; resolves its content URI. */
     copyToMediaStore(fd: filedescriptor, collection: Mediatype, path: string): Promise<string>;
     /**
-     * Copy an entry into the app's own storage, overwriting the destination:
-     * a `content://` URI on Android, a photo library item on iOS (`ph://<local
+     * Copy an entry into the app's own storage, overwriting the destination
+     * and creating its missing directories: a `content://` URI on Android, a
+     * photo library item on iOS (`ph://<local
      * identifier>` or `assets-library://`). Without options the entry is
      * copied as it is; with `width`, `height` or `compression` an image is
      * written as JPEG at `compression` (0..1, default 0.9), scaled down to fit

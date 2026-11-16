@@ -130,7 +130,8 @@ await media.addDownload({title: 'report.pdf', description: 'The monthly report',
 await media.scan([{path: pathToSong, mime: 'audio/mpeg'}, {path: pathToPhoto}]);
 ```
 
-`media.copyToInternal` overwrites the destination. Without options it copies the entry as it is.
+`media.copyToInternal` overwrites the destination and creates its missing directories. Without
+options it copies the entry as it is.
 With `width`, `height` or `compression` an image is written as JPEG at `compression` (0..1,
 default 0.9), scaled down to fit `width` x `height` when they are given (never up, keeping its
 aspect ratio and its EXIF rotation); anything that does not decode as an image is copied as it is.
