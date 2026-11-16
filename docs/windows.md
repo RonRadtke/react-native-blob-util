@@ -28,10 +28,10 @@ arrived and can [continue](downloads.md).
 
 | | Windows |
 |---|---|
-| A body held in memory | always kept as text; download binary data to a file |
 | `auto`, `binaryContentTypes` | ignored |
 | `fs.hash` | no `sha224` (`ENOTSUP`) |
-| Paths in results | Windows paths, with backslashes |
+| Paths the library makes (`fs.dirs`, `fileCache` files, `stat` and `ls`) | Windows paths, with backslashes; a `path` you pass comes back as you wrote it |
+| A `Transfer-Encoding` request header | not sent; the body goes out with a `Content-Length`, as on iOS (Android sends it chunked) |
 | `open.file`, `open.chooser`, `open.optionsMenu` | `ENOTSUP` |
 | `open.pick` | a copy of the picked file in `TemporaryFolder`; the picker filters by file extension, derived from the MIME types |
 | `media.*` | `ENOTSUP` |

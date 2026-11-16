@@ -122,6 +122,10 @@ public:
 	// for any other request.
 	int64_t rangeFrom{ -1 };
 	std::string rangeIfRange;
+	// The RNFB-Response request header, lower case: "base64" or "utf8" forces
+	// the form of a body held in memory; empty lets its bytes decide. Read from
+	// the headers, and not sent.
+	std::string responseFormat;
 };
 
 

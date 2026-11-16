@@ -55,7 +55,8 @@ fs.createFile(path, data, encoding | {encoding, protection}): Promise<void>
 ```
 
 `writeFile` replaces the file and `appendFile` adds to it; both resolve the number of bytes
-written. Android and iOS create missing parent directories; on Windows the directory must exist. `createFile` rejects `EEXIST` when the file exists.
+written. Missing parent directories are created. `createFile` rejects `EEXIST` when the file
+exists.
 `transform: true` runs the [file transformer](file-transformer.md); it cannot be combined with
 `ascii`. `protection` sets the iOS [data protection class](ios.md#data-protection) and is ignored
 elsewhere (an unknown value rejects `EINVAL` everywhere).

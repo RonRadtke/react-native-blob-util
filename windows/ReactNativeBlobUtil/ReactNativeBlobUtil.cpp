@@ -133,6 +133,126 @@ namespace
         return DecodeBase64Leniently(text);
     }
 
+    // A path from JavaScript as std::filesystem sees it. JS strings arrive as
+    // UTF-8, which a std::filesystem::path built from a narrow string would read
+    // in the ANSI code page.
+    std::filesystem::path FsPath(std::string const& path)
+    {
+        std::filesystem::path p{ std::wstring{ winrt::to_hstring(path) } };
+        p.make_preferred();
+        return p;
+    }
+
+    bool IsDirectory(std::string const& path)
+    {
+        std::error_code ec;
+        return std::filesystem::is_directory(FsPath(path), ec);
+    }
+
+    bool PathExists(std::string const& path)
+    {
+        std::error_code ec;
+        return std::filesystem::exists(FsPath(path), ec);
+    }
+
+    // The bytes a buffer holds; none for a null buffer, which is what an empty
+    // string converts to.
+    std::vector<uint8_t> BytesOf(IBuffer const& buffer)
+    {
+        if (!buffer || buffer.Length() == 0)
+        {
+            return {};
+        }
+        auto reader{ DataReader::FromBuffer(buffer) };
+        std::vector<uint8_t> bytes(reader.UnconsumedBufferLength());
+        reader.ReadBytes(bytes);
+        return bytes;
+    }
+
+    // UTF-8 bytes as text, each invalid sequence read as U+FFFD, as Android and
+    // iOS read it. CryptographicBuffer::ConvertBinaryToString fails on the first
+    // invalid byte instead ("No mapping for the Unicode character exists in the
+    // target multi-byte code page").
+    std::string DecodeUtf8(uint8_t const* data, size_t size)
+    {
+        if (size == 0)
+        {
+            return {};
+        }
+        auto source{ reinterpret_cast<char const*>(data) };
+        const int length{ MultiByteToWideChar(CP_UTF8, 0, source, static_cast<int>(size), nullptr, 0) };
+        std::wstring wide(static_cast<size_t>(length), L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, source, static_cast<int>(size), wide.data(), length);
+        return winrt::to_string(wide);
+    }
+
+    // Where a chunk of UTF-8 can be cut without splitting a character: the
+    // length of its complete characters. The bytes after it are the start of a
+    // character the next chunk finishes.
+    size_t CompleteUtf8Length(std::vector<uint8_t> const& bytes)
+    {
+        const size_t size{ bytes.size() };
+        for (size_t back = 1; back <= 3 && back <= size; ++back)
+        {
+            const uint8_t byte{ bytes[size - back] };
+            if ((byte & 0xC0) == 0x80)
+            {
+                continue; // a continuation byte; its lead is further back
+            }
+            if (byte < 0xC0)
+            {
+                return size; // ASCII, or a stray byte decoded as U+FFFD
+            }
+            const size_t needed{ byte >= 0xF0 ? 4u : byte >= 0xE0 ? 3u : 2u };
+            return needed > back ? size - back : size;
+        }
+        return size;
+    }
+
+    // Whether bytes are UTF-8 throughout, as Android's strict decoder checks.
+    bool IsValidUtf8(std::vector<uint8_t> const& bytes)
+    {
+        if (bytes.empty())
+        {
+            return true;
+        }
+        return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, reinterpret_cast<char const*>(bytes.data()),
+            static_cast<int>(bytes.size()), nullptr, 0) != 0;
+    }
+
+    // The RNFB-Response request header, which the library reads and does not
+    // send: its lower-case value goes to config.responseFormat.
+    bool TakeResponseFormat(std::string const& name, ::React::JSValue const& value, ReactNativeBlobUtilConfig& config)
+    {
+        if (_stricmp(name.c_str(), "RNFB-Response") != 0)
+        {
+            return false;
+        }
+        std::string format{ value.Type() == ::React::JSValueType::String ? value.AsString() : "" };
+        std::transform(format.begin(), format.end(), format.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        config.responseFormat = format;
+        return true;
+    }
+
+    // A request header the HTTP stack has to own. A caller's Transfer-Encoding
+    // made every request fail ("Both 'Content-Length' and 'Transfer-Encoding:
+    // chunked' headers can not be specified at the same time"); without it the
+    // body goes out with a Content-Length, as iOS sends it.
+    bool IsFramingHeader(std::string const& name)
+    {
+        return _stricmp(name.c_str(), "Transfer-Encoding") == 0;
+    }
+
+    // The lower-case hex MD5 of a string's UTF-8 bytes: the cache file name of
+    // a `key`, as Android and iOS name it.
+    std::string Md5Hex(std::string const& text)
+    {
+        auto provider{ HashAlgorithmProvider::OpenAlgorithm(HashAlgorithmNames::Md5()) };
+        auto hashed{ provider.HashData(CryptographicBuffer::ConvertStringToBinary(winrt::to_hstring(text), BinaryStringEncoding::Utf8)) };
+        return winrt::to_string(CryptographicBuffer::EncodeToHexString(hashed));
+    }
+
     // A buffer's bytes as base64; "" for an empty buffer.
     std::string EncodeBase64(std::vector<uint8_t> const& bytes)
     {
@@ -477,6 +597,9 @@ ReactNativeBlobUtilConfig::ReactNativeBlobUtilConfig(::React::JSValue& options)
     };
 
     appendExt = getStringOrDefault(options["appendExt"]);
+    // Never read before, so a `key` cached nothing: each request downloaded
+    // again, to a new file.
+    key = getStringOrDefault(options["key"]);
     fileCache = getBoolOrDefault(options["fileCache"]);
     // Both default to true, as on Android and iOS; they defaulted to false here.
     followRedirect = getBoolOrDefault(options["followRedirect"], true);
@@ -526,7 +649,9 @@ ReactNativeBlobUtilConfig::ReactNativeBlobUtilConfig(::React::JSValue& options)
             size_t fileLength = filepath.length();
             bool hasTrailingSlash = filepath[fileLength - 1] == '\\' || filepath[fileLength - 1] == '/';
             std::filesystem::path pathToParse = hasTrailingSlash ? filepath.substr(0, fileLength - 1) : filepath;
-            pathToParse.make_preferred();
+            // Kept as the caller wrote it, so res.path() and background.list()
+            // give back the path they were given, as on Android and iOS. The file
+            // calls turn it into a native path where they use it.
             path = pathToParse.string();
         }
         else
@@ -941,15 +1066,37 @@ namespace
             return config.path;
         }
 
+        // A key names the file after its MD5, as on Android and iOS, so a later
+        // request with the same key finds it.
         std::string path = winrt::to_string(
             winrt::Windows::Storage::ApplicationData::Current().LocalCacheFolder().Path())
-            + "\\ReactNativeBlobUtilTmp_" + taskId;
+            + "\\ReactNativeBlobUtilTmp_" + (config.key.empty() ? taskId : Md5Hex(config.key));
         if (!config.appendExt.empty())
         {
             path += "." + config.appendExt;
         }
 
         return path;
+    }
+
+    // A request with a `key` whose file is already there resolves with that
+    // file and sends nothing, as on Android and iOS: the second fetch of a key
+    // used to download it again, to a new file. The response info is only
+    // rnfbEncode then, as Android and iOS report it.
+    template <typename Callback>
+    bool CachedByKey(ReactNativeBlobUtilConfig const& config, std::string const& taskId, Callback const& callback)
+    {
+        if (config.key.empty() || !config.path.empty())
+        {
+            return false;
+        }
+        const std::string cached{ ResponseFilePath(config, taskId) };
+        if (!PathExists(cached) || IsDirectory(cached))
+        {
+            return false;
+        }
+        callback(std::nullopt, "path", cached, std::nullopt);
+        return true;
     }
 
     // Hands the response to fetch.js in the shape it expects: a file reference
@@ -996,16 +1143,38 @@ namespace
     {
         if (!config.fileCache && config.path.empty())
         {
-            std::string responseBody;
+            std::vector<uint8_t> body;
+            bool lengthKnown{ false };
             if (response.Content() != nullptr)
             {
-                responseBody = winrt::to_string(co_await response.Content().ReadAsStringAsync());
+                lengthKnown = response.Content().Headers().ContentLength() != nullptr;
+                body = BytesOf(co_await response.Content().ReadAsBufferAsync());
+            }
+            // Without a Content-Length the stack's progress says (n, -1) to the
+            // end; once the body is in, it is (n, n), as on Android and iOS and as
+            // a download to a file here reports it (#235, #292).
+            if (!lengthKnown && !body.empty())
+            {
+                progress(body.size(), static_cast<int64_t>(body.size()));
             }
 
             // (err, rawType, data, responseInfo) as four arguments - the shape
-            // fetch.js destructures and the one Android already sends. The body is
-            // read as text here, so it is always the utf8 form.
-            callback(std::nullopt, "utf8", responseBody, ::React::JSValue{ std::move(info) });
+            // fetch.js destructures and the one Android already sends. The form
+            // is Android's: the text when the bytes are UTF-8 and base64 when
+            // they are not, unless RNFB-Response asks for one. ReadAsStringAsync
+            // decoded by the response's charset - Latin-1 for text/plain without
+            // one, so "héllo" arrived as "hÃ©llo" - and every body went out as
+            // utf8, so a binary one was corrupted.
+            const bool asBase64{ config.responseFormat == "base64"
+                || (config.responseFormat != "utf8" && !IsValidUtf8(body)) };
+            if (asBase64)
+            {
+                callback(std::nullopt, "base64", EncodeBase64(body), ::React::JSValue{ std::move(info) });
+            }
+            else
+            {
+                callback(std::nullopt, "utf8", DecodeUtf8(body.data(), body.size()), ::React::JSValue{ std::move(info) });
+            }
             co_return;
         }
 
@@ -1438,6 +1607,10 @@ namespace winrt::ReactNativeBlobUtil
                 callback(fetchError("EINVAL", "appendExt must be a file extension, without path separators"), std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
+            if (CachedByKey(config, taskId, callback))
+            {
+                co_return;
+            }
 
             winrt::Windows::Web::Http::HttpRequestMessage requestMessage{ httpMethodFor(method), requestUri };
             winrt::Windows::Web::Http::HttpMultipartFormDataContent requestContent{ boundary };
@@ -1447,6 +1620,10 @@ namespace winrt::ReactNativeBlobUtil
             {
                 for (const auto& entry : headers.AsObject())
                 {
+                    if (TakeResponseFormat(entry.first, entry.second, config) || IsFramingHeader(entry.first))
+                    {
+                        continue;
+                    }
                     if (!requestMessage.Headers().TryAppendWithoutValidation(
                         winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString())))
                     {
@@ -1591,6 +1768,10 @@ namespace winrt::ReactNativeBlobUtil
                 callback(fetchError("EINVAL", "appendExt must be a file extension, without path separators"), std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
+            if (!background && CachedByKey(config, taskId, callback))
+            {
+                co_return;
+            }
             // A download that outlives the app: BITS runs it.
             if (background)
             {
@@ -1656,6 +1837,10 @@ namespace winrt::ReactNativeBlobUtil
             }
             for (const auto& entry : headersRef.AsObject())
             {
+                if (TakeResponseFormat(entry.first, entry.second, config) || IsFramingHeader(entry.first))
+                {
+                    continue;
+                }
                 if (!requestMessage.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString())) && requestContent)
                 {
                     requestContent.Headers().TryAppendWithoutValidation(winrt::to_hstring(entry.first), winrt::to_hstring(entry.second.AsString()));
@@ -1686,22 +1871,22 @@ namespace winrt::ReactNativeBlobUtil
     {
     try
     {
-        bool shouldExit{ false };
         Streams::IBuffer buffer;
         if (encoding.compare("uri") == 0)
         {
-            try
+            // Looked for before anything is created: a missing source rejects
+            // ENOENT, as on Android and iOS. It used to leave the promise unsettled.
+            const std::string source{ winrt::to_string(content) };
+            if (!PathExists(source) || IsDirectory(source))
             {
-                winrt::hstring srcDirectoryPath, srcFileName;
-                splitPath(content, srcDirectoryPath, srcFileName);
-                StorageFolder srcFolder{ co_await StorageFolder::GetFolderFromPathAsync(srcDirectoryPath) };
-                StorageFile srcFile{ co_await srcFolder.GetFileAsync(srcFileName) };
-                buffer = co_await FileIO::ReadBufferAsync(srcFile);
+                promise.Reject(rejection("ENOENT", "Source file : " + source + " does not exist"));
+                co_return;
             }
-            catch (...)
-            {
-                shouldExit = true;
-            }
+            winrt::hstring srcDirectoryPath, srcFileName;
+            splitPath(content, srcDirectoryPath, srcFileName);
+            StorageFolder srcFolder{ co_await StorageFolder::GetFolderFromPathAsync(srcDirectoryPath) };
+            StorageFile srcFile{ co_await srcFolder.GetFileAsync(srcFileName) };
+            buffer = co_await FileIO::ReadBufferAsync(srcFile);
         }
         else if (encoding.compare("utf8") == 0)
         {
@@ -1719,34 +1904,29 @@ namespace winrt::ReactNativeBlobUtil
         }
         else
         {
-            promise.Reject("Invalid encoding");
-            shouldExit = true;
+            promise.Reject(rejection("EINVAL", "Invalid encoding " + encoding));
+            co_return;
         }
 
-        if (!shouldExit)
+        // EEXIST only when the file is there. Every failure from creating to
+        // writing used to be reported as EEXIST, an empty file's included.
+        if (PathExists(path))
         {
-
-            winrt::hstring destDirectoryPath, destFileName;
-            splitPath(path, destDirectoryPath, destFileName);
-
-            auto folder{ co_await StorageFolder::GetFolderFromPathAsync(destDirectoryPath) };
-
-            try
-            {
-                auto file{ co_await folder.CreateFileAsync(destFileName, CreationCollisionOption::FailIfExists) };
-                auto stream{ co_await file.OpenAsync(FileAccessMode::ReadWrite) };
-                co_await stream.WriteAsync(buffer);
-            }
-            catch (...)
-            {
-                promise.Reject(winrt::Microsoft::ReactNative::ReactError{ "EEXIST", "EEXIST: File already exists; " + path });
-                shouldExit = true;
-            }
+            promise.Reject(winrt::Microsoft::ReactNative::ReactError{ "EEXIST", "EEXIST: File already exists; " + path });
+            co_return;
         }
-        if (!shouldExit)
+
+        winrt::hstring destDirectoryPath, destFileName;
+        splitPath(path, destDirectoryPath, destFileName);
+        auto folder{ co_await StorageFolder::GetFolderFromPathAsync(destDirectoryPath) };
+        auto file{ co_await folder.CreateFileAsync(destFileName, CreationCollisionOption::FailIfExists) };
+        // An empty string converts to a null buffer, which WriteAsync refuses.
+        if (buffer && buffer.Length() > 0)
         {
-            promise.Resolve();
+            auto stream{ co_await file.OpenAsync(FileAccessMode::ReadWrite) };
+            co_await stream.WriteAsync(buffer);
         }
+        promise.Resolve();
         co_return;
     }
     catch (const hresult_error& ex)
@@ -1817,6 +1997,11 @@ namespace winrt::ReactNativeBlobUtil
     {
         try
         {
+            if (IsDirectory(path))
+            {
+                promise.Reject(rejection("EISDIR", "Expecting a file but '" + path + "' is a directory"));
+                co_return;
+            }
             Streams::IBuffer buffer;
             if (encoding.compare("utf8") == 0)
             {
@@ -1834,6 +2019,12 @@ namespace winrt::ReactNativeBlobUtil
             }
             else if (encoding.compare("uri") == 0)
             {
+                const std::string source{ winrt::to_string(data) };
+                if (!PathExists(source) || IsDirectory(source))
+                {
+                    promise.Reject(rejection("ENOENT", "No such file '" + path + "' ('" + source + "')"));
+                    co_return;
+                }
                 winrt::hstring srcDirectoryPath, srcFileName;
                 splitPath(data, srcDirectoryPath, srcFileName);
                 StorageFolder srcFolder{ co_await StorageFolder::GetFolderFromPathAsync(srcDirectoryPath) };
@@ -1842,9 +2033,15 @@ namespace winrt::ReactNativeBlobUtil
             }
             else
             {
-                auto errorMessage{ "Invalid encoding: " + encoding };
-                promise.Reject(errorMessage.c_str());
+                promise.Reject(rejection("EINVAL", "Invalid encoding: " + encoding));
+                co_return;
             }
+
+            // Missing parent directories are created, as Android and iOS create
+            // them. GetFolderFromPathAsync only opens a folder, so a write into a
+            // new directory failed with EUNSPECIFIED.
+            std::error_code directoryError;
+            std::filesystem::create_directories(FsPath(path).parent_path(), directoryError);
 
             winrt::hstring destDirectoryPath, destFileName;
             splitPath(path, destDirectoryPath, destFileName);
@@ -1864,8 +2061,13 @@ namespace winrt::ReactNativeBlobUtil
             {
                 stream.Seek(UINT64_MAX);
             }
-            co_await stream.WriteAsync(buffer);
-            promise.Resolve(static_cast<double>(buffer.Length()));
+            // An empty string converts to a null buffer, which WriteAsync refuses.
+            const uint32_t written{ buffer ? buffer.Length() : 0 };
+            if (written > 0)
+            {
+                co_await stream.WriteAsync(buffer);
+            }
+            promise.Resolve(static_cast<double>(written));
         }
         catch (const hresult_error& ex)
         {
@@ -1958,6 +2160,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::writeStream(
 {
     try
     {
+        if (IsDirectory(path))
+        {
+            promise.Reject(rejection("EISDIR", "Expecting a file but '" + path + "' is a directory"));
+            co_return;
+        }
         winrt::hstring directoryPath, fileName;
         splitPath(path, directoryPath, fileName);
 
@@ -2114,13 +2321,20 @@ winrt::fire_and_forget ReactNativeBlobUtil::unlink(
 {
    try
         {
-            if (std::filesystem::is_directory(path))
+            // Nothing there is what unlink asks for: it resolves, as on Android
+            // and iOS. It rejected EUNSPECIFIED ("The system cannot find the file
+            // specified"). The delete is permanent: the default moves the item
+            // to the Recycle Bin when there is one, which is no place for an
+            // app's own files.
+            if (!PathExists(path))
             {
-                std::filesystem::path unlinkPath(path);
-                unlinkPath.make_preferred();
-                auto folderOp = winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(
-                    winrt::to_hstring(unlinkPath.c_str()));
-               co_await folderOp.get().DeleteAsync();
+                promise.Resolve();
+                co_return;
+            }
+            if (IsDirectory(path))
+            {
+                auto folder = co_await StorageFolder::GetFolderFromPathAsync(FsPath(path).c_str());
+                co_await folder.DeleteAsync(StorageDeleteOption::PermanentDelete);
             }
             else
             {
@@ -2128,7 +2342,7 @@ winrt::fire_and_forget ReactNativeBlobUtil::unlink(
                 splitPath(path, directoryPath, fileName);
                 auto folder = co_await winrt::Windows::Storage::StorageFolder::GetFolderFromPathAsync(directoryPath);
                 auto item = co_await folder.GetItemAsync(fileName);
-                co_await item.DeleteAsync();
+                co_await item.DeleteAsync(StorageDeleteOption::PermanentDelete);
             }
 
             promise.Resolve();
@@ -2146,15 +2360,19 @@ winrt::fire_and_forget ReactNativeBlobUtil::removeSession(::React::JSValueArray 
     {
         for (const auto& pathValue : paths)
         {
-            if (pathValue)
+            // A string, not a truthy value: JSValue's bool is AsBoolean(), which
+            // for a string is true only for words such as "true" or "1", so
+            // every path was skipped and dispose() resolved having removed
+            // nothing.
+            if (pathValue.Type() == ::React::JSValueType::String)
             {
                 std::string path = pathValue.AsString();
-                if (!std::filesystem::exists(path))
+                if (!PathExists(path) || IsDirectory(path))
                 {
                     continue;
                 }
-                auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(nativePath(path));
-                co_await file.DeleteAsync();
+                auto file = co_await winrt::Windows::Storage::StorageFile::GetFileFromPathAsync(FsPath(path).c_str());
+                co_await file.DeleteAsync(StorageDeleteOption::PermanentDelete);
             }
         }
 
@@ -2471,6 +2689,11 @@ winrt::fire_and_forget ReactNativeBlobUtil::readFile(
 {
     try
     {
+        if (IsDirectory(path))
+        {
+            promise.Reject(winrt::Microsoft::ReactNative::ReactError{ "EISDIR", "EISDIR: illegal operation on a directory, read" });
+            co_return;
+        }
         winrt::hstring directoryPath, fileName;
         splitPath(path, directoryPath, fileName);
 
@@ -2501,8 +2724,8 @@ winrt::fire_and_forget ReactNativeBlobUtil::readFile(
         }
         else
         {
-            std::string utf8Content = winrt::to_string(Cryptography::CryptographicBuffer::ConvertBinaryToString(BinaryStringEncoding::Utf8, buffer));
-            resultArray.push_back(utf8Content);
+            const auto bytes{ BytesOf(buffer) };
+            resultArray.push_back(DecodeUtf8(bytes.data(), bytes.size()));
         }
         promise.Resolve(resultArray);
     }
@@ -2532,10 +2755,23 @@ winrt::fire_and_forget ReactNativeBlobUtil::hash(
 {
     try
     {
-        // Note: SHA224 is not part of winrt 
+        // Codes from the ErrorCode union: both of these rejected with the code
+        // "Error". WinRT has no SHA-224, so it is a known algorithm this
+        // platform lacks.
         if (algorithm.compare("sha224") == 0)
         {
-            promise.Reject(winrt::Microsoft::ReactNative::ReactError{ "Error", "WinRT does not offer sha224 encryption." });
+            promise.Reject(rejection("ENOTSUP", "sha224 is not available on Windows"));
+            co_return;
+        }
+        auto search{ availableHashes.find(algorithm) };
+        if (search == availableHashes.end())
+        {
+            promise.Reject(rejection("EINVAL", "Invalid algorithm '" + algorithm + "', must be one of md5, sha1, sha224, sha256, sha384, sha512"));
+            co_return;
+        }
+        if (IsDirectory(path))
+        {
+            promise.Reject(winrt::Microsoft::ReactNative::ReactError{ "EISDIR", "EISDIR: illegal operation on a directory, read" });
             co_return;
         }
 
@@ -2544,13 +2780,6 @@ winrt::fire_and_forget ReactNativeBlobUtil::hash(
 
         StorageFolder folder{ co_await StorageFolder::GetFolderFromPathAsync(directoryPath) };
         StorageFile file{ co_await folder.GetFileAsync(fileName) };
-
-        auto search{ availableHashes.find(algorithm) };
-        if (search == availableHashes.end())
-        {
-            promise.Reject(winrt::Microsoft::ReactNative::ReactError{ "Error", "Invalid hash algorithm " + algorithm });
-            co_return;
-        }
 
         CryptographyCore::HashAlgorithmProvider provider{ search->second() };
         Streams::IBuffer buffer{ co_await FileIO::ReadBufferAsync(file) };
@@ -2627,12 +2856,25 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
         Streams::IRandomAccessStream stream = co_await file.OpenAsync(FileAccessMode::Read);
 
         Buffer buffer{ chunkSize };
+        // The start of a UTF-8 character the chunk read so far ends in; the next
+        // chunk finishes it. Each chunk was decoded alone, so a character split
+        // between two failed the stream ("No mapping for the Unicode character").
+        std::vector<uint8_t> pendingUtf8;
 
         for (;;)
         {
             auto readBuffer = co_await stream.ReadAsync(buffer, buffer.Capacity(), InputStreamOptions::None);
             if (readBuffer.Length() == 0)
             {
+                if (!pendingUtf8.empty())
+                {
+                    m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
+                        winrt::Microsoft::ReactNative::JSValueObject{
+                            {"streamId", streamId},
+                            {"event", "data"},
+                            {"detail", DecodeUtf8(pendingUtf8.data(), pendingUtf8.size())}
+                        });
+                }
                 m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
                     winrt::Microsoft::ReactNative::JSValueObject{
                         {"streamId", streamId},
@@ -2676,15 +2918,19 @@ winrt::fire_and_forget ReactNativeBlobUtil::readStream(
             }
             else
             {
-                winrt::hstring stringContent = Cryptography::CryptographicBuffer::ConvertBinaryToString(
-                    BinaryStringEncoding::Utf8, readBuffer);
-
-                m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
-                    winrt::Microsoft::ReactNative::JSValueObject{
-                        {"streamId", streamId},
-                        {"event", "data"},
-                        {"detail", winrt::to_string(stringContent)}
-                    });
+                auto bytes{ BytesOf(readBuffer) };
+                bytes.insert(bytes.begin(), pendingUtf8.begin(), pendingUtf8.end());
+                const size_t complete{ CompleteUtf8Length(bytes) };
+                pendingUtf8.assign(bytes.begin() + complete, bytes.end());
+                if (complete > 0)
+                {
+                    m_context.CallJSFunction(L"RCTDeviceEventEmitter", L"emit", L"ReactNativeBlobUtilFilesystem",
+                        winrt::Microsoft::ReactNative::JSValueObject{
+                            {"streamId", streamId},
+                            {"event", "data"},
+                            {"detail", DecodeUtf8(bytes.data(), complete)}
+                        });
+                }
             }
 
             if (tick > 0)
@@ -3917,7 +4163,9 @@ bool ReactNativeBlobUtil::ClaimBackgroundStart(std::string const& id, std::strin
             return false;
         }
         // Listed from now on, without a job yet; the start fills it in.
-        WriteBackgroundRecord(BackgroundRecord{ id, url, std::filesystem::path{ path }.make_preferred().string(), "", "running" });
+        // The path as the caller wrote it, which background.list() and the
+        // response give back; the file is put there through a native path.
+        WriteBackgroundRecord(BackgroundRecord{ id, url, path, "", "running" });
     }
     catch (...)
     {

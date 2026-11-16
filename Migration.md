@@ -215,6 +215,10 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `progress` of a download without a `Content-Length` (#235, #292) | `(0, -1)` until the end (Android downloads to a file, iOS) | the bytes received so far with `total` `-1`, and `(n, n)` at the end (1.2.0) |
 | `stateChange` on Android | called twice per response | once, as on iOS and Windows (1.2.0) |
 | `fs.readFile` with `utf8` or `base64` on Windows | an array holding the text (`['hello']`) | the text itself, as on Android and iOS (1.2.0) |
+| A response body held in memory on Windows | decoded by the response's charset, so a `text/plain` body without one came out as Latin-1 (`hÃ©llo`), and a binary body as broken text; `RNFB-Response` was sent to the server | the text when the bytes are UTF-8 and base64 otherwise (`res.type` says which), as on Android and iOS; `RNFB-Response` picks the form and is not sent (1.2.0) |
+| `fs` failures on Windows | `EUNSPECIFIED` for a directory where a file belongs (`readFile`, `hash`, `writeFile`, `writeStream`) and for a missing `uri` source; `fs.hash` rejected with the code `Error`; `fs.unlink` of a missing path rejected | `EISDIR`, `ENOENT`, and for `fs.hash` `EINVAL` (unknown algorithm) or `ENOTSUP` (`sha224`), as on Android and iOS; `fs.unlink` of a missing path resolves (1.2.0) |
+| `config({key})` on Windows | ignored: every request downloaded again, to a new file | a request whose `key` was downloaded before resolves with that file and sends nothing, as on Android and iOS (1.2.0) |
+| A `path` given to `config` on Windows | came back from `res.path()` and `background.list()` with its slashes turned into backslashes | comes back as it was given (1.2.0) |
 | A base64 `writeStream` chunk that is not base64 | rejected `EUNSPECIFIED` on Android and Windows; iOS resolved and wrote whatever bytes it could pick out, and dropped an unpadded chunk without a word | rejects `EINVAL` and writes nothing, everywhere; line breaks and missing padding are accepted (1.2.0) |
 
 One difference cannot be aligned from this side. A string a native module

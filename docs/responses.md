@@ -30,9 +30,8 @@ file. And how to manage the files downloads leave behind.
 whether the body is in memory or in a file.
 
 A body held in memory is kept as `utf8` when its bytes decode as UTF-8 and as `base64` otherwise;
-`res.type` says which. The request header `RNFB-Response: 'base64' | 'utf8'` forces one form on
-Android and iOS; the library reads it and does not send it. Windows always keeps an in-memory body
-as text, so download binary data to a file there.
+`res.type` says which. The request header `RNFB-Response: 'base64' | 'utf8'` forces one form; the
+library reads it and does not send it.
 
 ## Downloading to a file
 

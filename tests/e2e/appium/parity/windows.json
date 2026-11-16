@@ -1,0 +1,1915 @@
+{
+  "background-download": {
+    "attachUnknown": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No background download \"no-such-background-download\"",
+        "name": "Error"
+      }
+    },
+    "cancel": {
+      "resolved": "<undefined>"
+    },
+    "cancelledListed": false,
+    "cancelledTask": {
+      "rejected": {
+        "code": "ECANCELED",
+        "message": "canceled",
+        "name": "ReactNativeBlobUtilCanceledFetch"
+      }
+    },
+    "forget": {
+      "resolved": "<undefined>"
+    },
+    "forgottenFile": false,
+    "forgottenListed": false,
+    "forgottenTask": {
+      "rejected": {
+        "code": "ECANCELED",
+        "message": "The background download was forgotten",
+        "name": "Error"
+      }
+    },
+    "goneFromListOnceSettled": true,
+    "hash": {
+      "resolved": "470d1b89fc75293c6793ec18ae42d29a06e47c26fde262729975d35de66bc5b1"
+    },
+    "listed": {
+      "resolved": [
+        {
+          "samePath": true,
+          "state": "string",
+          "url": true
+        }
+      ]
+    },
+    "result": {
+      "resolved": {
+        "samePath": true,
+        "status": 200,
+        "taskId": true
+      }
+    },
+    "startTwice": {
+      "resolved": "EEXIST"
+    }
+  },
+  "constants": {
+    "ApplicationSupportDir": "<ApplicationSupportDir>",
+    "CacheDir": "<CacheDir>",
+    "DCIMDir": "<DCIMDir>",
+    "DocumentDir": "<DocumentDir>",
+    "DownloadDir": "<DownloadDir>",
+    "LegacyDCIMDir": "",
+    "LegacyDownloadDir": "",
+    "LegacyMovieDir": "",
+    "LegacyMusicDir": "",
+    "LegacyPictureDir": "",
+    "LegacySDCardDir": "",
+    "LibraryDir": "<DocumentDir>",
+    "MainBundleDir": "<MainBundleDir>",
+    "MovieDir": "<MovieDir>",
+    "MusicDir": "<MusicDir>",
+    "PictureDir": "<PictureDir>",
+    "SDCardApplicationDir": "",
+    "SDCardDir": "",
+    "TemporaryDir": "<TemporaryDir>"
+  },
+  "cp-mv": {
+    "cp": {
+      "resolved": "<undefined>"
+    },
+    "cpIntoMissingDir": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "The system cannot find the file specified.",
+        "name": "<undefined>"
+      }
+    },
+    "listing": [
+      "file.txt",
+      "moved.txt"
+    ],
+    "mv": {
+      "resolved": "<undefined>"
+    },
+    "mvIntoMissingDir": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "The system cannot find the file specified.",
+        "name": "<undefined>"
+      }
+    },
+    "nested": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/cp-mv/nested'",
+        "name": "<undefined>"
+      }
+    },
+    "nested2": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/cp-mv/nested2'",
+        "name": "<undefined>"
+      }
+    }
+  },
+  "df": {
+    "free": "number",
+    "total": "number"
+  },
+  "errors-read": {
+    "hashDir": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "EISDIR: illegal operation on a directory, read",
+        "name": "<undefined>"
+      }
+    },
+    "hashMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "ENOENT: no such file or directory, open <DocumentDir>/parity/errors-read/missing.txt",
+        "name": "<undefined>"
+      }
+    },
+    "hashUnknownAlgorithm": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Invalid algorithm 'sha999', must be one of md5, sha1, sha224, sha256, sha384, sha512",
+        "name": "<undefined>"
+      }
+    },
+    "lsFile": {
+      "rejected": {
+        "code": "ENOTDIR",
+        "message": "Not a directory '<DocumentDir>/parity/errors-read/file.txt'",
+        "name": "<undefined>"
+      }
+    },
+    "lsMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
+        "name": "<undefined>"
+      }
+    },
+    "lstatMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "failed to lstat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
+        "name": "<undefined>"
+      }
+    },
+    "readFileDir": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "EISDIR: illegal operation on a directory, read",
+        "name": "<undefined>"
+      }
+    },
+    "readFileMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "ENOENT: no such file or directory, open <DocumentDir>/parity/errors-read/missing.txt",
+        "name": "<undefined>"
+      }
+    },
+    "readStreamMissing": {
+      "chunkCount": 0,
+      "chunkKinds": [],
+      "chunkLengths": [],
+      "outcome": {
+        "error": {
+          "code": "ENOENT",
+          "message": "No such file: <DocumentDir>/parity/errors-read/missing.txt",
+          "name": "Error"
+        }
+      }
+    },
+    "sliceMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
+        "name": "<undefined>"
+      }
+    },
+    "statMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "The system cannot find the file specified.",
+        "name": "<undefined>"
+      }
+    }
+  },
+  "errors-write": {
+    "afterwards": {
+      "bad": {
+        "rejected": {
+          "code": "ENOENT",
+          "message": "ENOENT: no such file or directory, open <DocumentDir>/parity/errors-write/bad.bin",
+          "name": "<undefined>"
+        }
+      },
+      "file": {
+        "resolved": "x"
+      },
+      "other": {
+        "resolved": "x"
+      }
+    },
+    "cpMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "The system cannot find the file specified.",
+        "name": "<undefined>"
+      }
+    },
+    "cpOntoExisting": {
+      "resolved": "<undefined>"
+    },
+    "createFileExisting": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "EEXIST: File already exists; <DocumentDir>/parity/errors-write/file.txt",
+        "name": "<undefined>"
+      }
+    },
+    "createFileUriMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Source file : <DocumentDir>/parity/errors-write/missing.txt does not exist",
+        "name": "<undefined>"
+      }
+    },
+    "mkdirExistingDir": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "Folder '<DocumentDir>/parity/errors-write' already exists",
+        "name": "<undefined>"
+      }
+    },
+    "mkdirExistingFile": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "File '<DocumentDir>/parity/errors-write/file.txt' already exists",
+        "name": "<undefined>"
+      }
+    },
+    "mvMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "The system cannot find the file specified.",
+        "name": "<undefined>"
+      }
+    },
+    "unlinkMissing": {
+      "resolved": "<undefined>"
+    },
+    "writeFileOntoDir": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
+        "name": "<undefined>"
+      }
+    },
+    "writeInvalidBase64": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Invalid base64 data",
+        "name": "<undefined>"
+      }
+    },
+    "writeStreamOntoDir": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
+        "name": "<undefined>"
+      }
+    }
+  },
+  "exists-isdir": {
+    "dirExists": true,
+    "dirIsDir": true,
+    "fileExists": true,
+    "fileIsDir": false,
+    "missingExists": false,
+    "missingIsDir": false
+  },
+  "fetch-binary-base64": {
+    "base64MatchesBytes": true,
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "256"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/binary"
+      ],
+      "respType": "blob",
+      "rnfbEncode": "base64",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "length": 344,
+    "type": "base64"
+  },
+  "fetch-cancel": {
+    "isCanceledFetchError": true,
+    "rejected": {
+      "code": "ECANCELED",
+      "message": "canceled",
+      "name": "ReactNativeBlobUtilCanceledFetch"
+    }
+  },
+  "fetch-chunked": {
+    "info": {
+      "headers": {
+        "content-type": {
+          "key": "Content-Type",
+          "value": "text/plain"
+        },
+        "transfer-encoding": {
+          "key": "Transfer-Encoding",
+          "value": "string"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/chunked"
+      ],
+      "respType": "text",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "knownTotalReported": true,
+    "text": "chunk-1\nchunk-2\nchunk-3\n"
+  },
+  "fetch-cookies": {
+    "cookieSentBack": true
+  },
+  "fetch-errors": {
+    "invalidUrl": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Invalid URL: http://",
+        "name": "Error"
+      }
+    },
+    "refused": {
+      "rejected": {
+        "code": "ECONNREFUSED",
+        "message": "A connection with the server could not be established",
+        "name": "Error"
+      }
+    }
+  },
+  "fetch-file-cache": {
+    "contentMatches": true,
+    "existsAfterFlush": false,
+    "extension": "bin",
+    "flush": {
+      "resolved": "<undefined>"
+    },
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "256"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/binary"
+      ],
+      "respType": "blob",
+      "rnfbEncode": "path",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "path": "<CacheDir>\\ReactNativeBlobUtilTmp_<uuid>.bin",
+    "size": 256,
+    "type": "path"
+  },
+  "fetch-json": {
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "11"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/health"
+      ],
+      "respType": "json",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "json": {
+      "ok": true
+    },
+    "type": "utf8"
+  },
+  "fetch-key-cache": {
+    "firstPath": "<CacheDir>\\ReactNativeBlobUtilTmp_<md5>",
+    "firstType": "path",
+    "samePath": true,
+    "secondInfo": {
+      "headers": {},
+      "keys": [
+        "rnfbEncode"
+      ],
+      "redirects": "<undefined>",
+      "respType": "<undefined>",
+      "rnfbEncode": "path",
+      "state": "<undefined>",
+      "status": "<undefined>",
+      "taskId": "undefined"
+    },
+    "secondType": "path"
+  },
+  "fetch-no-resend": {
+    "droppedHits": 1,
+    "droppedRejected": true,
+    "timedOut": "ETIMEDOUT",
+    "timedOutHits": 1
+  },
+  "fetch-path": {
+    "exists": true,
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "256"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/binary"
+      ],
+      "respType": "blob",
+      "rnfbEncode": "path",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "path": "<DocumentDir>/parity/fetch-path/nested/download.bin",
+    "size": 256,
+    "type": "path"
+  },
+  "fetch-pause-resume": {
+    "hash": {
+      "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+    },
+    "ifRange": "\"range-v1\"",
+    "lastProgress": [
+      262144,
+      262144
+    ],
+    "partialBetween": true,
+    "paused": {
+      "resolved": "<undefined>"
+    },
+    "progressMonotonic": true,
+    "requests": 2,
+    "result": {
+      "resolved": 206
+    },
+    "resumed": {
+      "resolved": "<undefined>"
+    },
+    "resumedFrom": true,
+    "size": 262144,
+    "started": true
+  },
+  "fetch-pause-unsupported": {
+    "fileCache": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "Only a GET downloading to `path` can pause",
+        "name": "Error"
+      }
+    },
+    "memory": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "Only a GET downloading to `path` can pause",
+        "name": "Error"
+      }
+    },
+    "resumableWithPost": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "`resumable` needs a GET request",
+        "name": "Error"
+      }
+    }
+  },
+  "fetch-redirect": {
+    "follow": {
+      "resolved": {
+        "redirects": [
+          "http://<http-server>/redirect-twice",
+          "http://<http-server>/redirect",
+          "http://<http-server>/health"
+        ],
+        "status": 200,
+        "text": "{\"ok\":true}"
+      }
+    },
+    "noFollow": {
+      "resolved": {
+        "headers": {
+          "content-length": {
+            "key": "Content-Length",
+            "value": "0"
+          },
+          "location": {
+            "key": "Location",
+            "value": "string"
+          }
+        },
+        "redirects": [
+          "http://<http-server>/redirect"
+        ],
+        "status": 302,
+        "text": ""
+      }
+    }
+  },
+  "fetch-resumable": {
+    "firstAskedForNoRange": true,
+    "firstRejected": true,
+    "hash": {
+      "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+    },
+    "ifRange": "\"range-v1\"",
+    "notes": {
+      "resolved": "\"range-v1\""
+    },
+    "notesGone": true,
+    "partGone": true,
+    "partKept": true,
+    "requests": 2,
+    "resumedFrom": true,
+    "second": {
+      "resolved": {
+        "path": "<DocumentDir>/parity/fetch-resumable/big.bin",
+        "status": 206
+      }
+    },
+    "targetAfterFailure": false
+  },
+  "fetch-resumable-cancel": {
+    "cancelled": {
+      "resolved": "<undefined>"
+    },
+    "notesGone": true,
+    "partGone": true,
+    "rejected": {
+      "rejected": {
+        "code": "ECANCELED",
+        "message": "canceled",
+        "name": "ReactNativeBlobUtilCanceledFetch"
+      }
+    },
+    "started": true,
+    "target": false
+  },
+  "fetch-resumable-restart": {
+    "changedFile": {
+      "hash": {
+        "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+      },
+      "log": [
+        {
+          "ifRange": "\"range-old\"",
+          "range": "bytes=5000-"
+        }
+      ],
+      "result": {
+        "resolved": 200
+      },
+      "size": 262144
+    },
+    "noRangeSupport": {
+      "hash": {
+        "resolved": "582ea324ac01ab8d2ed4a83bf252199a874e9b45c7034859c7428b3c6935796b"
+      },
+      "log": [
+        {
+          "ifRange": "\"range-v1\"",
+          "range": "bytes=5000-"
+        }
+      ],
+      "result": {
+        "resolved": 200
+      },
+      "size": 262144
+    }
+  },
+  "fetch-state-change": {
+    "firstState": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "11"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/health"
+      ],
+      "respType": "json",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "11"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/health"
+      ],
+      "respType": "json",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "sawStateChange": true,
+    "stateCount": 1
+  },
+  "fetch-status": {
+    "s201": {
+      "resolved": {
+        "respType": "json",
+        "status": 201,
+        "text": "{\"status\":201}"
+      }
+    },
+    "s404": {
+      "resolved": {
+        "respType": "json",
+        "status": 404,
+        "text": "{\"status\":404}"
+      }
+    },
+    "s500": {
+      "resolved": {
+        "respType": "json",
+        "status": 500,
+        "text": "{\"status\":500}"
+      }
+    }
+  },
+  "fetch-text": {
+    "dataType": "string",
+    "info": {
+      "headers": {
+        "content-length": {
+          "key": "Content-Length",
+          "value": "17"
+        },
+        "content-type": {
+          "key": "Content-Type",
+          "value": "text/plain"
+        }
+      },
+      "keys": [
+        "headers",
+        "redirects",
+        "respType",
+        "rnfbEncode",
+        "state",
+        "status",
+        "taskId",
+        "timeout"
+      ],
+      "redirects": [
+        "http://<http-server>/text"
+      ],
+      "respType": "text",
+      "rnfbEncode": "utf8",
+      "state": "2",
+      "status": 200,
+      "taskId": "string"
+    },
+    "text": "héllo wörld ✓",
+    "type": "utf8"
+  },
+  "fetch-timeout": {
+    "gaveUpBeforeServerAnswered": true,
+    "result": {
+      "rejected": {
+        "code": "ETIMEDOUT",
+        "message": "The request timed out.",
+        "name": "Error"
+      }
+    }
+  },
+  "fetch-untrusted-cert": {
+    "untrusted": {
+      "rejected": {
+        "code": "ESSL",
+        "message": "The certificate authority is invalid or incorrect",
+        "name": "Error"
+      }
+    }
+  },
+  "fs-bytes": {
+    "appendBuffer": {
+      "resolved": 2
+    },
+    "appendView": {
+      "resolved": 2
+    },
+    "createBytes": {
+      "resolved": "<undefined>"
+    },
+    "created": {
+      "resolved": "hi"
+    },
+    "empty": {
+      "resolved": {
+        "bytes": [],
+        "kind": "Uint8Array"
+      }
+    },
+    "readBytes": {
+      "resolved": {
+        "bytes": [
+          0,
+          1,
+          254,
+          255,
+          7,
+          8,
+          2,
+          3
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "readBytesOption": {
+      "resolved": {
+        "bytes": [
+          0,
+          1,
+          254,
+          255,
+          7,
+          8,
+          2,
+          3
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "writeTyped": {
+      "resolved": 4
+    }
+  },
+  "fs-cp-dir": {
+    "copy": {
+      "resolved": "<undefined>"
+    },
+    "emptyDirectory": {
+      "resolved": []
+    },
+    "missingParent": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Destination directory of '<DocumentDir>/parity/fs-cp-dir/no/such/copy' does not exist",
+        "name": "<undefined>"
+      }
+    },
+    "ontoDirectory": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "Destination '<DocumentDir>/parity/fs-cp-dir/copy' is a directory",
+        "name": "<undefined>"
+      }
+    },
+    "ontoFile": {
+      "resolved": "<undefined>"
+    },
+    "ontoFileResult": {
+      "resolved": true
+    },
+    "sourceKept": {
+      "resolved": {
+        "a.txt": "YQ==",
+        "sub/": "dir",
+        "sub/b.txt": "YmI=",
+        "sub/deeper/": "dir",
+        "sub/deeper/c.bin": "AAEC"
+      }
+    },
+    "tree": {
+      "resolved": {
+        "a.txt": "YQ==",
+        "sub/": "dir",
+        "sub/b.txt": "YmI=",
+        "sub/deeper/": "dir",
+        "sub/deeper/c.bin": "AAEC"
+      }
+    }
+  },
+  "fs-created": {
+    "directory": "number:epoch-ms",
+    "file": "number:epoch-ms",
+    "lsEntry": "number:epoch-ms"
+  },
+  "fs-dirs-1.2": {
+    "ExternalCacheDir": "",
+    "RoamingDir": "<ApplicationSupportDir>",
+    "TemporaryDir": "<TemporaryDir>",
+    "externalDirs": {
+      "resolved": {
+        "allStrings": true,
+        "first": null,
+        "kind": "array"
+      }
+    },
+    "temporaryWritable": {
+      "resolved": "tmp"
+    }
+  },
+  "fs-file-urls": {
+    "copy": {
+      "resolved": "by url"
+    },
+    "cp": {
+      "resolved": "<undefined>"
+    },
+    "exists": {
+      "resolved": true
+    },
+    "gone": {
+      "resolved": false
+    },
+    "hash": {
+      "resolved": "<md5>"
+    },
+    "ls": {
+      "resolved": [
+        "a b#1 %20.txt"
+      ]
+    },
+    "readByPath": {
+      "resolved": "by url"
+    },
+    "readByUrl": {
+      "resolved": "by url"
+    },
+    "stat": {
+      "resolved": "a b#1 %20.txt"
+    },
+    "unlink": {
+      "resolved": "<undefined>"
+    },
+    "write": {
+      "resolved": 6
+    }
+  },
+  "fs-platform-only-1.2": {
+    "bundlePath": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "ReactNativeBlobUtil.fs.bundlePath is only available on iOS",
+        "name": "Error"
+      }
+    },
+    "resource": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "ReactNativeBlobUtil.fs.resource is only available on Android",
+        "name": "Error"
+      }
+    },
+    "setAttributes": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "ReactNativeBlobUtil.fs.setAttributes is only available on iOS",
+        "name": "Error"
+      }
+    }
+  },
+  "fs-read-range": {
+    "all": {
+      "resolved": [
+        104,
+        233,
+        0,
+        65533,
+        65
+      ]
+    },
+    "allBase64": {
+      "resolved": "aMOpAP9B"
+    },
+    "ascii": {
+      "resolved": [
+        0,
+        255,
+        65
+      ]
+    },
+    "brokenCharacter": {
+      "resolved": [
+        104,
+        65533
+      ]
+    },
+    "bytes": {
+      "resolved": {
+        "bytes": [
+          195,
+          169,
+          0
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "directory": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/fs-read-range' is a directory",
+        "name": "<undefined>"
+      }
+    },
+    "lengthPastTheEnd": {
+      "resolved": "QQ=="
+    },
+    "middle": {
+      "resolved": "w6k="
+    },
+    "missing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/fs-read-range/missing.bin'",
+        "name": "<undefined>"
+      }
+    },
+    "negative": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"position\" and \"length\" must be whole numbers, 0 or more",
+        "name": "TypeError"
+      }
+    },
+    "pastTheEnd": {
+      "resolved": ""
+    },
+    "tail": {
+      "resolved": "/0E="
+    },
+    "zeroLength": {
+      "resolved": ""
+    }
+  },
+  "fs-touch": {
+    "afterTimes": {
+      "resolved": {
+        "created": 1400000000000,
+        "lastModified": 1600000000000,
+        "size": 4
+      }
+    },
+    "badTime": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"mtime\" and \"ctime\" must be a Date or milliseconds since the epoch",
+        "name": "TypeError"
+      }
+    },
+    "contentKept": {
+      "resolved": "kept"
+    },
+    "create": {
+      "resolved": "<undefined>"
+    },
+    "created": {
+      "resolved": {
+        "created": 1794853071000,
+        "lastModified": 1500000000000,
+        "size": 0
+      }
+    },
+    "directory": {
+      "resolved": "<undefined>"
+    },
+    "directoryTime": {
+      "resolved": 1500000000000
+    },
+    "missingDirectory": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Directory of '<DocumentDir>/parity/fs-touch/no/such.txt' does not exist",
+        "name": "<undefined>"
+      }
+    },
+    "now": {
+      "resolved": "number:epoch-ms"
+    },
+    "times": {
+      "resolved": "<undefined>"
+    }
+  },
+  "fs-write-range": {
+    "afterAppend": {
+      "resolved": "abXYef!"
+    },
+    "afterBytes": {
+      "resolved": "AQJYWWVmIQAAeg=="
+    },
+    "afterOverwrite": {
+      "resolved": "abXYef"
+    },
+    "afterPastTheEnd": {
+      "resolved": "YWJYWWVmIQAAeg=="
+    },
+    "afterUtf8": {
+      "resolved": "AQJYw6lmIQAAeg=="
+    },
+    "append": {
+      "resolved": 1
+    },
+    "badPosition": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"position\" must be a whole number, 0 or more",
+        "name": "TypeError"
+      }
+    },
+    "bytes": {
+      "resolved": 2
+    },
+    "directory": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/fs-write-range' is a directory",
+        "name": "<undefined>"
+      }
+    },
+    "missingDirectory": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Directory of '<DocumentDir>/parity/fs-write-range/no/such/dir.txt' does not exist",
+        "name": "<undefined>"
+      }
+    },
+    "newFile": {
+      "resolved": 5
+    },
+    "newFileContent": {
+      "resolved": "fresh"
+    },
+    "overwrite": {
+      "resolved": 2
+    },
+    "pastTheEnd": {
+      "resolved": 1
+    },
+    "utf8": {
+      "resolved": 2
+    }
+  },
+  "hash-algorithms": {
+    "md5": {
+      "bytes": {
+        "resolved": "e2c865db4162bed963bfaa9ef6ac18f0"
+      },
+      "empty": {
+        "resolved": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "sha1": {
+      "bytes": {
+        "resolved": "4916d6bdb7f78e6803698cab32d1586ea457dfc8"
+      },
+      "empty": {
+        "resolved": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+      }
+    },
+    "sha224": {
+      "bytes": {
+        "rejected": {
+          "code": "ENOTSUP",
+          "message": "sha224 is not available on Windows",
+          "name": "<undefined>"
+        }
+      },
+      "empty": {
+        "rejected": {
+          "code": "ENOTSUP",
+          "message": "sha224 is not available on Windows",
+          "name": "<undefined>"
+        }
+      }
+    },
+    "sha256": {
+      "bytes": {
+        "resolved": "40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880"
+      },
+      "empty": {
+        "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "sha384": {
+      "bytes": {
+        "resolved": "ffdaebff65ed05cf400f0221c4ccfb4b2104fb6a51f87e40be6c4309386bfdec2892e9179b34632331a59592737db5c5"
+      },
+      "empty": {
+        "resolved": "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"
+      }
+    },
+    "sha512": {
+      "bytes": {
+        "resolved": "1e7b80bc8edc552c8feeb2780e111477e5bc70465fac1a77b29b35980c3f0ce4a036a6c9462036824bd56801e62af7e9feba5c22ed8a5af877bf7de117dcac6d"
+      },
+      "empty": {
+        "resolved": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+      }
+    },
+    "upperCaseName": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Invalid algorithm 'SHA256', must be one of md5, sha1, sha224, sha256, sha384, sha512",
+        "name": "<undefined>"
+      }
+    }
+  },
+  "ls-dir": {
+    "elementTypes": [
+      "string"
+    ],
+    "kind": "array",
+    "sorted": [
+      "a.txt",
+      "b.txt",
+      "sub"
+    ]
+  },
+  "lstat-dir": {
+    "entries": [
+      {
+        "filename": "a.txt",
+        "keys": [
+          "created",
+          "filename",
+          "lastModified",
+          "path",
+          "size",
+          "type"
+        ],
+        "lastModified": "number:epoch-ms",
+        "path": "<DocumentDir>\\parity\\lstat-dir\\a.txt",
+        "size": [
+          "number",
+          2
+        ],
+        "type": "file"
+      },
+      {
+        "filename": "b.txt",
+        "keys": [
+          "created",
+          "filename",
+          "lastModified",
+          "path",
+          "size",
+          "type"
+        ],
+        "lastModified": "number:epoch-ms",
+        "path": "<DocumentDir>\\parity\\lstat-dir\\b.txt",
+        "size": [
+          "number",
+          3
+        ],
+        "type": "file"
+      },
+      {
+        "filename": "sub",
+        "keys": [
+          "created",
+          "filename",
+          "lastModified",
+          "path",
+          "size",
+          "type"
+        ],
+        "lastModified": "number:epoch-ms",
+        "path": "<DocumentDir>\\parity\\lstat-dir\\sub",
+        "size": "number",
+        "type": "directory"
+      }
+    ],
+    "kind": "array"
+  },
+  "net-after-completion": {
+    "cancelAfterFinish": {
+      "resolved": "returned"
+    },
+    "cancelTwice": {
+      "resolved": "returned"
+    },
+    "status": 200,
+    "textStillReadable": {
+      "resolved": "héllo wörld ✓"
+    }
+  },
+  "read-encodings": {
+    "ascii": {
+      "resolved": [
+        104,
+        195,
+        169,
+        0,
+        255,
+        65
+      ]
+    },
+    "base64": {
+      "resolved": "aMOpAP9B"
+    },
+    "utf8CodePoints": {
+      "resolved": [
+        104,
+        233,
+        0,
+        65533,
+        65
+      ]
+    }
+  },
+  "readstream-ascii": {
+    "buffer1000": {
+      "check": {
+        "elementTypes": [
+          "number"
+        ],
+        "flattenedAreFileBytes": true
+      },
+      "chunkCount": 3,
+      "chunkKinds": [
+        "array"
+      ],
+      "chunkLengths": [
+        1000,
+        1000,
+        1000
+      ],
+      "outcome": "end"
+    }
+  },
+  "readstream-base64": {
+    "buffer1000": {
+      "check": {
+        "concatenationIsFileBase64": false,
+        "decodedChunksAreFileBytes": true
+      },
+      "chunkCount": 3,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        1336,
+        1336,
+        1336
+      ],
+      "outcome": "end"
+    },
+    "buffer1002": {
+      "check": {
+        "concatenationIsFileBase64": true,
+        "decodedChunksAreFileBytes": true
+      },
+      "chunkCount": 3,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        1336,
+        1336,
+        1328
+      ],
+      "outcome": "end"
+    },
+    "buffer4096": {
+      "check": {
+        "concatenationIsFileBase64": true,
+        "decodedChunksAreFileBytes": true
+      },
+      "chunkCount": 1,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        4000
+      ],
+      "outcome": "end"
+    }
+  },
+  "readstream-utf8": {
+    "buffer1001": {
+      "check": {
+        "joinedIsText": true,
+        "replacementCharacters": 0
+      },
+      "chunkCount": 2,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        500,
+        203
+      ],
+      "outcome": "end"
+    },
+    "buffer4096": {
+      "check": {
+        "joinedIsText": true,
+        "replacementCharacters": 0
+      },
+      "chunkCount": 1,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        703
+      ],
+      "outcome": "end"
+    }
+  },
+  "session-dispose": {
+    "aExists": false,
+    "bExists": false,
+    "dispose": {
+      "resolved": "<undefined>"
+    },
+    "disposeMissing": {
+      "resolved": "<undefined>"
+    },
+    "listed": [
+      "<DocumentDir>/parity/session-dispose/a.txt",
+      "<DocumentDir>/parity/session-dispose/b.txt"
+    ]
+  },
+  "slice": {
+    "empty": {
+      "content": {
+        "resolved": ""
+      },
+      "result": {
+        "resolved": "<undefined>"
+      }
+    },
+    "middle": {
+      "content": {
+        "resolved": "cde"
+      },
+      "result": {
+        "resolved": "<undefined>"
+      }
+    },
+    "negativeStart": {
+      "content": {
+        "resolved": "hij"
+      },
+      "result": {
+        "resolved": "<undefined>"
+      }
+    },
+    "pastEnd": {
+      "content": {
+        "resolved": "fghij"
+      },
+      "result": {
+        "resolved": "<undefined>"
+      }
+    }
+  },
+  "stat-dir": {
+    "filename": "stat-dir",
+    "keys": [
+      "created",
+      "filename",
+      "lastModified",
+      "path",
+      "size",
+      "type"
+    ],
+    "lastModified": "number:epoch-ms",
+    "path": "<DocumentDir>\\parity\\stat-dir",
+    "size": "number",
+    "type": "directory"
+  },
+  "stat-file": {
+    "filename": "a.txt",
+    "keys": [
+      "created",
+      "filename",
+      "lastModified",
+      "path",
+      "size",
+      "type"
+    ],
+    "lastModified": "number:epoch-ms",
+    "path": "<DocumentDir>\\parity\\stat-file\\a.txt",
+    "size": 4,
+    "type": "file"
+  },
+  "upload-bodies": {
+    "chunked": {
+      "resolved": {
+        "bytes": 12,
+        "contentLength": "12",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "aebd30e0419b5ad096bbf0fd326b6abdbffbee6340c4e21548b2f22314b9d319",
+        "text": "chunked body",
+        "transferEncoding": null
+      }
+    },
+    "emptyPost": {
+      "resolved": {
+        "bytes": 0,
+        "contentLength": "0",
+        "contentType": "",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "text": "",
+        "transferEncoding": null
+      }
+    },
+    "octetBase64": {
+      "resolved": {
+        "bytes": 4,
+        "contentLength": "4",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�",
+        "transferEncoding": null
+      }
+    },
+    "plainNoHeaders": {
+      "resolved": {
+        "bytes": 14,
+        "contentLength": "14",
+        "contentType": "text/plain;charset=UTF-8",
+        "custom": "hello",
+        "method": "POST",
+        "parts": null,
+        "sha256": "9ef7211d5c0e0e8489b219edc2a03174f97d2aeeaaab35a394164bf739b66e39",
+        "text": "plain body ✓",
+        "transferEncoding": null
+      }
+    },
+    "put": {
+      "resolved": {
+        "bytes": 8,
+        "contentLength": "8",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "PUT",
+        "parts": null,
+        "sha256": "33aa76280a862e6fc895818d0f0274b3f2770f9d38e92cb91cec7faeefd0eaf9",
+        "text": "put body",
+        "transferEncoding": null
+      }
+    },
+    "textPlainBase64": {
+      "resolved": {
+        "bytes": 8,
+        "contentLength": "8",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "c4b988394e642e17fb80759e38bea055c3efbbc5f449e9502bb5ac450ad0fc78",
+        "text": "AAEC/w==",
+        "transferEncoding": null
+      }
+    },
+    "wrappedFile": {
+      "resolved": {
+        "bytes": 13,
+        "contentLength": "13",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "c03f0dd7888b1b9d1736bd2cf4638b9b400563eb75dee079972a6796125ed11e",
+        "text": "file body ✓",
+        "transferEncoding": null
+      }
+    }
+  },
+  "upload-explicit": {
+    "base64WithoutType": {
+      "resolved": {
+        "bytes": 4,
+        "contentLength": "4",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�",
+        "transferEncoding": null
+      }
+    },
+    "bytes": {
+      "resolved": {
+        "bytes": 4,
+        "contentLength": "4",
+        "contentType": "application/octet-stream",
+        "custom": null,
+        "method": "POST",
+        "parts": null,
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�",
+        "transferEncoding": null
+      }
+    },
+    "deleteWithBody": {
+      "resolved": {
+        "bytes": 11,
+        "contentLength": "11",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "DELETE",
+        "parts": null,
+        "sha256": "9f8a6692f94a13093a02fd4ac99d8718645e83c98ec99e3be950a7003d9faac8",
+        "text": "delete body",
+        "transferEncoding": null
+      }
+    },
+    "file": {
+      "resolved": {
+        "bytes": 17,
+        "contentLength": "17",
+        "contentType": "text/plain",
+        "custom": null,
+        "method": "PUT",
+        "parts": null,
+        "sha256": "a212d1134de121daa2da3f66e0df0eb093f2c994cfd0cdf07dfa58072ac9bfc1",
+        "text": "explicit file ✓",
+        "transferEncoding": null
+      }
+    },
+    "getWithBody": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "A GET request cannot have a body",
+        "name": "Error"
+      }
+    },
+    "missingFile": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/upload-explicit/missing.txt'",
+        "name": "Error"
+      }
+    },
+    "multipart": {
+      "resolved": {
+        "bytes": "<multipart>",
+        "contentLength": "string",
+        "contentType": "multipart/form-data; boundary=<boundary>",
+        "custom": null,
+        "method": "POST",
+        "parts": [
+          {
+            "bytes": 4,
+            "contentType": "text/plain",
+            "filename": null,
+            "name": "base64NoName",
+            "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+            "text": "\u0000\u0001\u0002�"
+          },
+          {
+            "bytes": 8,
+            "contentType": "text/plain",
+            "filename": "t.txt",
+            "name": "textWithName",
+            "sha256": "c4b988394e642e17fb80759e38bea055c3efbbc5f449e9502bb5ac450ad0fc78",
+            "text": "AAEC/w=="
+          },
+          {
+            "bytes": 17,
+            "contentType": "text/plain",
+            "filename": "explicit.txt",
+            "name": "fileNoName",
+            "sha256": "a212d1134de121daa2da3f66e0df0eb093f2c994cfd0cdf07dfa58072ac9bfc1",
+            "text": "explicit file ✓"
+          }
+        ],
+        "sha256": "<multipart>",
+        "text": "<multipart>",
+        "transferEncoding": null
+      }
+    },
+    "textThatLooksLikeAFile": {
+      "resolved": {
+        "bytesMatchText": true,
+        "contentType": "application/octet-stream",
+        "method": "POST",
+        "textIsThePath": true
+      }
+    }
+  },
+  "upload-multipart": {
+    "bytes": "<multipart>",
+    "contentLength": "string",
+    "contentType": "multipart/form-data; boundary=<boundary>",
+    "custom": null,
+    "method": "POST",
+    "parts": [
+      {
+        "bytes": 11,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "text",
+        "sha256": "084625ce30df55c4e7c6380351f78751679bccac7a3f8584fdfc831d442b556e",
+        "text": "plain value"
+      },
+      {
+        "bytes": 7,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "json",
+        "sha256": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862",
+        "text": "{\"a\":1}"
+      },
+      {
+        "bytes": 4,
+        "contentType": "application/octet-stream",
+        "filename": "bytes.bin",
+        "name": "base64file",
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�"
+      },
+      {
+        "bytes": 20,
+        "contentType": "text/plain",
+        "filename": "wrapped.txt",
+        "name": "wrapped",
+        "sha256": "1791fc1208901b760ad1766a2fc5249e79ece2166acacc87efdb66b63a36c9fb",
+        "text": "wrapped file content"
+      },
+      {
+        "bytes": 4,
+        "contentType": "application/octet-stream",
+        "filename": "untyped.dat",
+        "name": "untyped",
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "text": "\u0000\u0001\u0002�"
+      },
+      {
+        "bytes": 10,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "unicode",
+        "sha256": "5657cdef8a85a584e0e961e6f8247cf5d3f8ed21496ed6fdbcfd43a761e94245",
+        "text": "héllo ✓"
+      }
+    ],
+    "sha256": "<multipart>",
+    "text": "<multipart>",
+    "transferEncoding": null
+  },
+  "write-returns": {
+    "appendAscii": {
+      "resolved": 1
+    },
+    "appendBase64": {
+      "resolved": 1
+    },
+    "appendUri": {
+      "resolved": 7
+    },
+    "appendUtf8": {
+      "resolved": 1
+    },
+    "contents": {
+      "a": {
+        "resolved": [
+          104,
+          105,
+          33
+        ]
+      },
+      "b": {
+        "resolved": "AAECAwQ="
+      },
+      "c2": {
+        "resolved": "c"
+      },
+      "c3": {
+        "resolved": "c"
+      },
+      "c4": {
+        "resolved": "c"
+      },
+      "copy": {
+        "resolved": "héllo!héllo!"
+      },
+      "nested": {
+        "resolved": "z"
+      },
+      "u": {
+        "resolved": "héllo!"
+      }
+    },
+    "createAscii": {
+      "resolved": "<undefined>"
+    },
+    "createBase64": {
+      "resolved": "<undefined>"
+    },
+    "createUri": {
+      "resolved": "<undefined>"
+    },
+    "createUtf8": {
+      "resolved": "<undefined>"
+    },
+    "writeAscii": {
+      "resolved": 2
+    },
+    "writeBase64": {
+      "resolved": 4
+    },
+    "writeNested": {
+      "resolved": 1
+    },
+    "writeUri": {
+      "resolved": 7
+    },
+    "writeUtf8": {
+      "resolved": 6
+    }
+  },
+  "writestream": {
+    "asciiContent": {
+      "resolved": "AQID"
+    },
+    "asciiNonArray": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "ascii input data must be an Array",
+        "name": "TypeError"
+      }
+    },
+    "asciiWrite": {
+      "resolved": true
+    },
+    "base64Content": {
+      "resolved": "AAEC"
+    },
+    "nestedParents": {
+      "resolved": "nested"
+    },
+    "utf8Close": {
+      "resolved": "<undefined>"
+    },
+    "utf8Content": {
+      "resolved": "abcdef"
+    },
+    "utf8Write": {
+      "resolved": true
+    }
+  },
+  "writestream-base64-chunks": {
+    "content": {
+      "resolved": "QUJDREU="
+    },
+    "next": {
+      "resolved": true
+    },
+    "notBase64": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "Data for stream '<md5>' is not valid base64",
+        "name": "<undefined>"
+      }
+    },
+    "wrappedUnpadded": {
+      "resolved": true
+    }
+  }
+}
