@@ -42,8 +42,12 @@ class ReactNativeBlobUtilDefaultResp(
             bytesRead += if (read > 0) read else 0
             val reportConfig = ReactNativeBlobUtilReq.getReportProgress(mTaskId)
             val cLen = contentLength()
-            if (reportConfig != null && cLen != 0L && reportConfig.shouldReport(if (cLen > 0) bytesRead.toFloat() / cLen else 0f)) {
-                val values = ReactNativeBlobUtilProgressEvent.values(mTaskId, bytesRead, contentLength())
+            // Without a length, the end of the body reports (n, n), as a download to a file does.
+            val ended = read == -1L
+            val fraction = if (cLen > 0) bytesRead.toFloat() / cLen else if (ended) 1f else 0f
+            if (reportConfig != null && cLen != 0L && reportConfig.shouldReport(fraction)) {
+                val (written, total) = ReactNativeBlobUtilFileResp.progressValues(bytesRead, cLen, ended)
+                val values = ReactNativeBlobUtilProgressEvent.values(mTaskId, written, total)
                 if (isIncrement) {
                     values["chunk"] = sink.readString(Charset.defaultCharset())
                 } else {

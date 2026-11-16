@@ -40,4 +40,13 @@ class ReactNativeBlobUtilProgressEventTest {
         val fiveGigabytes = 5L * 1024 * 1024 * 1024
         assertEquals(fiveGigabytes.toDouble(), ReactNativeBlobUtilProgressEvent.values("t", fiveGigabytes, fiveGigabytes)["written"])
     }
+
+    @Test
+    fun `a download without a length reports the bytes so far, then (n, n) at the end (#235, #292)`() {
+        val values = com.ReactNativeBlobUtil.Response.ReactNativeBlobUtilFileResp.Companion::progressValues
+        assertEquals(900L to -1L, values(900, -1, false))
+        assertEquals(1200L to 1200L, values(1200, -1, true))
+        assertEquals(900L to 1000L, values(900, 1000, false))
+        assertEquals(1000L to 1000L, values(1000, 1000, true))
+    }
 }

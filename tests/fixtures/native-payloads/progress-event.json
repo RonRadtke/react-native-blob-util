@@ -12,7 +12,7 @@
     {
       "platform": "android",
       "current": true,
-      "note": "chunked response, unknown length: OkHttp reports contentLength() as -1",
+      "note": "chunked response, unknown length: OkHttp reports contentLength() as -1. A download to a file reported 0 written until 1.2.0, and (n, n) once the body ended",
       "written": 900,
       "total": -1,
       "expected": [900, -1]

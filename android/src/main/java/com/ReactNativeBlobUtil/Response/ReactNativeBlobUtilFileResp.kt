@@ -104,17 +104,8 @@ class ReactNativeBlobUtilFileResp : ResponseBody {
                     val progress = if (contentLength() != -1L) bytesDownloaded.toFloat() / contentLength() else if (isEndMarkerReceived) 1f else 0f
 
                     if (reportConfig != null && reportConfig.shouldReport(progress /* progress */)) {
-                        if (contentLength() != -1L) {
-                            // For non-chunked downloads
-                            reportProgress(mTaskId, bytesDownloaded, contentLength())
-                        } else {
-                            // For chunked downloads
-                            if (!isEndMarkerReceived) {
-                                reportProgress(mTaskId, 0, contentLength())
-                            } else {
-                                reportProgress(mTaskId, bytesDownloaded, bytesDownloaded)
-                            }
-                        }
+                        val (written, total) = progressValues(bytesDownloaded, contentLength(), isEndMarkerReceived)
+                        reportProgress(mTaskId, written, total)
                     }
 
                 }
@@ -147,7 +138,21 @@ class ReactNativeBlobUtilFileResp : ResponseBody {
         }
     }
 
-    private companion object {
+    internal companion object {
+        /**
+         * The (written, total) a download to a file reports. With a known length,
+         * the bytes so far of that length. Without one (a chunked response), the
+         * bytes so far with total -1, and (n, n) once the body has ended. It used to
+         * report 0 written until the end, so a caller showing the bytes received saw
+         * nothing move (#235, #292); a download to memory already reported them.
+         */
+        @JvmStatic
+        fun progressValues(bytesDownloaded: Long, contentLength: Long, ended: Boolean): Pair<Long, Long> = when {
+            contentLength != -1L -> bytesDownloaded to contentLength
+            ended -> bytesDownloaded to bytesDownloaded
+            else -> bytesDownloaded to -1L
+        }
+
         @Throws(IOException::class)
         private fun prepareOutputFile(path: String): File {
             val file = File(path).canonicalFile
