@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" width="920" viewBox="0 0 920 230" role="img" aria-label="A read stream is created, handlers are registered, open() starts it, data events call onData, end resolves open() and calls onEnd, error rejects open() with a code and calls onError; afterwards open() rejects EBADF. A write stream is opened, write(chunk) resolves the stream, close() closes it, and writes after that reject EBADF.">
+<style>
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #1f2328; }
+svg.d .n { fill: #ffffff; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .n-new { stroke: #0c6c78; }
+svg.d .n-old { stroke: #96661a; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #a63b3b; fill: #f7e2e2; }
+svg.d .n-soft { fill: #e0eff1; stroke: none; }
+svg.d .hollow { fill: none; }
+svg.d .e { fill: none; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #a63b3b; }
+svg.d .e-old { stroke: #96661a; }
+svg.d text { fill: #1f2328; font-size: 12px; }
+svg.d .t11 { font-size: 11px; }
+svg.d .m { fill: #656d76; }
+svg.d .ac { fill: #0c6c78; }
+svg.d .bd { fill: #a63b3b; }
+svg.d .od { fill: #96661a; }
+svg.d .b { font-weight: 600; }
+svg.d .sans { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+svg.d .halo { paint-order: stroke; stroke: #ffffff; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #1f2328; }
+svg.d marker.bad path { fill: #a63b3b; }
+@media (prefers-color-scheme: dark) {
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #e6edf3; }
+svg.d .n { fill: #161b22; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .n-new { stroke: #62c3cf; }
+svg.d .n-old { stroke: #d8a94c; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #e27e7e; fill: #3c2222; }
+svg.d .n-soft { fill: #173238; stroke: none; }
+svg.d .e { fill: none; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #e27e7e; }
+svg.d .e-old { stroke: #d8a94c; }
+svg.d text { fill: #e6edf3; font-size: 12px; }
+svg.d .m { fill: #8b949e; }
+svg.d .ac { fill: #62c3cf; }
+svg.d .bd { fill: #e27e7e; }
+svg.d .od { fill: #d8a94c; }
+svg.d .halo { paint-order: stroke; stroke: #0d1117; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #e6edf3; }
+svg.d marker.bad path { fill: #e27e7e; }
+}
+</style>
+      <defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect x="12" y="24" width="250" height="52" rx="6" class="n"/>
+      <text x="24" y="46" class="t11">fs.readStream(path, {encoding,</text>
+      <text x="24" y="62" class="t11">bufferSize: 12288, tick: 10})</text>
+      <line x1="262" y1="50" x2="300" y2="50" class="e" marker-end="url(#ar5)"/>
+      <text x="282" y="44" text-anchor="middle" class="t11 m">resolves</text>
+      <rect x="302" y="24" width="170" height="52" rx="6" class="n"/>
+      <text x="312" y="46" class="b">created</text>
+      <text x="312" y="62" class="t11">onData / onEnd / onError</text>
+      <line x1="472" y1="50" x2="510" y2="50" class="e" marker-end="url(#ar5)"/>
+      <text x="492" y="44" text-anchor="middle" class="t11 m">open()</text>
+      <rect x="512" y="24" width="160" height="52" rx="6" class="n n-new"/>
+      <text x="522" y="46" class="b">reading</text>
+      <text x="522" y="62" class="t11">data → onData(chunk)</text>
+      <line x1="672" y1="42" x2="710" y2="38" class="e" marker-end="url(#ar5)"/>
+      <text x="690" y="30" text-anchor="middle" class="t11 m">'end'</text>
+      <rect x="712" y="20" width="196" height="44" rx="6" class="n"/>
+      <text x="722" y="38">'end' → onEnd</text>
+      <text x="722" y="54" class="t11">open() resolves</text>
+      <line x1="672" y1="58" x2="710" y2="80" class="e" marker-end="url(#ar5)"/>
+      <text x="676" y="86" class="t11 m">'error'</text>
+      <rect x="712" y="68" width="196" height="44" rx="6" class="n"/>
+      <text x="722" y="86">'error' → onError(err)</text>
+      <text x="722" y="102" class="t11">open() rejects {code}</text>
+      <text x="712" y="130" class="t11 m">closed afterwards: open() again → EBADF</text>
+
+      <rect x="12" y="160" width="250" height="52" rx="6" class="n"/>
+      <text x="24" y="182" class="t11">fs.writeStream(path, {encoding,</text>
+      <text x="24" y="198" class="t11">append: false})</text>
+      <line x1="262" y1="186" x2="300" y2="186" class="e" marker-end="url(#ar5)"/>
+      <text x="282" y="180" text-anchor="middle" class="t11 m">resolves</text>
+      <rect x="302" y="160" width="190" height="52" rx="6" class="n n-new"/>
+      <text x="312" y="182" class="b">open</text>
+      <text x="312" y="198" class="t11">write(chunk) resolves it</text>
+      <line x1="492" y1="186" x2="530" y2="186" class="e" marker-end="url(#ar5)"/>
+      <text x="512" y="180" text-anchor="middle" class="t11 m">close()</text>
+      <rect x="532" y="160" width="190" height="52" rx="6" class="n"/>
+      <text x="542" y="182">closed</text>
+      <text x="542" y="198" class="t11">write / close → EBADF</text>
+    </svg>

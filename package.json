@@ -1,7 +1,7 @@
 {
     "name": "react-native-blob-util",
     "version": "1.1.1",
-    "description": "A module provides upload, download, and files access API. Supports file stream read/write for process large files.",
+    "description": "File system access, downloads and uploads for React Native on Android, iOS and Windows: read and write files, download to and upload from files with progress, pause, resume and background downloads, streams, multipart, MediaStore and custom CA certificates.",
     "main": "index",
     "files": [
         "index.js",
@@ -29,7 +29,9 @@
         "android/src/main/",
         "windows/",
         "NuGet.config",
-        "Migration.md"
+        "Migration.md",
+        "docs/",
+        "llms.txt"
     ],
     "scripts": {
         "lint": "eslint \"*.js\" class utils",
@@ -50,17 +52,33 @@
     },
     "keywords": [
         "react-native",
-        "fetch",
-        "blob",
+        "file-system",
+        "filesystem",
         "fs",
-        "upload",
         "file",
+        "files",
         "download",
-        "filestream",
-        "image header",
+        "upload",
+        "fetch",
+        "http",
+        "blob",
+        "stream",
+        "base64",
+        "multipart",
+        "progress",
+        "resumable-download",
+        "background-download",
         "android",
         "ios",
-        "file system"
+        "windows",
+        "expo",
+        "expo-plugin",
+        "turbomodule",
+        "new-architecture",
+        "downloadmanager",
+        "mediastore",
+        "ssl-pinning",
+        "file-picker"
     ],
     "repository": {
         "type": "git",

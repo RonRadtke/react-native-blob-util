@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" width="930" viewBox="0 0 930 392" role="img" aria-label="Flow: fetch call, then JavaScript checks (normalize config, classify body, default Content-Type, lower-case pinnedHosts), then native fetchBlob, then one settle with three outcomes; the call returns a StatefulPromise at once; native events filtered by taskId feed its handlers; cancel() reaches native and rejects the task with ECANCELED at once; invalid input rejects EINVAL before native.">
+<style>
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #1f2328; }
+svg.d .n { fill: #ffffff; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .n-new { stroke: #0c6c78; }
+svg.d .n-old { stroke: #96661a; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #a63b3b; fill: #f7e2e2; }
+svg.d .n-soft { fill: #e0eff1; stroke: none; }
+svg.d .hollow { fill: none; }
+svg.d .e { fill: none; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #a63b3b; }
+svg.d .e-old { stroke: #96661a; }
+svg.d text { fill: #1f2328; font-size: 12px; }
+svg.d .t11 { font-size: 11px; }
+svg.d .m { fill: #656d76; }
+svg.d .ac { fill: #0c6c78; }
+svg.d .bd { fill: #a63b3b; }
+svg.d .od { fill: #96661a; }
+svg.d .b { font-weight: 600; }
+svg.d .sans { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+svg.d .halo { paint-order: stroke; stroke: #ffffff; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #1f2328; }
+svg.d marker.bad path { fill: #a63b3b; }
+@media (prefers-color-scheme: dark) {
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #e6edf3; }
+svg.d .n { fill: #161b22; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .n-new { stroke: #62c3cf; }
+svg.d .n-old { stroke: #d8a94c; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #e27e7e; fill: #3c2222; }
+svg.d .n-soft { fill: #173238; stroke: none; }
+svg.d .e { fill: none; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #e27e7e; }
+svg.d .e-old { stroke: #d8a94c; }
+svg.d text { fill: #e6edf3; font-size: 12px; }
+svg.d .m { fill: #8b949e; }
+svg.d .ac { fill: #62c3cf; }
+svg.d .bd { fill: #e27e7e; }
+svg.d .od { fill: #d8a94c; }
+svg.d .halo { paint-order: stroke; stroke: #0d1117; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #e6edf3; }
+svg.d marker.bad path { fill: #e27e7e; }
+}
+</style>
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ar2b" class="bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <rect x="196" y="14" width="480" height="52" rx="6" class="n n-new"/>
+      <text x="436" y="35" text-anchor="middle" class="b">StatefulPromise&lt;FetchBlobResponse&gt;</text>
+      <text x="436" y="53" text-anchor="middle" class="t11 m">taskId · progress · uploadProgress · stateChange · part · cancel</text>
+
+      <rect x="12" y="180" width="150" height="74" rx="6" class="n"/>
+      <text x="87" y="204" text-anchor="middle">fetch(method, url,</text>
+      <text x="87" y="220" text-anchor="middle">headers, body)</text>
+      <text x="87" y="242" text-anchor="middle" class="t11 m">config(opts).fetch(…)</text>
+
+      <rect x="222" y="170" width="220" height="106" rx="6" class="n n-new"/>
+      <text x="332" y="190" text-anchor="middle" class="b sans">in JS, before native</text>
+      <text x="234" y="209" class="t11">normalize config keys</text>
+      <text x="234" y="225" class="t11">classify body → bodyType</text>
+      <text x="234" y="241" class="t11">default the Content-Type</text>
+      <text x="234" y="257" class="t11">lower-case pinnedHosts</text>
+
+      <rect x="502" y="180" width="160" height="74" rx="6" class="n"/>
+      <text x="582" y="204" text-anchor="middle">native</text>
+      <text x="582" y="220" text-anchor="middle">fetchBlob(Form)</text>
+      <text x="582" y="242" text-anchor="middle" class="t11 m">bodyType in options</text>
+
+      <rect x="722" y="166" width="196" height="118" rx="6" class="n"/>
+      <text x="820" y="186" text-anchor="middle" class="b sans">settles once</text>
+      <text x="734" y="208" class="t11 ac">resolve FetchBlobResponse</text>
+      <text x="734" y="230" class="t11 bd">reject Error {code,</text>
+      <text x="734" y="244" class="t11 bd">respInfo}</text>
+      <text x="734" y="268" class="t11 od">cancel() → ECANCELED</text>
+
+      <line x1="162" y1="217" x2="220" y2="217" class="e" marker-end="url(#ar2)"/>
+      <text x="192" y="210" text-anchor="middle" class="t11 m">checks</text>
+      <line x1="442" y1="217" x2="500" y2="217" class="e" marker-end="url(#ar2)"/>
+      <text x="472" y="210" text-anchor="middle" class="t11 m">bodyType</text>
+      <line x1="662" y1="217" x2="720" y2="217" class="e" marker-end="url(#ar2)"/>
+      <text x="692" y="210" text-anchor="middle" class="t11 m">callback</text>
+
+      <polyline points="87,180 87,40 194,40" class="e" marker-end="url(#ar2)"/>
+      <text x="95" y="112" class="t11 m">returns</text>
+      <text x="95" y="126" class="t11 m">at once</text>
+
+      <line x1="560" y1="180" x2="560" y2="68" class="e" marker-end="url(#ar2)"/>
+      <text x="552" y="92" text-anchor="end" class="t11 m">events, filtered by taskId</text>
+      <text x="552" y="106" text-anchor="end" class="t11">State → stateChange</text>
+      <text x="552" y="120" text-anchor="end" class="t11">Progress → progress</text>
+      <text x="552" y="134" text-anchor="end" class="t11">Progress-upload → uploadProgress</text>
+      <text x="552" y="148" text-anchor="end" class="t11">ServerPush → part</text>
+
+      <line x1="620" y1="66" x2="620" y2="178" class="e" marker-end="url(#ar2)"/>
+      <text x="628" y="100" class="t11">cancel()</text>
+      <text x="628" y="114" class="t11 m">→ native cancelRequest</text>
+      <text x="628" y="128" class="t11 m">the task rejects</text>
+      <text x="628" y="142" class="t11 m">ECANCELED at once</text>
+
+      <line x1="332" y1="276" x2="332" y2="316" class="e e-bad" marker-end="url(#ar2b)"/>
+      <rect x="232" y="318" width="200" height="26" rx="4" class="n n-bad"/>
+      <text x="332" y="335" text-anchor="middle" class="bd">EINVAL before native</text>
+      <text x="232" y="362" class="t11 m">a body on GET/HEAD · CR, LF or NUL in a header</text>
+      <text x="232" y="376" class="t11 m">appendExt with a separator · an unknown body shape</text>
+    </svg>

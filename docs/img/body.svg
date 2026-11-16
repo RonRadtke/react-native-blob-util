@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" width="920" viewBox="0 0 920 346" role="img" aria-label="Explicit body forms map straight to a kind: {text} to text, {base64} to base64, {file} to file, bytes to base64. A plain string goes through two questions: does it start with the wrap prefix (then file), does its Content-Type say ;base64 or application/octet (then base64), otherwise text. A multipart array classifies each field the same way.">
+<style>
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #1f2328; }
+svg.d .n { fill: #ffffff; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .n-new { stroke: #0c6c78; }
+svg.d .n-old { stroke: #96661a; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #a63b3b; fill: #f7e2e2; }
+svg.d .n-soft { fill: #e0eff1; stroke: none; }
+svg.d .hollow { fill: none; }
+svg.d .e { fill: none; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #a63b3b; }
+svg.d .e-old { stroke: #96661a; }
+svg.d text { fill: #1f2328; font-size: 12px; }
+svg.d .t11 { font-size: 11px; }
+svg.d .m { fill: #656d76; }
+svg.d .ac { fill: #0c6c78; }
+svg.d .bd { fill: #a63b3b; }
+svg.d .od { fill: #96661a; }
+svg.d .b { font-weight: 600; }
+svg.d .sans { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+svg.d .halo { paint-order: stroke; stroke: #ffffff; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #1f2328; }
+svg.d marker.bad path { fill: #a63b3b; }
+@media (prefers-color-scheme: dark) {
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #e6edf3; }
+svg.d .n { fill: #161b22; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .n-new { stroke: #62c3cf; }
+svg.d .n-old { stroke: #d8a94c; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #e27e7e; fill: #3c2222; }
+svg.d .n-soft { fill: #173238; stroke: none; }
+svg.d .e { fill: none; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #e27e7e; }
+svg.d .e-old { stroke: #d8a94c; }
+svg.d text { fill: #e6edf3; font-size: 12px; }
+svg.d .m { fill: #8b949e; }
+svg.d .ac { fill: #62c3cf; }
+svg.d .bd { fill: #e27e7e; }
+svg.d .od { fill: #d8a94c; }
+svg.d .halo { paint-order: stroke; stroke: #0d1117; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #e6edf3; }
+svg.d marker.bad path { fill: #e27e7e; }
+}
+</style>
+      <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <text x="16" y="22" class="t11 m sans">explicit forms: never guessed</text>
+      <rect x="16" y="36" width="196" height="26" rx="4" class="n n-new"/><text x="26" y="53">{text: string}</text>
+      <line x1="212" y1="49" x2="250" y2="49" class="e" marker-end="url(#ar3)"/>
+      <rect x="256" y="36" width="80" height="26" rx="4" class="n"/><text x="296" y="53" text-anchor="middle" class="b">text</text>
+      <text x="346" y="53" class="t11 m">sent as it is, never read as a file</text>
+
+      <rect x="16" y="72" width="196" height="26" rx="4" class="n n-new"/><text x="26" y="89">{base64: string}</text>
+      <line x1="212" y1="85" x2="250" y2="85" class="e" marker-end="url(#ar3)"/>
+      <rect x="256" y="72" width="80" height="26" rx="4" class="n"/><text x="296" y="89" text-anchor="middle" class="b">base64</text>
+
+      <rect x="16" y="108" width="196" height="26" rx="4" class="n n-new"/><text x="26" y="125">{file: path}</text>
+      <line x1="212" y1="121" x2="250" y2="121" class="e" marker-end="url(#ar3)"/>
+      <rect x="256" y="108" width="80" height="26" rx="4" class="n"/><text x="296" y="125" text-anchor="middle" class="b">file</text>
+      <text x="346" y="125" class="t11 m">or content:// on Android</text>
+
+      <rect x="16" y="144" width="196" height="26" rx="4" class="n n-new"/><text x="26" y="161">ArrayBuffer | TypedArray</text>
+      <line x1="212" y1="157" x2="250" y2="157" class="e" marker-end="url(#ar3)"/>
+      <rect x="256" y="144" width="80" height="26" rx="4" class="n"/><text x="296" y="161" text-anchor="middle" class="b">base64</text>
+      <text x="346" y="161" class="t11 m">encoded in JS</text>
+
+      <text x="540" y="22" class="t11 m sans">a plain string: the 0.x rule, kept</text>
+      <rect x="540" y="36" width="240" height="40" rx="4" class="n"/>
+      <text x="660" y="60" text-anchor="middle" class="t11">starts with the wrap() prefix?</text>
+      <line x1="780" y1="56" x2="814" y2="56" class="e" marker-end="url(#ar3)"/>
+      <text x="798" y="50" text-anchor="middle" class="t11 m">yes</text>
+      <rect x="818" y="43" width="80" height="26" rx="4" class="n"/><text x="858" y="60" text-anchor="middle" class="b">file</text>
+      <line x1="660" y1="76" x2="660" y2="98" class="e" marker-end="url(#ar3)"/>
+      <text x="668" y="92" class="t11 m">no</text>
+      <rect x="540" y="100" width="240" height="52" rx="4" class="n"/>
+      <text x="660" y="120" text-anchor="middle" class="t11">Content-Type ends in ;base64</text>
+      <text x="660" y="136" text-anchor="middle" class="t11">or starts with application/octet?</text>
+      <line x1="780" y1="126" x2="814" y2="126" class="e" marker-end="url(#ar3)"/>
+      <text x="798" y="120" text-anchor="middle" class="t11 m">yes</text>
+      <rect x="818" y="113" width="80" height="26" rx="4" class="n"/><text x="858" y="130" text-anchor="middle" class="b">base64</text>
+      <line x1="660" y1="152" x2="660" y2="174" class="e" marker-end="url(#ar3)"/>
+      <text x="668" y="168" class="t11 m">no</text>
+      <rect x="620" y="176" width="80" height="26" rx="4" class="n"/><text x="660" y="193" text-anchor="middle" class="b">text</text>
+
+      <rect x="16" y="226" width="882" height="104" rx="6" class="n"/>
+      <text x="28" y="246" class="b sans">multipart: FormField[], one kind per field</text>
+      <text x="28" y="266" class="t11">data given as {text}, {base64}, {file} or bytes → that kind</text>
+      <text x="28" y="282" class="t11">a plain string with a filename → wrap() prefix ? file : base64 · a plain string without one → text</text>
+      <text x="28" y="298" class="t11">a file part without a filename is named after the file · name and filename are escaped (%22 %0D %0A) · a type with CR/LF rejects EINVAL</text>
+      <text x="28" y="314" class="t11 m">every kind travels as options.bodyType · a missing Content-Type becomes text/plain;charset=UTF-8 for text and application/octet-stream otherwise</text>
+    </svg>

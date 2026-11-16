@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="d" width="900" viewBox="0 0 900 150" role="img" aria-label="Without path, fileCache or key the body is held in memory as utf8 when its bytes decode as UTF-8 and as base64 otherwise; with path, fileCache, key or the download manager it is written to a file and res.path() names it.">
+<style>
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #1f2328; }
+svg.d .n { fill: #ffffff; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .n-new { stroke: #0c6c78; }
+svg.d .n-old { stroke: #96661a; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #a63b3b; fill: #f7e2e2; }
+svg.d .n-soft { fill: #e0eff1; stroke: none; }
+svg.d .hollow { fill: none; }
+svg.d .e { fill: none; stroke: #1f2328; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #a63b3b; }
+svg.d .e-old { stroke: #96661a; }
+svg.d text { fill: #1f2328; font-size: 12px; }
+svg.d .t11 { font-size: 11px; }
+svg.d .m { fill: #656d76; }
+svg.d .ac { fill: #0c6c78; }
+svg.d .bd { fill: #a63b3b; }
+svg.d .od { fill: #96661a; }
+svg.d .b { font-weight: 600; }
+svg.d .sans { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+svg.d .halo { paint-order: stroke; stroke: #ffffff; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #1f2328; }
+svg.d marker.bad path { fill: #a63b3b; }
+@media (prefers-color-scheme: dark) {
+svg.d { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; color: #e6edf3; }
+svg.d .n { fill: #161b22; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .n-new { stroke: #62c3cf; }
+svg.d .n-old { stroke: #d8a94c; stroke-dasharray: 4 3; }
+svg.d .n-bad { stroke: #e27e7e; fill: #3c2222; }
+svg.d .n-soft { fill: #173238; stroke: none; }
+svg.d .e { fill: none; stroke: #e6edf3; stroke-width: 1.2; }
+svg.d .e-bad { stroke: #e27e7e; }
+svg.d .e-old { stroke: #d8a94c; }
+svg.d text { fill: #e6edf3; font-size: 12px; }
+svg.d .m { fill: #8b949e; }
+svg.d .ac { fill: #62c3cf; }
+svg.d .bd { fill: #e27e7e; }
+svg.d .od { fill: #d8a94c; }
+svg.d .halo { paint-order: stroke; stroke: #0d1117; stroke-width: 5px; stroke-linejoin: round; font-weight: 600; }
+svg.d marker path { fill: #e6edf3; }
+svg.d marker.bad path { fill: #e27e7e; }
+}
+</style>
+      <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect x="12" y="16" width="250" height="40" rx="6" class="n"/>
+      <text x="24" y="40" class="t11">config(): no path, fileCache or key</text>
+      <line x1="262" y1="36" x2="438" y2="36" class="e" marker-end="url(#ar4)"/>
+      <rect x="440" y="10" width="448" height="52" rx="6" class="n n-new"/>
+      <text x="452" y="30" class="t11"><tspan class="b">in memory.</tspan> type 'utf8' when the bytes decode as UTF-8,</text>
+      <text x="452" y="46" class="t11">'base64' otherwise; respType says what the Content-Type was</text>
+
+      <rect x="12" y="86" width="250" height="40" rx="6" class="n"/>
+      <text x="24" y="104" class="t11">config({path | fileCache | key})</text>
+      <text x="24" y="118" class="t11 m">or android.downloadManager</text>
+      <line x1="262" y1="106" x2="438" y2="106" class="e" marker-end="url(#ar4)"/>
+      <rect x="440" y="80" width="448" height="52" rx="6" class="n n-new"/>
+      <text x="452" y="100" class="t11"><tspan class="b">on disk.</tspan> type 'path', res.path() is the file;</text>
+      <text x="452" y="116" class="t11">config({session}) adds it to a session, flush() unlinks it</text>
+    </svg>

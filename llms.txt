@@ -1,0 +1,46 @@
+# react-native-blob-util
+
+> File system access, downloads and uploads for React Native (New Architecture, 0.84+) on Android, iOS and Windows. Requests and file operations run in native code; a response can be written straight to a file and an upload read straight from one, so large data never passes through JavaScript. Every rejection is an Error with a `code` (ENOENT, EINVAL, ENOTSUP, ...). A call a platform cannot make rejects ENOTSUP.
+
+Imports: `import ReactNativeBlobUtil, {fetch, config, fs, open, media, background, session, wrap, base64, CanceledFetchError, FetchBlobResponse, URIUtil, getUUID} from 'react-native-blob-util'`. Types: `index.d.ts`.
+
+## API in one screen
+
+- `fetch(method, url, headers?, body?)` → task (a Promise of a response). An HTTP error status resolves; check `res.ok`. Body: `{text}`, `{base64}`, `{file: path}`, `ArrayBuffer`/typed array, or `[{name, data, filename?, type?}]` for multipart. GET/HEAD with a body reject EINVAL.
+- `config(options).fetch(...)`: `path` (write the response to a file), `fileCache`, `appendExt`, `overwrite`, `resumable` (continue via `<path>.part`), `background: {id}` (system download that outlives the app), `timeout`, `followRedirect`, `transform`, `trusty`, `customCACerts`, `pinnedHosts`, `trustSystemCerts`, `auto`, `binaryContentTypes`, `session`, `key`, `android: {downloadManager, wifiOnly, targetHostIp}`, `ios: {backgroundTask}`.
+- task: `.progress({interval, count}?, (received, total) => …)`, `.uploadProgress(…)`, `.stateChange(info => …)`, `.part(chunk => …)`, `.cancel()` (rejects ECANCELED), `.pause()`, `.resume()` (GET to `path` only), `.taskId`.
+- response: `status`, `ok`, `headers`, `url`, `path()`, `text()`, `json()`, `base64()`, `array()`, `arrayBuffer()`, `flush()`, `readFile(enc)`, `readStream(enc)`, `session(name)`, `info()`.
+- `background.list()` → `[{id, url, path, state: 'running'|'paused'|'completed'|'failed', written, total, error?}]`; `background.attach(id)` → task; `background.forget(id)`.
+- `fs.dirs`: `DocumentDir`, `CacheDir`, `TemporaryDir`, `MainBundleDir`, `LibraryDir`, `ApplicationSupportDir`, `DownloadDir`, `PictureDir`, `MusicDir`, `MovieDir`, `DCIMDir`, `RingtoneDir`, `ExternalCacheDir`, `RoamingDir`, `Legacy*Dir` ("" where a platform has none).
+- Encodings: `utf8` (default), `base64`, `ascii` (number[]), `bytes` (Uint8Array, reads), `uri` (writes: copy the file at that path). Writes also take ArrayBuffer / typed arrays.
+- `fs.readFile(path, enc|{encoding, transform})`, `fs.writeFile(path, data, enc|{encoding, transform, protection})` → bytes, `fs.appendFile`, `fs.createFile` (EEXIST if present), `fs.read(path, {position, length, encoding})`, `fs.write(path, data, {position, encoding})` → bytes, `fs.touch(path, {mtime, ctime})`.
+- `fs.stat(path)` → `{filename, path, size, type, lastModified, created}`, `fs.ls(path, {stats?})`, `fs.exists`, `fs.isDir`, `fs.mkdir(path, {protection?})`, `fs.cp(src, dest)` (files and directories), `fs.mv`, `fs.unlink`, `fs.hash(path, 'md5'|'sha1'|'sha224'|'sha256'|'sha384'|'sha512')`, `fs.slice(src, dest, start, end)`, `fs.df()`.
+- Streams: `fs.readStream(path, {encoding, bufferSize, tick})` → `onData`, `onEnd`, `onError`, `await open()`; `fs.writeStream(path, {encoding, append})` → `write(data)`, `close()`.
+- Paths: plain paths and `file://` URLs; `fs.asset(name)` for bundled assets; Android `fs.resource('raw/name')` and `content://` URIs (read, copy, hash, upload; never turned into paths).
+- Platform calls: iOS `fs.setAttributes(path, {protection, excludeFromBackup})`, `fs.excludeFromBackup`, `fs.appGroupDir`, `fs.appGroupDirSync`, `fs.bundlePath(name)`; Android `fs.externalDirs()`, `fs.sdCardDir()`, `fs.sdCardApplicationDir()`.
+- `open.file(path, {mime, scheme})`, `open.chooser(path, {mime, scheme, title})`, `open.optionsMenu(path, {scheme})` (iOS), `open.pick({mime: string|string[], multiple})` → content URI (Android) or a copied file path (iOS, Windows); null / [] when cancelled.
+- `media` (Android MediaStore): `copyToMediaStore({name, mime, parentFolder}, 'Download'|'Image'|'Video'|'Audio', path)`, `createFile`, `write(uri, path)`, `read(uri, enc)`, `addDownload({title, description, mime, path})`, `scan([{path, mime?}])`; `copyToInternal(uri, dest, {width, height, compression})` on Android and iOS (photo library `ph://`).
+- `session(name)`: `add(path)`, `remove(path)`, `list()`, `dispose()` (deletes the files).
+
+## Docs
+
+- [Installation](docs/installation.md): npm, pod install, Android permissions, Windows, Expo config plugin
+- [Requests](docs/requests.md): fetch, config options, request bodies, multipart, self-signed servers, custom CA certificates
+- [Responses](docs/responses.md): response members, downloading to a file, sessions
+- [Progress and cancel](docs/progress-and-cancel.md): progress events, stateChange, cancel
+- [Downloads](docs/downloads.md): pause and resume, resumable downloads, background downloads
+- [File system](docs/file-system.md): every fs call, directories, encodings
+- [Streams](docs/streams.md): read and write streams
+- [Opening and picking files](docs/open-and-pick.md): open.file, open.chooser, open.pick
+- [Android](docs/android.md): DownloadManager, MediaStore, content URIs, resources
+- [iOS](docs/ios.md): data protection, photo library, app groups, background transfers
+- [Windows](docs/windows.md): packaging, BITS, differences
+- [File transformer](docs/file-transformer.md): transform files on their way to storage
+- [Errors](docs/errors.md): the error codes
+- [Troubleshooting](docs/troubleshooting.md)
+- [API reference](docs/api-reference.md): every export
+
+## Optional
+
+- [Migration from 0.x](Migration.md)
+- [TypeScript declarations](index.d.ts)

@@ -31,7 +31,7 @@ function packedFiles() {
     return packed;
 }
 
-test('the tarball ships the JS, the spec and the three native modules', () => {
+test('the tarball ships the JS, the spec, the three native modules and the docs', () => {
     const files = packedFiles();
     for (const file of [
         'index.js',
@@ -44,6 +44,9 @@ test('the tarball ships the JS, the spec and the three native modules', () => {
         'ios/ReactNativeBlobUtil/ReactNativeBlobUtil.mm',
         'ios/ReactNativeBlobUtilObjC/ReactNativeBlobUtilFileTransformer.h',
         'windows/ReactNativeBlobUtil/ReactNativeBlobUtil.cpp',
+        'llms.txt',
+        'docs/api-reference.md',
+        'docs/img/request.svg',
     ]) {
         assert.ok(files.includes(file), `${file} is missing from the tarball`);
     }
@@ -64,7 +67,9 @@ test('the tarball ships no tests', () => {
 const SHIPPED = [
     /^(index|index\.web|android|background|ios|fetch|fs|media|mediacollection|open|types|app\.plugin)\.js$/,
     /^index\.d\.ts$/,
-    /^(package\.json|README\.md|LICENSE|Migration\.md|NuGet\.config|react-native-blob-util\.podspec)$/,
+    /^(package\.json|README\.md|LICENSE|Migration\.md|NuGet\.config|react-native-blob-util\.podspec|llms\.txt)$/,
+    /^docs\/[\w-]+\.md$/,
+    /^docs\/img\/[\w-]+\.svg$/,
     /^Package\.swift$/,
     /^(class|utils|codegenSpecs)\/[\w.]+\.js$/,
     /^plugin\/([\w]+\/)*[\w.]+\.(js|d\.ts)$/,
@@ -90,7 +95,8 @@ test('the tarball ships only package files', () => {
 test('the react-native peer floor is the version the README promises', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
     const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-    const promised = readme.match(/version \*\*1\.0\.\d+\*\* and up[^\n]*?react native \*\*(\d+\.\d+)\*\* and up/);
-    assert.ok(promised, 'README no longer states the 1.0 compatibility line');
+    // The 1.x row of the compatibility table: | 1.0.1 and up | 0.84 and up, ... |
+    const promised = readme.match(/^\| 1\.0\.\d+ and up \| (\d+\.\d+) and up\b/m);
+    assert.ok(promised, 'README no longer states the 1.x compatibility row');
     assert.equal(pkg.peerDependencies['react-native'], `>=${promised[1]}.0`);
 });

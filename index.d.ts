@@ -5,22 +5,41 @@
 // open.js, media.js, the deprecated android.js, ios.js and mediacollection.js,
 // and class/. Every method here exists
 // at runtime with this signature, and every runtime method is declared here.
+//
+// The documentation, one page per subject, is in docs/ next to this file (and
+// on GitHub); docs/api-reference.md lists every export.
 
+/**
+ * File system access, downloads and uploads for React Native on Android, iOS
+ * and Windows. Holds every namespace; the same objects are named exports.
+ * @see https://github.com/RonRadtke/react-native-blob-util/blob/master/docs/README.md
+ */
 declare const ReactNativeBlobUtil: ReactNativeBlobUtilStatic;
 export default ReactNativeBlobUtil;
+/** The type of the default export. */
 export type ReactNativeBlobUtil = ReactNativeBlobUtilStatic;
 
 // The same objects as the default export's members.
+/** Send an HTTP request; see `ReactNativeBlobUtilStatic.fetch`. */
 export declare const fetch: ReactNativeBlobUtilStatic['fetch'];
+/** A `fetch` bound to options; see `ReactNativeBlobUtilConfig`. */
 export declare const config: ReactNativeBlobUtilStatic['config'];
+/** Files and directories. */
 export declare const fs: FS;
+/** Opening files in other apps, and the file picker. */
 export declare const open: OpenApi;
+/** The shared media library: Android's MediaStore, the iOS photo library. */
 export declare const media: MediaApi;
+/** Downloads that outlive the app. */
 export declare const background: BackgroundApi;
+/** A named list of files that are removed together. */
 export declare const session: ReactNativeBlobUtilStatic['session'];
+/** Mark a path as a file for a plain string request body. */
 export declare const wrap: ReactNativeBlobUtilStatic['wrap'];
+/** Base64 for strings, UTF-8 encoded. */
 export declare const base64: ReactNativeBlobUtilStatic['base64'];
 
+/** The default export: every namespace and function of the library. */
 export interface ReactNativeBlobUtilStatic {
     /**
      * Send an HTTP request with the default configuration. Use
@@ -46,10 +65,15 @@ export interface ReactNativeBlobUtilStatic {
      */
     config(options: ReactNativeBlobUtilConfig): { fetch: ReactNativeBlobUtilStatic['fetch'] };
 
+    /** Base64 for strings: `encode` takes text and UTF-8 encodes it, `decode` returns text. */
     base64: { encode(input: string): string; decode(input: string): string };
+    /** Files and directories. */
     fs: FS;
+    /** Opening files in other apps, and the file picker. */
     open: OpenApi;
+    /** The shared media library: Android's MediaStore, the iOS photo library. */
     media: MediaApi;
+    /** Downloads that outlive the app. */
     background: BackgroundApi;
     /** @deprecated every member forwards to `open.*` or `media.*` */
     android: AndroidApi;
@@ -70,12 +94,18 @@ export interface ReactNativeBlobUtilStatic {
      */
     wrap(path: string): string;
 
+    /** The rejection of a cancelled task. */
     CanceledFetchError: typeof CanceledFetchError;
 }
 
+/** The HTTP methods `fetch` sends, in either case. */
 export type Methods = 'POST' | 'GET' | 'DELETE' | 'PUT' | 'PATCH' | 'HEAD' | 'OPTIONS'
     | 'post' | 'get' | 'delete' | 'put' | 'patch' | 'head' | 'options';
 
+/**
+ * Request headers. `null` and `undefined` values are sent as "". A name or
+ * value with CR, LF or NUL rejects EINVAL.
+ */
 export type RequestHeaders = { [name: string]: string | null | undefined };
 
 /** A body sent as it is, never read as base64 or as a file reference. */
@@ -94,12 +124,20 @@ export type ExplicitBody = TextBody | Base64Body | FileBody | ArrayBuffer | Arra
  * with one. A file part without a `filename` is named after the file.
  */
 export interface FormField {
+    /** The field name. */
     name: string;
+    /** The field's content. */
     data: string | ExplicitBody;
+    /** Makes the part a file part, with this file name. */
     filename?: string;
+    /** The part's MIME type. */
     type?: string;
 }
 
+/**
+ * What `fetch` sends: an explicit body, a multipart form (an array of
+ * fields), a plain string (read by the 0.x rule, see `fetch`), or nothing.
+ */
 export type RequestBody = string | ExplicitBody | FormField[] | null;
 
 /**
@@ -147,7 +185,7 @@ export interface StatefulPromise<T> extends Promise<T> {
      * pending until `resume()` finishes it or `cancel()` ends it. Resolves
      * once the transfer has stopped. Rejects ENOTSUP for anything but a GET to
      * `path` (a download to memory or `fileCache`, an upload, the Android
-     * DownloadManager, an iOS background task).
+     * DownloadManager, an iOS background task, a `background` download).
      */
     pause(): Promise<void>;
 
@@ -162,12 +200,21 @@ export interface StatefulPromise<T> extends Promise<T> {
     resume(): Promise<void>;
 }
 
+/** How often progress is reported. */
 export interface ProgressConfig {
+    /** Report this many times in all; needs a Content-Length. Default unlimited. */
     count?: number;
+    /** Report at most every this many milliseconds; 0 reports every chunk. Default 250. */
     interval?: number;
 }
 
+/**
+ * Download progress: bytes received and the total, -1 while the length is not
+ * known (the last event then reports (n, n)). A resumed download counts on
+ * from the bytes already on disk.
+ */
 export type ProgressHandler = (received: number, total: number, chunk?: string) => void;
+/** Upload progress: bytes sent and the total. */
 export type UploadProgressHandler = (sent: number, total: number) => void;
 
 /**
@@ -177,11 +224,16 @@ export type UploadProgressHandler = (sent: number, total: number) => void;
 export declare class FetchBlobResponse {
     constructor(taskId: string, info: ReactNativeBlobUtilResponseInfo, data: any);
 
+    /** The id of the task that made the request. */
     taskId: string;
+    /** The form of `data`: utf8 text, a base64 string, or the path of the response file. */
     type: 'base64' | 'path' | 'utf8';
+    /** The body as `type` says; prefer `text()`, `base64()`, `path()` and the rest. */
     data: any;
+    /** The response info; the same as `info()`. */
     respInfo: ReactNativeBlobUtilResponseInfo;
 
+    /** The response info: status, headers, redirects, respType. */
     info(): ReactNativeBlobUtilResponseInfo;
 
     /** The HTTP status. An error status resolves like any other response. */
@@ -252,15 +304,23 @@ export declare class FetchBlobResponse {
     readStream(encoding: Encoding): Promise<ReactNativeBlobUtilReadStream>;
 }
 
+/** What native reports about a response, as `stateChange` and `res.info()` give it. */
 export interface ReactNativeBlobUtilResponseInfo {
+    /** The id of the native request. */
     taskId: string;
+    /** The native request's state; "2" once the headers have arrived. */
     state: string;
+    /** The response headers. */
     headers: { [name: string]: string };
+    /** The HTTP status. */
     status: number;
     /** Every URL a redirect went through. */
     redirects?: string[];
+    /** What the Content-Type says the body is: `blob` for binary data. */
     respType: 'text' | 'blob' | '' | 'json';
+    /** The form the body is held in, as `res.type`. */
     rnfbEncode: 'path' | 'base64' | 'utf8';
+    /** True when the request timed out. */
     timeout?: boolean;
 }
 
@@ -324,10 +384,11 @@ export interface ReactNativeBlobUtilConfig {
      * is not running. Run by a background URLSession on iOS, the DownloadManager
      * on Android (which shows a notification while it runs, and uses the
      * system's certificate trust, so customCACerts and trusty do not apply),
-     * and BackgroundDownloader on Windows (packaged apps). Needs GET and
-     * `path`; an id is 1 to 100 letters, digits, ".", "_" or "-". A user who
-     * force-quits an iOS app from the app switcher cancels its background
-     * downloads.
+     * and BITS on Windows. Needs GET and `path`; an id is 1 to 100 letters,
+     * digits, ".", "_" or "-", and one still running rejects EEXIST. A body,
+     * `transform`, `overwrite: false`, `resumable` or the DownloadManager
+     * option rejects EINVAL. A user who force-quits an iOS app from the app
+     * switcher cancels its background downloads.
      */
     background?: boolean | {id?: string};
 
@@ -400,7 +461,10 @@ export interface ReactNativeBlobUtilConfig {
 
     /** Options only iOS reads. */
     ios?: {
-        /** Use a background session so the download continues when the app is suspended. */
+        /**
+         * Run the request in the background session, so it continues while the
+         * app is suspended; it is handed to this task when it ends.
+         */
         backgroundTask?: boolean;
     };
 
@@ -419,11 +483,13 @@ export interface ReactNativeBlobUtilConfig {
 
 /** Options of fs.readFile and fs.writeFile. */
 export interface FileOptions<E> {
+    /** Default utf8. */
     encoding?: E;
     /** Run the registered file transformer (not for ascii). */
     transform?: boolean;
 }
 
+/** Options of `android.downloadManager`: a download run by Android's DownloadManager. */
 export interface AddAndroidDownloads {
     /** Download through the DownloadManager (required for the other options). */
     useDownloadManager?: boolean;
@@ -467,6 +533,7 @@ export type ErrorCode =
  * An error rejected by this library.
  */
 export interface CodedError extends Error {
+    /** What failed; match on this rather than on the message. */
     code: ErrorCode;
 }
 
@@ -475,6 +542,7 @@ export interface CodedError extends Error {
  * before it failed.
  */
 export interface FetchError extends CodedError {
+    /** The response info received before the request failed. */
     respInfo: ReactNativeBlobUtilResponseInfo;
 }
 
@@ -483,10 +551,16 @@ export interface FetchError extends CodedError {
  */
 export declare class CanceledFetchError extends Error {
     constructor(message?: string);
+    /** The error's name. */
     name: 'ReactNativeBlobUtilCanceledFetch';
+    /** Always ECANCELED. */
     code: 'ECANCELED';
 }
 
+/**
+ * How data is passed: `utf8` text, a `base64` string, or `ascii`, an array of
+ * byte values 0..255. An unknown encoding rejects EINVAL.
+ */
 export type Encoding = 'utf8' | 'ascii' | 'base64';
 
 /** Write encodings: `uri` copies the file the data string points at. */
@@ -554,8 +628,15 @@ export interface PickOptions {
     multiple?: boolean;
 }
 
+/** The hashes `fs.hash` computes; `sha224` is not available on Windows. */
 export type HashAlgorithm = 'md5' | 'sha1' | 'sha224' | 'sha256' | 'sha384' | 'sha512';
 
+/**
+ * Files and directories, worked on in native code. Paths are plain paths or
+ * `file://` URLs; Android also takes assets, resources and `content://` URIs
+ * where a call says so.
+ * @see https://github.com/RonRadtke/react-native-blob-util/blob/master/docs/file-system.md
+ */
 export interface FS {
     /**
      * Remove the file or directory at path.
@@ -616,7 +697,8 @@ export interface FS {
     writeStream(path: string, options: {encoding?: Encoding; append?: boolean}): Promise<ReactNativeBlobUtilWriteStream>;
 
     /**
-     * Write data to a file, replacing it. Missing parent directories are created.
+     * Write data to a file, replacing it. Android and iOS create missing parent
+     * directories; on Windows the directory must exist.
      * @param data A string, byte values 0..255 for the ascii encoding, or binary data.
      * @return The number of bytes written.
      */
@@ -761,6 +843,7 @@ export interface FS {
      */
     df(): Promise<ReactNativeBlobUtilDf>;
 
+    /** Well-known directories; "" for one the platform does not have. */
     dirs: Dirs;
 
     /** Android: the external storage root. ENOTSUP elsewhere. */
@@ -769,6 +852,7 @@ export interface FS {
     /** Android: the app's directory on external storage. ENOTSUP elsewhere. */
     sdCardApplicationDir(): Promise<string>;
 
+    /** The session class, for its static session store. */
     ReactNativeBlobUtilSession: typeof ReactNativeBlobUtilSession;
 
     /**
@@ -835,10 +919,13 @@ export interface OpenApi {
 
 /** A background download, as `background.list()` reports it. */
 export interface BackgroundTask {
+    /** The id the download was started with; also its `taskId`. */
     id: string;
+    /** The URL it downloads. */
     url: string;
     /** Where the file goes, and is once the download is completed. */
     path: string;
+    /** `paused` is a download the system holds back, for example while offline. */
     state: 'running' | 'paused' | 'completed' | 'failed';
     /** Bytes so far. */
     written: number;
@@ -850,6 +937,7 @@ export interface BackgroundTask {
 
 /**
  * Downloads that outlive the app, started with `config({path, background})`.
+ * @see https://github.com/RonRadtke/react-native-blob-util/blob/master/docs/downloads.md
  */
 export interface BackgroundApi {
     /**
@@ -890,9 +978,11 @@ export interface MediaApi {
     /**
      * Copy an entry into the app's own storage, overwriting the destination:
      * a `content://` URI on Android, a photo library item on iOS (`ph://<local
-     * identifier>` or `assets-library://`). With `width` or `height` an image
-     * is scaled down to fit and written as JPEG with `compression` (0..1,
-     * default 0.9); a video is copied as it is. ENOTSUP on Windows.
+     * identifier>` or `assets-library://`). Without options the entry is
+     * copied as it is; with `width`, `height` or `compression` an image is
+     * written as JPEG at `compression` (0..1, default 0.9), scaled down to fit
+     * `width` x `height` when they are given. A video is copied as it is.
+     * ENOTSUP on Windows.
      */
     copyToInternal(uri: string, dest: string, options?: {width?: number; height?: number; compression?: number}): Promise<void>;
     /** Read an entry: text, a base64 string, or bytes 0..255. */
@@ -905,11 +995,15 @@ export interface MediaApi {
     scan(files: Array<{ path: string; mime?: string }>): Promise<void>;
 }
 
+/** What `fs.stat` and `fs.ls(path, {stats: true})` report about a file or directory. */
 export interface ReactNativeBlobUtilStat {
+    /** The name, without the directory. */
     filename: string;
+    /** The path; for a content URI, the URI itself. */
     path: string;
     /** Bytes. */
     size: number;
+    /** `asset` for a file bundled with the app. */
     type: 'file' | 'directory' | 'asset';
     /** Milliseconds since the epoch. */
     lastModified: number;
@@ -924,8 +1018,11 @@ export interface ReactNativeBlobUtilStat {
 /** @deprecated use ReactNativeBlobUtilDf */
 export type RNFetchBlobDf = ReactNativeBlobUtilDf;
 
+/** Storage space in bytes, from `fs.df`. */
 export interface ReactNativeBlobUtilDf {
+    /** Free bytes. */
     free: number;
+    /** Total bytes. */
     total: number;
     /** Android only */
     internal_free?: number;
@@ -941,15 +1038,25 @@ export interface ReactNativeBlobUtilDf {
  * Well-known directories. A directory that does not exist on the platform is "".
  */
 export interface Dirs {
+    /** The app's documents: iOS Documents, the Android files directory, Windows LocalFolder. */
     DocumentDir: string;
+    /** The app's cache: iOS Caches, the Android cache directory, Windows LocalCacheFolder. */
     CacheDir: string;
+    /** The app bundle (iOS), the app's data directory (Android), the app package (Windows). */
     MainBundleDir: string;
+    /** iOS Library; Windows LocalFolder; "" on Android. */
     LibraryDir: string;
+    /** iOS Application Support; Windows RoamingFolder; "" on Android. */
     ApplicationSupportDir: string;
+    /** Pictures: the app-specific directory on Android external storage (no permission needed), the user's folder on Windows. */
     PictureDir: string;
+    /** Music, as `PictureDir`. */
     MusicDir: string;
+    /** Movies, as `PictureDir`. */
     MovieDir: string;
+    /** Downloads, as `PictureDir`. */
     DownloadDir: string;
+    /** Android: the app-specific DCIM directory; Windows: the camera roll; "" on iOS. */
     DCIMDir: string;
     /** Android: the ringtone directory; "" elsewhere. */
     RingtoneDir: string;
@@ -966,35 +1073,57 @@ export interface Dirs {
     SDCardDir: string;
     /** @deprecated */
     SDCardApplicationDir: string;
+    /**
+     * Android: the shared public Pictures directory, writable up to Android 9
+     * with WRITE_EXTERNAL_STORAGE; use `media` on 10 and up. "" elsewhere.
+     */
     LegacyPictureDir: string;
+    /** Android: the shared public Music directory, as `LegacyPictureDir`. */
     LegacyMusicDir: string;
+    /** Android: the shared public Movies directory, as `LegacyPictureDir`. */
     LegacyMovieDir: string;
+    /** Android: the shared public Download directory, as `LegacyPictureDir`. */
     LegacyDownloadDir: string;
+    /** Android: the shared public DCIM directory, as `LegacyPictureDir`. */
     LegacyDCIMDir: string;
+    /** Android: the shared public Ringtones directory, as `LegacyPictureDir`. */
     LegacyRingtoneDir: string;
     /** @deprecated */
     LegacySDCardDir: string;
 }
 
+/** A stream writing a file in chunks, from `fs.writeStream`. Close it when done. */
 export declare class ReactNativeBlobUtilWriteStream {
+    /** The id native knows the stream by. */
     id: string;
+    /** The encoding of the chunks. */
     encoding: string;
+    /** Whether the stream appends to the file. */
     append: boolean;
 
     /**
      * Write a chunk: a string, or byte values 0..255 for an ascii stream.
+     * Resolves the stream, so writes chain; rejects EBADF once it is closed.
      */
     write(data: string | number[]): Promise<ReactNativeBlobUtilWriteStream>;
 
+    /** Close the stream. Rejects EBADF when it is already closed. */
     close(): Promise<void>;
 }
 
+/** A stream reading a file in chunks, from `fs.readStream`. */
 export declare class ReactNativeBlobUtilReadStream {
+    /** The file being read. */
     path: string;
+    /** The encoding of the chunks. */
     encoding: Encoding;
+    /** Bytes per chunk. */
     bufferSize?: number;
+    /** Milliseconds between chunks. */
     tick: number;
+    /** Whether the stream has ended or failed; it cannot be opened again. */
     closed: boolean;
+    /** The id native knows the stream by. */
     streamId: string;
 
     /**
@@ -1009,8 +1138,10 @@ export declare class ReactNativeBlobUtilReadStream {
      */
     onData(fn: (chunk: string | number[]) => void): void;
 
+    /** Called when reading fails; with it set, the rejection of `open()` counts as handled. */
     onError(fn: (err: CodedError) => void): void;
 
+    /** Called once the end of the file is reached. */
     onEnd(fn: () => void): void;
 }
 
@@ -1023,12 +1154,16 @@ export type ReactNativeBlobUtilStream = ReactNativeBlobUtilReadStream;
 export declare class ReactNativeBlobUtilSession {
     constructor(name: string, list?: string[]);
 
+    /** The session's name. */
     name: string;
 
+    /** Add a path to the session. */
     add(path: string): ReactNativeBlobUtilSession;
 
+    /** Take a path out of the session; the file stays. */
     remove(path: string): ReactNativeBlobUtilSession;
 
+    /** The paths in the session. */
     list(): string[];
 
     /**
@@ -1036,10 +1171,13 @@ export declare class ReactNativeBlobUtilSession {
      */
     dispose(): Promise<void>;
 
+    /** The paths of a session, or undefined when there is none. Sessions live in memory only. */
     static getSession(name: string): string[] | undefined;
 
+    /** Replace the paths of a session. */
     static setSession(name: string, list: string[]): void;
 
+    /** Forget a session; its files stay. */
     static removeSession(name: string): void;
 }
 
@@ -1109,8 +1247,10 @@ export interface AndroidApi {
      */
     addCompleteDownload(options: AndroidDownloadOption): Promise<void>;
 
+    /** The external storage root. Use `fs.sdCardDir`. */
     getSDCardDir(): Promise<string>;
 
+    /** The app's directory on external storage. Use `fs.sdCardApplicationDir`. */
     getSDCardApplicationDir(): Promise<string>;
 
     /**
@@ -1120,6 +1260,7 @@ export interface AndroidApi {
     scanFile(pairs: Array<{ path: string; mime?: string }>): Promise<void>;
 }
 
+/** A finished download to list in the Downloads app (`media.addDownload`). */
 export interface AndroidDownloadOption {
     /** Title shown in the Downloads app. */
     title: string;
@@ -1135,6 +1276,7 @@ export interface AndroidDownloadOption {
     showNotification?: boolean;
 }
 
+/** A MediaStore collection. */
 export type Mediatype = 'Audio' | 'Image' | 'Video' | 'Download';
 
 /**
@@ -1199,6 +1341,7 @@ export interface MediaCollection {
     writeToMediafileWithTransform(uri: string, path: string): Promise<string>;
 }
 
+/** Helpers for the `wrap(path)` references of request bodies. */
 export declare const URIUtil: {
     /** Whether a string is a `wrap(path)` reference, to a file or to a content URI. */
     isFileURI(uri: string): boolean;
