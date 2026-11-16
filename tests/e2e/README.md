@@ -184,9 +184,17 @@ added locally to `parity/cases.js` (not committed): one that starts
    app's data): `list()` reports the download `completed`, `attach(id)` resolves with
    its path, and the record is gone afterwards.
 
+On iOS the second case cannot go through the runner: an Appium session reinstalls the
+app, so its data container, with the record store and the downloaded file, is a new
+one. Watch the second half from the host instead: the app's process
+(`pgrep -f ReactNativeBlobUtilE2E.app`), the record file under the container's
+Application Support, and the destination file.
+
 Measured on 2026-11-16: Android 14 emulator (the receiver moved the file two
-seconds after the process was killed) and Windows 11 (BITS completed it while the
-app was closed).
+seconds after the process was killed), Windows 11 (BITS completed it while the
+app was closed) and the iOS 26.5 simulator (with no app process for 27 seconds the
+record stayed `running`; iOS then relaunched the app for the session's events, the
+record turned `completed` and the file was at its destination three seconds later).
 
 The Android emulator's network path loses bytes of a fast burst from the host (raw
 `nc` on the emulator shows it too, while the host receives the same responses

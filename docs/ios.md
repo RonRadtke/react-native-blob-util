@@ -80,8 +80,9 @@ background `URLSession`, so it goes on while the app is suspended or closed. Add
 [AppDelegate method](installation.md#ios) so a download that ends while the app is not running is
 finished at once; without it it is found on the next start.
 
-`ios.backgroundTask: true` runs a request in the same session, under the task's id, and is handed
-to the task that started it; it does not stay in `background.list()` once delivered.
+`ios.backgroundTask: true` on a `GET` to a file (`path`) runs the download in the same session,
+under the task's id, and hands it to the task that started it; it does not stay in
+`background.list()` once delivered. Any other request with it runs as an ordinary request.
 
 Two iOS rules apply: a user who force-quits the app from the app switcher cancels its background
 downloads, and the system may delay them on low battery or a poor network.

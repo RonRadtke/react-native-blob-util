@@ -462,8 +462,9 @@ export interface ReactNativeBlobUtilConfig {
     /** Options only iOS reads. */
     ios?: {
         /**
-         * Run the request in the background session, so it continues while the
-         * app is suspended; it is handed to this task when it ends.
+         * Run a GET to a file (`path`) in the library's background session, so
+         * it continues while the app is suspended; it is handed to this task
+         * when it ends. Any other request runs as an ordinary one.
          */
         backgroundTask?: boolean;
     };
