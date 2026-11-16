@@ -408,7 +408,8 @@
     "MusicDir": "<MusicDir>",
     "PictureDir": "<PictureDir>",
     "SDCardApplicationDir": "<SDCardApplicationDir>",
-    "SDCardDir": "<SDCardDir>"
+    "SDCardDir": "<SDCardDir>",
+    "TemporaryDir": "<CacheDir>"
   },
   "cp-mv": {
     "cp": {
@@ -710,7 +711,7 @@
       "status": 200,
       "taskId": "string"
     },
-    "knownTotalReported": false,
+    "knownTotalReported": true,
     "text": "chunk-1\nchunk-2\nchunk-3\n"
   },
   "fetch-cookies": {
