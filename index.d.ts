@@ -633,8 +633,8 @@ export type HashAlgorithm = 'md5' | 'sha1' | 'sha224' | 'sha256' | 'sha384' | 's
 
 /**
  * Files and directories, worked on in native code. Paths are plain paths or
- * `file://` URLs; Android also takes assets, resources and `content://` URIs
- * where a call says so.
+ * `file://` URLs; Android and iOS also take assets, and Android resources and
+ * `content://` URIs, where a call says so.
  * @see https://github.com/RonRadtke/react-native-blob-util/blob/master/docs/file-system.md
  */
 export interface FS {
@@ -810,8 +810,8 @@ export interface FS {
     slice(src: string, dest: string, start?: number, end?: number): Promise<void>;
 
     /**
-     * The path of a bundled asset, for use with the other fs calls. On Android
-     * `ls` lists an asset directory, and `exists` and `stat` see compressed
+     * The path of a bundled asset, for use with the other fs calls. `ls` lists
+     * an asset directory, and on Android `exists` and `stat` see compressed
      * assets too.
      */
     asset(path: string): string;

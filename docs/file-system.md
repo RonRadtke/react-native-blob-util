@@ -84,8 +84,8 @@ fs.write(path, data, {position?, encoding?}): Promise<number>
 
 `read` reads `length` bytes from `position` (default 0), or to the end without a length. A range
 past the end of the file reads what is there, possibly nothing. A range that ends inside a UTF-8
-character decodes the broken tail as U+FFFD. It reads files, and on Android assets, resources and
-content URIs.
+character decodes the broken tail as U+FFFD. It reads files and assets, and on Android also
+resources and content URIs.
 
 `write` writes at `position`, overwriting what is there and keeping the rest of the file; without
 a position the data is appended. A missing file is created (its directory must exist, else
@@ -110,9 +110,10 @@ fs.touch(path, {mtime?: Date | number, ctime?: Date | number}): Promise<void>
 ```
 
 Sets the modification time (default now) and, where the platform keeps a settable one (iOS,
-Windows), the creation time; without `ctime` the creation time stays. A missing file is created
-empty, as `touch` does; its directory must exist (`ENOENT`). Works on a directory too. Times are a
-`Date` or milliseconds since the epoch.
+Windows), the creation time; without `ctime` the creation time stays. On iOS the file system keeps
+no creation time later than the modification time, so an `mtime` before the creation time moves the
+creation time back to it. A missing file is created empty, as `touch` does; its directory must
+exist (`ENOENT`). Works on a directory too. Times are a `Date` or milliseconds since the epoch.
 
 ```js
 await fs.touch(path);                                          // now
@@ -184,7 +185,7 @@ fs.resource(name: string): string   // Android
 ```
 
 `fs.asset` names a file bundled with the app (Android `assets/`, the iOS app bundle) for the other
-calls and for `wrap()`. On Android, `ls` lists an asset directory, and `exists` and `stat` see
+calls and for `wrap()`. `ls` lists an asset directory, and on Android `exists` and `stat` see
 compressed assets as well.
 
 `fs.resource('<type>/<name>')` names an Android app resource without its extension, such as
@@ -195,7 +196,7 @@ Windows.
 ```js
 const text = await fs.readFile(fs.asset('licenses.txt'));
 await fs.cp(fs.asset('default.db'), fs.dirs.DocumentDir + '/app.db');
-const names = await fs.ls(fs.asset('templates'));                   // Android
+const names = await fs.ls(fs.asset('templates'));
 const config = await fs.readFile(fs.resource('raw/defaults'));      // Android
 ```
 
