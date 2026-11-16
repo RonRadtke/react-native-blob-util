@@ -1019,6 +1019,331 @@ define('android-misc', async () => {
     };
 }, ['android']);
 
+// A download through the DownloadManager resolves with the file the DownloadManager
+// wrote. It never replaces a file, so a second download to one path went to
+// `name-1` and resolved with the old file; a "#" or "%20" in the name sent the file
+// to another name and the request failed; without a path it resolved with a path in
+// the DownloadManager's own cache, which the app cannot open; and a destination the
+// DownloadManager refuses ended the app.
+define('android-download-manager', async (ctx) => {
+    const dir = `${fs.dirs.DownloadDir}/parity-dm`;
+    if (await fs.exists(dir)) {
+        await fs.unlink(dir);
+    }
+    await fs.mkdir(dir);
+    const expected = bytesToBase64(range(256, (i) => i));
+    const download = (downloadManager, extra = {}, route = '/binary') => ReactNativeBlobUtil.config({
+        ...extra,
+        android: {
+            downloadManager: {
+                useDownloadManager: true,
+                notification: true,
+                title: 'parity-dm',
+                mime: 'application/octet-stream',
+                ...downloadManager,
+            },
+        },
+    }).fetch('GET', ctx.url(route));
+    const matches = async (path) => (await fs.readFile(path, 'base64')) === expected;
+    const listing = async () => [...await fs.ls(dir)].sort();
+    const target = `${dir}/a b#1 %20.bin`;
+
+    return {
+        named: await settle(async () => {
+            const path = (await download({path: target})).path();
+            return {atTarget: path === target, matches: await matches(path)};
+        }),
+        again: await settle(async () => {
+            const path = (await download({path: target})).path();
+            return {atTarget: path === target, matches: await matches(path), files: await listing()};
+        }),
+        keepExisting: await settle(async () => {
+            const path = (await download({path: target}, {overwrite: false})).path();
+            return {path: describeValue(path), matches: await matches(path), files: await listing()};
+        }),
+        noPath: await settle(async () => {
+            const uri = (await download({})).path();
+            const out = {uri: String(uri).replace(/\d+$/, '<id>'), matches: await matches(uri)};
+            await fs.unlink(uri);
+            return out;
+        }),
+        storeLocal: await settle(async () => {
+            const path = (await download({storeLocal: true})).path();
+            const out = {insideDownloadDir: path.startsWith(`${fs.dirs.DownloadDir}/`), matches: await matches(path)};
+            await fs.unlink(path);
+            return out;
+        }),
+        httpError: await settle(() => download({path: `${dir}/missing.bin`}, {}, '/status/404')),
+        refusedDestination: await settle(() => download({path: `${fs.dirs.DocumentDir}/parity-dm.bin`})),
+        cancel: await settle(() => {
+            const task = download({path: `${dir}/cancelled.bin`}, {}, '/slow?ms=5000');
+            setTimeout(() => task.cancel(), 300);
+            return task;
+        }),
+    };
+}, ['android']);
+
+// ---------------------------------------------------------------------------
+// 1.2.0 file-system additions
+
+// A Uint8Array reaches the golden as its kind and its bytes.
+const bytesSummary = (value) => ({
+    kind: value instanceof Uint8Array ? 'Uint8Array' : Array.isArray(value) ? 'array' : typeof value,
+    bytes: value instanceof Uint8Array || Array.isArray(value) ? Array.from(value) : describeValue(value),
+});
+
+define('fs-read-range', async () => {
+    const dir = await freshDir('fs-read-range');
+    const file = `${dir}/bytes.bin`;
+    // 68 c3 a9 00 ff 41
+    await fs.createFile(file, 'aMOpAP9B', 'base64');
+    const read = (options) => settle(() => fs.read(file, options));
+    return {
+        all: await settle(async () => Array.from(await fs.read(file), (c) => c.codePointAt(0))),
+        allBase64: await read({encoding: 'base64'}),
+        middle: await read({position: 1, length: 2, encoding: 'base64'}),
+        tail: await read({position: 4, encoding: 'base64'}),
+        brokenCharacter: await settle(async () => Array.from(await fs.read(file, {length: 2}), (c) => c.codePointAt(0))),
+        ascii: await read({position: 3, encoding: 'ascii'}),
+        bytes: await settle(async () => bytesSummary(await fs.read(file, {position: 1, length: 3, encoding: 'bytes'}))),
+        zeroLength: await read({position: 2, length: 0, encoding: 'base64'}),
+        pastTheEnd: await read({position: 100, encoding: 'base64'}),
+        lengthPastTheEnd: await read({position: 5, length: 100, encoding: 'base64'}),
+        missing: await settle(() => fs.read(`${dir}/missing.bin`)),
+        directory: await settle(() => fs.read(dir)),
+        negative: await settle(() => fs.read(file, {position: -1})),
+    };
+});
+
+define('fs-write-range', async () => {
+    const dir = await freshDir('fs-write-range');
+    const file = `${dir}/text.txt`;
+    await fs.writeFile(file, 'abcdef', 'utf8');
+    const content = () => settle(() => fs.readFile(file, 'base64'));
+    const out = {};
+    out.overwrite = await settle(() => fs.write(file, 'XY', {position: 2}));
+    out.afterOverwrite = await settle(() => fs.readFile(file, 'utf8'));
+    out.append = await settle(() => fs.write(file, '!'));
+    out.afterAppend = await settle(() => fs.readFile(file, 'utf8'));
+    out.pastTheEnd = await settle(() => fs.write(file, [0x7a], {position: 9, encoding: 'ascii'}));
+    out.afterPastTheEnd = await content();
+    out.bytes = await settle(() => fs.write(file, new Uint8Array([1, 2]), {position: 0}));
+    out.afterBytes = await content();
+    out.utf8 = await settle(() => fs.write(file, 'é', {position: 3}));
+    out.afterUtf8 = await content();
+    out.newFile = await settle(() => fs.write(`${dir}/new.txt`, 'fresh', {position: 0}));
+    out.newFileContent = await settle(() => fs.readFile(`${dir}/new.txt`, 'utf8'));
+    out.missingDirectory = await settle(() => fs.write(`${dir}/no/such/dir.txt`, 'x'));
+    out.directory = await settle(() => fs.write(dir, 'x'));
+    out.badPosition = await settle(() => fs.write(file, 'x', {position: 1.5}));
+    return out;
+});
+
+define('fs-touch', async () => {
+    const dir = await freshDir('fs-touch');
+    const file = `${dir}/touched.txt`;
+    const statOf = async (path) => {
+        const stat = await fs.stat(path);
+        return {size: stat.size, lastModified: stat.lastModified, created: stat.created};
+    };
+    const out = {};
+    out.create = await settle(() => fs.touch(file, {mtime: 1500000000000}));
+    out.created = await settle(() => statOf(file));
+    await fs.writeFile(file, 'kept', 'utf8');
+    out.times = await settle(() => fs.touch(file, {mtime: new Date(1600000000000), ctime: 1400000000000}));
+    out.afterTimes = await settle(() => statOf(file));
+    out.contentKept = await settle(() => fs.readFile(file, 'utf8'));
+    out.directory = await settle(() => fs.touch(dir, {mtime: 1500000000000}));
+    out.directoryTime = await settle(async () => (await fs.stat(dir)).lastModified);
+    out.now = await settle(async () => {
+        await fs.touch(file);
+        return timeKind((await fs.stat(file)).lastModified);
+    });
+    out.missingDirectory = await settle(() => fs.touch(`${dir}/no/such.txt`));
+    out.badTime = await settle(() => fs.touch(file, {mtime: 'yesterday'}));
+    return out;
+});
+
+define('fs-created', async () => {
+    const dir = await freshDir('fs-created');
+    await fs.createFile(`${dir}/a.txt`, 'a', 'utf8');
+    const kind = (value) => (value === null ? null : timeKind(value));
+    const [entry] = await fs.ls(dir, {stats: true});
+    return {
+        file: kind((await fs.stat(`${dir}/a.txt`)).created),
+        directory: kind((await fs.stat(dir)).created),
+        lsEntry: kind(entry.created),
+    };
+});
+
+define('fs-bytes', async () => {
+    const dir = await freshDir('fs-bytes');
+    const file = `${dir}/bytes.bin`;
+    const out = {};
+    out.writeTyped = await settle(() => fs.writeFile(file, new Uint8Array([0, 1, 254, 255])));
+    out.appendBuffer = await settle(() => fs.appendFile(file, new Uint8Array([7, 8]).buffer));
+    out.appendView = await settle(() => fs.appendFile(file, new Uint8Array([1, 2, 3, 4]).subarray(1, 3)));
+    out.readBytes = await settle(async () => bytesSummary(await fs.readFile(file, 'bytes')));
+    out.readBytesOption = await settle(async () => bytesSummary(await fs.readFile(file, {encoding: 'bytes'})));
+    out.createBytes = await settle(() => fs.createFile(`${dir}/created.bin`, new Uint8Array([104, 105])));
+    out.created = await settle(() => fs.readFile(`${dir}/created.bin`, 'utf8'));
+    out.empty = await settle(async () => {
+        await fs.writeFile(`${dir}/empty.bin`, new Uint8Array(0));
+        return bytesSummary(await fs.readFile(`${dir}/empty.bin`, 'bytes'));
+    });
+    return out;
+});
+
+define('fs-file-urls', async () => {
+    const dir = await freshDir('fs-file-urls');
+    const path = `${dir}/a b#1 %20.txt`;
+    const url = 'file://' + encodeURI(path).replace(/#/g, '%23');
+    const out = {};
+    out.write = await settle(() => fs.writeFile(url, 'by url', 'utf8'));
+    out.readByPath = await settle(() => fs.readFile(path, 'utf8'));
+    out.readByUrl = await settle(() => fs.readFile(url, 'utf8'));
+    out.exists = await settle(() => fs.exists(url));
+    out.stat = await settle(async () => (await fs.stat(url)).filename);
+    out.ls = await settle(() => fs.ls('file://' + encodeURI(dir)));
+    out.cp = await settle(() => fs.cp(url, `file://${encodeURI(dir)}/copy.txt`));
+    out.copy = await settle(() => fs.readFile(`${dir}/copy.txt`, 'utf8'));
+    out.hash = await settle(() => fs.hash(url, 'md5'));
+    out.unlink = await settle(() => fs.unlink(url));
+    out.gone = await settle(() => fs.exists(path));
+    return out;
+});
+
+define('fs-cp-dir', async () => {
+    const dir = await freshDir('fs-cp-dir');
+    const src = `${dir}/src`;
+    await fs.mkdir(`${src}/sub/deeper`);
+    await fs.writeFile(`${src}/a.txt`, 'a', 'utf8');
+    await fs.writeFile(`${src}/sub/b.txt`, 'bb', 'utf8');
+    await fs.writeFile(`${src}/sub/deeper/c.bin`, 'AAEC', 'base64');
+    const tree = async (root) => {
+        const out = {};
+        const walk = async (relative) => {
+            for (const name of [...(await fs.ls(relative ? `${root}/${relative}` : root))].sort()) {
+                const child = relative ? `${relative}/${name}` : name;
+                if (await fs.isDir(`${root}/${child}`)) {
+                    out[child + '/'] = 'dir';
+                    await walk(child);
+                } else {
+                    out[child] = await fs.readFile(`${root}/${child}`, 'base64');
+                }
+            }
+        };
+        await walk('');
+        return out;
+    };
+    const out = {};
+    out.copy = await settle(() => fs.cp(src, `${dir}/copy`));
+    out.tree = await settle(() => tree(`${dir}/copy`));
+    out.sourceKept = await settle(() => tree(src));
+    out.ontoDirectory = await settle(() => fs.cp(src, `${dir}/copy`));
+    await fs.writeFile(`${dir}/file.txt`, 'f', 'utf8');
+    out.ontoFile = await settle(() => fs.cp(src, `${dir}/file.txt`));
+    out.ontoFileResult = await settle(() => fs.isDir(`${dir}/file.txt`));
+    out.missingParent = await settle(() => fs.cp(src, `${dir}/no/such/copy`));
+    out.emptyDirectory = await settle(async () => {
+        await fs.mkdir(`${dir}/empty`);
+        await fs.cp(`${dir}/empty`, `${dir}/empty-copy`);
+        return fs.ls(`${dir}/empty-copy`);
+    });
+    return out;
+});
+
+define('fs-dirs-1.2', async () => {
+    const out = {};
+    for (const key of ['TemporaryDir', 'ExternalCacheDir', 'RoamingDir']) {
+        const value = fs.dirs[key];
+        out[key] = typeof value === 'string' && value !== '' ? mask(value) : describeValue(value);
+    }
+    out.temporaryWritable = await settle(async () => {
+        const file = `${fs.dirs.TemporaryDir}/rnbu-parity.txt`;
+        await fs.writeFile(file, 'tmp', 'utf8');
+        const text = await fs.readFile(file, 'utf8');
+        await fs.unlink(file);
+        return text;
+    });
+    // Removable volumes depend on the device; the primary directory does not.
+    out.externalDirs = await settle(async () => {
+        const found = await fs.externalDirs();
+        return {
+            kind: Array.isArray(found) ? 'array' : typeof found,
+            allStrings: found.every((dir) => typeof dir === 'string'),
+            first: found.length > 0 ? found[0] : null,
+        };
+    });
+    return out;
+});
+
+define('android-assets-resources', async () => {
+    const dir = await freshDir('android-assets-resources');
+    const out = {};
+    out.lsAssets = await settle(async () => [...(await fs.ls(fs.asset('parity')))].sort());
+    out.lsNested = await settle(() => fs.ls(fs.asset('parity/nested')));
+    out.lsStats = await settle(async () => (await fs.ls(fs.asset('parity'), {stats: true}))
+        .map((entry) => ({filename: entry.filename, type: entry.type, size: entry.size}))
+        .sort((a, b) => a.filename.localeCompare(b.filename)));
+    out.lsAssetFile = await settle(() => fs.ls(fs.asset('parity/hello.txt')));
+    out.lsMissing = await settle(() => fs.ls(fs.asset('parity/missing')));
+    // .txt assets are stored compressed in the APK.
+    out.existsCompressed = await settle(() => fs.exists(fs.asset('parity/hello.txt')));
+    out.isDirAssetDir = await settle(() => fs.isDir(fs.asset('parity')));
+    out.existsMissing = await settle(() => fs.exists(fs.asset('parity/missing.txt')));
+    out.statCompressed = await settle(async () => {
+        const stat = await fs.stat(fs.asset('parity/hello.txt'));
+        return {filename: stat.filename, type: stat.type, size: stat.size, created: stat.created};
+    });
+    out.statAssetDir = await settle(async () => (await fs.stat(fs.asset('parity'))).type);
+    out.readAsset = await settle(() => fs.readFile(fs.asset('parity/nested/deep.txt'), 'utf8'));
+    out.readRangeAsset = await settle(() => fs.read(fs.asset('parity/hello.txt'), {position: 6, length: 5}));
+    // res/raw/parity_sample.txt, "hello resource" and a line break; .txt is stored compressed.
+    const resource = fs.resource('raw/parity_sample');
+    out.resourcePath = resource;
+    out.resourceExists = await settle(() => fs.exists(resource));
+    out.resourceStat = await settle(async () => {
+        const stat = await fs.stat(resource);
+        return {filename: stat.filename, type: stat.type, size: stat.size};
+    });
+    out.resourceHash = await settleRaw(() => fs.hash(resource, 'sha256'));
+    out.resourceRead = await settle(() => fs.readFile(resource, 'utf8'));
+    out.resourceRange = await settle(() => fs.read(resource, {position: 6, length: 8}));
+    out.resourceCopy = await settle(async () => {
+        await fs.cp(resource, `${dir}/copy.txt`);
+        return fs.readFile(`${dir}/copy.txt`, 'utf8');
+    });
+    out.resourceStream = await readStreamSummary(resource, 'utf8', 6, (chunks) => chunks.join(''));
+    out.missingResource = await settle(() => fs.readFile(fs.resource('raw/no_such_resource'), 'base64'));
+    out.missingResourceExists = await settle(() => fs.exists(fs.resource('raw/no_such_resource')));
+    out.badType = await settle(() => fs.exists(fs.resource('nosuchtype/parity_sample')));
+    out.valueResource = await settle(() => fs.readFile(fs.resource('string/app_name'), 'utf8'));
+    return out;
+}, ['android']);
+
+define('ios-attributes', async () => {
+    const dir = await freshDir('ios-attributes');
+    const file = `${dir}/secret.txt`;
+    const out = {};
+    out.writeProtected = await settle(() => fs.writeFile(file, 'secret', {encoding: 'utf8', protection: 'complete'}));
+    out.setAttributes = await settle(() => fs.setAttributes(file, {protection: 'completeUnlessOpen', excludeFromBackup: true}));
+    out.setNone = await settle(() => fs.setAttributes(file, {protection: 'none'}));
+    out.mkdirProtected = await settle(() => fs.mkdir(`${dir}/vault`, {protection: 'untilFirstAuth'}));
+    out.cpProtected = await settle(() => fs.cp(file, `${dir}/vault/copy.txt`, {protection: 'complete'}));
+    out.readBack = await settle(() => fs.readFile(`${dir}/vault/copy.txt`, 'utf8'));
+    out.missing = await settle(() => fs.setAttributes(`${dir}/missing.txt`, {protection: 'complete'}));
+    out.badProtection = await settle(() => fs.setAttributes(file, {protection: 'secret'}));
+    out.bundlePathMissing = await settle(() => fs.bundlePath('NoSuchBundleForParity'));
+    return out;
+}, ['ios']);
+
+define('fs-platform-only-1.2', async () => ({
+    setAttributes: await settle(() => fs.setAttributes('/x', {protection: 'complete'})),
+    bundlePath: await settle(() => fs.bundlePath('Settings')),
+    resource: await settle(async () => fs.resource('raw/parity_sample')),
+}), ['android', 'windows']);
+
 define('ios-misc', async () => {
     const dir = await freshDir('ios-misc');
     const file = `${dir}/backup.txt`;

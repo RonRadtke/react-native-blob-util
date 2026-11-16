@@ -1,4 +1,127 @@
 {
+  "android-assets-resources": {
+    "badType": {
+      "resolved": false
+    },
+    "existsCompressed": {
+      "resolved": true
+    },
+    "existsMissing": {
+      "resolved": false
+    },
+    "isDirAssetDir": {
+      "resolved": true
+    },
+    "lsAssetFile": {
+      "rejected": {
+        "code": "ENOTDIR",
+        "message": "Not a directory 'bundle-assets://parity/hello.txt'",
+        "name": "Error"
+      }
+    },
+    "lsAssets": {
+      "resolved": [
+        "hello.txt",
+        "nested"
+      ]
+    },
+    "lsMissing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such asset directory 'bundle-assets://parity/missing'",
+        "name": "Error"
+      }
+    },
+    "lsNested": {
+      "resolved": [
+        "deep.txt"
+      ]
+    },
+    "lsStats": {
+      "resolved": [
+        {
+          "filename": "hello.txt",
+          "size": 12,
+          "type": "asset"
+        },
+        {
+          "filename": "nested",
+          "size": 0,
+          "type": "directory"
+        }
+      ]
+    },
+    "missingResource": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file 'bundle-res://raw/no_such_resource'; No such resource 'bundle-res://raw/no_such_resource'",
+        "name": "Error"
+      }
+    },
+    "missingResourceExists": {
+      "resolved": false
+    },
+    "readAsset": {
+      "resolved": "deep asset\n"
+    },
+    "readRangeAsset": {
+      "resolved": "asset"
+    },
+    "resourceCopy": {
+      "resolved": "hello resource\n"
+    },
+    "resourceExists": {
+      "resolved": true
+    },
+    "resourceHash": {
+      "resolved": "cf9abcb78232d643c726eda612adcd21d412c9efc9aa70610606f18b9acbfce5"
+    },
+    "resourcePath": "bundle-res://raw/parity_sample",
+    "resourceRange": {
+      "resolved": "resource"
+    },
+    "resourceRead": {
+      "resolved": "hello resource\n"
+    },
+    "resourceStat": {
+      "resolved": {
+        "filename": "parity_sample",
+        "size": 15,
+        "type": "asset"
+      }
+    },
+    "resourceStream": {
+      "check": "hello resource\n",
+      "chunkCount": 3,
+      "chunkKinds": [
+        "string"
+      ],
+      "chunkLengths": [
+        6,
+        6,
+        3
+      ],
+      "outcome": "end"
+    },
+    "statAssetDir": {
+      "resolved": "directory"
+    },
+    "statCompressed": {
+      "resolved": {
+        "created": null,
+        "filename": "hello.txt",
+        "size": 12,
+        "type": "asset"
+      }
+    },
+    "valueResource": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file 'bundle-res://string/app_name'; No such resource 'bundle-res://string/app_name'",
+        "name": "Error"
+      }
+    }
+  },
   "android-content-uri": {
     "cp": {
       "resolved": "content via resolver ✓"
@@ -82,6 +205,66 @@
     },
     "uploadWrapped": {
       "resolved": "content via resolver ✓"
+    }
+  },
+  "android-download-manager": {
+    "again": {
+      "resolved": {
+        "atTarget": true,
+        "files": [
+          "a b#1 %20.bin"
+        ],
+        "matches": true
+      }
+    },
+    "cancel": {
+      "rejected": {
+        "code": "ECANCELED",
+        "message": "canceled",
+        "name": "ReactNativeBlobUtilCanceledFetch"
+      }
+    },
+    "httpError": {
+      "rejected": {
+        "code": "EUNSPECIFIED",
+        "message": "The DownloadManager could not download the file: HTTP 404",
+        "name": "Error"
+      }
+    },
+    "keepExisting": {
+      "resolved": {
+        "files": [
+          "a b#1 %20-1.bin",
+          "a b#1 %20.bin"
+        ],
+        "matches": true,
+        "path": "<DownloadDir>/parity-dm/a b#1 %20-1.bin"
+      }
+    },
+    "named": {
+      "resolved": {
+        "atTarget": true,
+        "matches": true
+      }
+    },
+    "noPath": {
+      "resolved": {
+        "matches": true,
+        "uri": "content://downloads/all_downloads/<id>"
+      }
+    },
+    "refusedDestination": {
+      "rejected": {
+        "code": "EACCES",
+        "message": "Unsupported path <DocumentDir>/parity-dm.bin",
+        "name": "Error"
+      }
+    },
+    "storeLocal": {
+      "resolved": {
+        "insideDownloadDir": true,
+        "matches": true
+      }
     }
   },
   "android-media-store": {
@@ -655,6 +838,7 @@
         "headers",
         "redirects",
         "respType",
+        "rnfbEncode",
         "state",
         "status",
         "taskId",
@@ -779,6 +963,361 @@
       }
     }
   },
+  "fs-bytes": {
+    "appendBuffer": {
+      "resolved": 2
+    },
+    "appendView": {
+      "resolved": 2
+    },
+    "createBytes": {
+      "resolved": "<undefined>"
+    },
+    "created": {
+      "resolved": "hi"
+    },
+    "empty": {
+      "resolved": {
+        "bytes": [],
+        "kind": "Uint8Array"
+      }
+    },
+    "readBytes": {
+      "resolved": {
+        "bytes": [
+          0,
+          1,
+          254,
+          255,
+          7,
+          8,
+          2,
+          3
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "readBytesOption": {
+      "resolved": {
+        "bytes": [
+          0,
+          1,
+          254,
+          255,
+          7,
+          8,
+          2,
+          3
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "writeTyped": {
+      "resolved": 4
+    }
+  },
+  "fs-cp-dir": {
+    "copy": {
+      "resolved": "<undefined>"
+    },
+    "emptyDirectory": {
+      "resolved": []
+    },
+    "missingParent": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Destination directory of '<DocumentDir>/parity/fs-cp-dir/no/such/copy' does not exist",
+        "name": "Error"
+      }
+    },
+    "ontoDirectory": {
+      "rejected": {
+        "code": "EEXIST",
+        "message": "Destination '<DocumentDir>/parity/fs-cp-dir/copy' already exists",
+        "name": "Error"
+      }
+    },
+    "ontoFile": {
+      "resolved": "<undefined>"
+    },
+    "ontoFileResult": {
+      "resolved": true
+    },
+    "sourceKept": {
+      "resolved": {
+        "a.txt": "YQ==",
+        "sub/": "dir",
+        "sub/b.txt": "YmI=",
+        "sub/deeper/": "dir",
+        "sub/deeper/c.bin": "AAEC"
+      }
+    },
+    "tree": {
+      "resolved": {
+        "a.txt": "YQ==",
+        "sub/": "dir",
+        "sub/b.txt": "YmI=",
+        "sub/deeper/": "dir",
+        "sub/deeper/c.bin": "AAEC"
+      }
+    }
+  },
+  "fs-created": {
+    "directory": null,
+    "file": null,
+    "lsEntry": null
+  },
+  "fs-dirs-1.2": {
+    "ExternalCacheDir": "<SDCardApplicationDir>/cache",
+    "RoamingDir": "",
+    "TemporaryDir": "<CacheDir>",
+    "externalDirs": {
+      "resolved": {
+        "allStrings": true,
+        "first": "<SDCardDir>",
+        "kind": "array"
+      }
+    },
+    "temporaryWritable": {
+      "resolved": "tmp"
+    }
+  },
+  "fs-file-urls": {
+    "copy": {
+      "resolved": "by url"
+    },
+    "cp": {
+      "resolved": "<undefined>"
+    },
+    "exists": {
+      "resolved": true
+    },
+    "gone": {
+      "resolved": false
+    },
+    "hash": {
+      "resolved": "<md5>"
+    },
+    "ls": {
+      "resolved": [
+        "a b#1 %20.txt"
+      ]
+    },
+    "readByPath": {
+      "resolved": "by url"
+    },
+    "readByUrl": {
+      "resolved": "by url"
+    },
+    "stat": {
+      "resolved": "a b#1 %20.txt"
+    },
+    "unlink": {
+      "resolved": "<undefined>"
+    },
+    "write": {
+      "resolved": 6
+    }
+  },
+  "fs-platform-only-1.2": {
+    "bundlePath": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "ReactNativeBlobUtil.fs.bundlePath is only available on iOS",
+        "name": "Error"
+      }
+    },
+    "resource": {
+      "resolved": "bundle-res://raw/parity_sample"
+    },
+    "setAttributes": {
+      "rejected": {
+        "code": "ENOTSUP",
+        "message": "ReactNativeBlobUtil.fs.setAttributes is only available on iOS",
+        "name": "Error"
+      }
+    }
+  },
+  "fs-read-range": {
+    "all": {
+      "resolved": [
+        104,
+        233,
+        0,
+        65533,
+        65
+      ]
+    },
+    "allBase64": {
+      "resolved": "aMOpAP9B"
+    },
+    "ascii": {
+      "resolved": [
+        0,
+        255,
+        65
+      ]
+    },
+    "brokenCharacter": {
+      "resolved": [
+        104,
+        65533
+      ]
+    },
+    "bytes": {
+      "resolved": {
+        "bytes": [
+          195,
+          169,
+          0
+        ],
+        "kind": "Uint8Array"
+      }
+    },
+    "directory": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/fs-read-range' is a directory",
+        "name": "Error"
+      }
+    },
+    "lengthPastTheEnd": {
+      "resolved": "QQ=="
+    },
+    "middle": {
+      "resolved": "w6k="
+    },
+    "missing": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "No such file '<DocumentDir>/parity/fs-read-range/missing.bin'",
+        "name": "Error"
+      }
+    },
+    "negative": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"position\" and \"length\" must be whole numbers, 0 or more",
+        "name": "TypeError"
+      }
+    },
+    "pastTheEnd": {
+      "resolved": ""
+    },
+    "tail": {
+      "resolved": "/0E="
+    },
+    "zeroLength": {
+      "resolved": ""
+    }
+  },
+  "fs-touch": {
+    "afterTimes": {
+      "resolved": {
+        "created": null,
+        "lastModified": 1600000000000,
+        "size": 4
+      }
+    },
+    "badTime": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"mtime\" and \"ctime\" must be a Date or milliseconds since the epoch",
+        "name": "TypeError"
+      }
+    },
+    "contentKept": {
+      "resolved": "kept"
+    },
+    "create": {
+      "resolved": "<undefined>"
+    },
+    "created": {
+      "resolved": {
+        "created": null,
+        "lastModified": 1500000000000,
+        "size": 0
+      }
+    },
+    "directory": {
+      "resolved": "<undefined>"
+    },
+    "directoryTime": {
+      "resolved": 1500000000000
+    },
+    "missingDirectory": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Directory of '<DocumentDir>/parity/fs-touch/no/such.txt' does not exist",
+        "name": "Error"
+      }
+    },
+    "now": {
+      "resolved": "number:epoch-ms"
+    },
+    "times": {
+      "resolved": "<undefined>"
+    }
+  },
+  "fs-write-range": {
+    "afterAppend": {
+      "resolved": "abXYef!"
+    },
+    "afterBytes": {
+      "resolved": "AQJYWWVmIQAAeg=="
+    },
+    "afterOverwrite": {
+      "resolved": "abXYef"
+    },
+    "afterPastTheEnd": {
+      "resolved": "YWJYWWVmIQAAeg=="
+    },
+    "afterUtf8": {
+      "resolved": "AQJYw6lmIQAAeg=="
+    },
+    "append": {
+      "resolved": 1
+    },
+    "badPosition": {
+      "rejected": {
+        "code": "EINVAL",
+        "message": "\"position\" must be a whole number, 0 or more",
+        "name": "TypeError"
+      }
+    },
+    "bytes": {
+      "resolved": 2
+    },
+    "directory": {
+      "rejected": {
+        "code": "EISDIR",
+        "message": "Expecting a file but '<DocumentDir>/parity/fs-write-range' is a directory",
+        "name": "Error"
+      }
+    },
+    "missingDirectory": {
+      "rejected": {
+        "code": "ENOENT",
+        "message": "Directory of '<DocumentDir>/parity/fs-write-range/no/such/dir.txt' does not exist",
+        "name": "Error"
+      }
+    },
+    "newFile": {
+      "resolved": 5
+    },
+    "newFileContent": {
+      "resolved": "fresh"
+    },
+    "overwrite": {
+      "resolved": 2
+    },
+    "pastTheEnd": {
+      "resolved": 1
+    },
+    "utf8": {
+      "resolved": 2
+    }
+  },
   "hash-algorithms": {
     "md5": {
       "bytes": {
@@ -852,6 +1391,7 @@
       {
         "filename": "a.txt",
         "keys": [
+          "created",
           "filename",
           "lastModified",
           "path",
@@ -869,6 +1409,7 @@
       {
         "filename": "b.txt",
         "keys": [
+          "created",
           "filename",
           "lastModified",
           "path",
@@ -886,6 +1427,7 @@
       {
         "filename": "sub",
         "keys": [
+          "created",
           "filename",
           "lastModified",
           "path",
@@ -1085,6 +1627,7 @@
   "stat-dir": {
     "filename": "stat-dir",
     "keys": [
+      "created",
       "filename",
       "lastModified",
       "path",
@@ -1099,6 +1642,7 @@
   "stat-file": {
     "filename": "a.txt",
     "keys": [
+      "created",
       "filename",
       "lastModified",
       "path",
