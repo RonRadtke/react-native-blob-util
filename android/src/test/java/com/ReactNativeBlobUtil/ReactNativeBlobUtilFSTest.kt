@@ -109,13 +109,13 @@ class ReactNativeBlobUtilFSTest {
     }
 
     @Test
-    fun `writeFile with the uri encoding rejects a missing source after creating the target`() {
+    fun `writeFile with the uri encoding rejects a missing source and creates no target`() {
         val target = File(tmp.root, "copy.bin")
         val missing = File(tmp.root, "missing.bin")
         val p = RecordingPromise()
         ReactNativeBlobUtilFS.writeFile(target.plain, ReactNativeBlobUtilConst.DATA_ENCODE_URI, missing.plain, false, false, p.promise)
         assertEquals("ENOENT" to "No such file '${target.plain}' ('${missing.plain}')", p.rejected())
-        assertTrue(target.exists())
+        assertFalse(target.exists())
     }
 
     @Test
@@ -314,12 +314,21 @@ class ReactNativeBlobUtilFSTest {
     }
 
     @Test
-    fun `writeFile with invalid base64 rejects EINVAL and writes nothing`() {
+    fun `writeFile with invalid base64 rejects EINVAL and creates no file (#267)`() {
         val file = File(tmp.root, "bad.bin")
         val p = RecordingPromise()
         ReactNativeBlobUtilFS.writeFile(file.plain, "base64", "@@@@", false, false, p.promise)
         assertEquals("EINVAL" to "Invalid base64 data", p.rejected())
-        assertEquals(0L, file.length())
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `writeFile with invalid base64 leaves an existing file as it was (#267)`() {
+        val file = tmp.newFile("keep.txt").apply { writeText("keep") }
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.writeFile(file.plain, "base64", "@@@@", false, false, p.promise)
+        assertEquals("EINVAL", p.rejected().first)
+        assertEquals("keep", file.readText())
     }
 
     @Test
@@ -444,6 +453,16 @@ class ReactNativeBlobUtilFSTest {
         val p = RecordingPromise()
         ReactNativeBlobUtilFS.createFile(File(tmp.root, "new.txt").plain, missing, ReactNativeBlobUtilConst.DATA_ENCODE_URI, p.promise)
         assertEquals("ENOENT" to "Source file : $missing does not exist", p.rejected())
+        assertFalse(File(tmp.root, "new.txt").exists())
+    }
+
+    @Test
+    fun `createFile with invalid base64 rejects EINVAL and creates no file (#267)`() {
+        val target = File(tmp.root, "bad.bin")
+        val p = RecordingPromise()
+        ReactNativeBlobUtilFS.createFile(target.plain, "@@@@", "base64", p.promise)
+        assertEquals("EINVAL", p.rejected().first)
+        assertFalse(target.exists())
     }
 
     @Test

@@ -128,6 +128,17 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     promise.reject("EISDIR", "Expecting a file but '$path' is a directory")
                     return
                 }
+                // The data is decoded, and a source file looked for, before the
+                // file is created or truncated (#267): data that is not base64
+                // rejects EINVAL and a missing source ENOENT, and the disk stays
+                // as it was. Both used to leave an empty file behind.
+                val fromFile = encoding!!.equals(ReactNativeBlobUtilConst.DATA_ENCODE_URI, ignoreCase = true)
+                val decoded = if (fromFile) null else ReactNativeBlobUtilUtils.stringToBytes(data!!, encoding)
+                val normalizedData = if (fromFile) ReactNativeBlobUtilUtils.normalizePath(data) else null
+                if (fromFile && !File(normalizedData).exists()) {
+                    promise.reject("ENOENT", "No such file '$path' ('$normalizedData')")
+                    return
+                }
                 if (!f.exists()) {
                     if (dir != null && !dir.exists()) {
                         if (!dir.mkdirs() && !dir.exists()) {
@@ -142,13 +153,8 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                 }
 
                 // write data from a file
-                if (encoding!!.equals(ReactNativeBlobUtilConst.DATA_ENCODE_URI, ignoreCase = true)) {
-                    val normalizedData = ReactNativeBlobUtilUtils.normalizePath(data)
+                if (fromFile) {
                     val src = File(normalizedData)
-                    if (!src.exists()) {
-                        promise.reject("ENOENT", "No such file '$path' ('$normalizedData')")
-                        return
-                    }
                     val buffer = ByteArray(10240)
                     var read: Int
                     written = 0
@@ -166,7 +172,7 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                         fout?.close()
                     }
                 } else {
-                    var bytes = ReactNativeBlobUtilUtils.stringToBytes(data!!, encoding)
+                    var bytes = decoded!!
                     if (transformFile) {
                         val transformer = ReactNativeBlobUtilFileTransformer.sharedFileTransformer
                             ?: throw IllegalStateException("Write file with transform was specified but the shared file transformer is not set")
@@ -1033,16 +1039,20 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
             try {
                 val path = ReactNativeBlobUtilUtils.normalizePath(rawPath)
                 val dest = File(path)
+                // The data is decoded, and the source looked for, before the file
+                // is created (#267): data that is not base64 rejects EINVAL and a
+                // missing source ENOENT, without leaving an empty file behind.
+                val fromFile = encoding == ReactNativeBlobUtilConst.DATA_ENCODE_URI
+                val decoded = if (encoding == null || fromFile) null else ReactNativeBlobUtilUtils.stringToBytes(data!!, encoding)
+                val src = if (fromFile) File(data!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX, "")) else null
+                if (src != null && !src.exists()) {
+                    promise.reject("ENOENT", "Source file : $data does not exist")
+                    return
+                }
                 val created = dest.createNewFile()
                 // A null encoding throws here, after the file was created, as encoding.equals(...) did in Java.
                 if (encoding!! == ReactNativeBlobUtilConst.DATA_ENCODE_URI) {
-                    val orgPath = data!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX, "")
-                    val src = File(orgPath)
-                    if (!src.exists()) {
-                        promise.reject("ENOENT", "Source file : $data does not exist")
-                        return
-                    }
-                    val fin = FileInputStream(src)
+                    val fin = FileInputStream(src!!)
                     val ostream: OutputStream = FileOutputStream(dest)
                     val buffer = ByteArray(10240)
                     var read = fin.read(buffer)
@@ -1059,9 +1069,11 @@ internal class ReactNativeBlobUtilFS(private val mCtx: ReactApplicationContext) 
                     }
                     // Not closed, as in Java.
                     val ostream: OutputStream = FileOutputStream(dest)
-                    ostream.write(ReactNativeBlobUtilUtils.stringToBytes(data!!, encoding))
+                    ostream.write(decoded!!)
                 }
                 promise.resolve(path)
+            } catch (err: IllegalArgumentException) {
+                promise.reject("EINVAL", err.localizedMessage)
             } catch (err: Exception) {
                 promise.reject("EUNSPECIFIED", err.localizedMessage)
             }

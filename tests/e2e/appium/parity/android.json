@@ -545,7 +545,11 @@
   "errors-write": {
     "afterwards": {
       "bad": {
-        "resolved": ""
+        "rejected": {
+          "code": "ENOENT",
+          "message": "No such file '<DocumentDir>/parity/errors-write/bad.bin'; <DocumentDir>/parity/errors-write/bad.bin: open failed: ENOENT (No such file or directory)",
+          "name": "Error"
+        }
       },
       "file": {
         "resolved": "x"
