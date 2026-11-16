@@ -25,6 +25,17 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
     private var bodyCache: File? = null
     private var chunkedEncoding = false
 
+    /**
+     * Why the body could not be built, as (code, message), or null. The request
+     * then fails before anything is sent. A file part that could not be read used
+     * to go out empty, with only a warning event (#502).
+     */
+    var buildError: Pair<String, String>? = null
+        private set
+
+    /** A source that cannot be read: what it is and why, for buildError. */
+    internal class UnreadableSource(val code: String, message: String) : IOException(message)
+
     fun chunkedEncoding(value: Boolean): ReactNativeBlobUtilBody {
         this.chunkedEncoding = value
         return this
@@ -56,7 +67,12 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
             // A missing request type throws here, as the switch did in Java, and is
             // reported below.
             when (requestType!!) {
-                ReactNativeBlobUtilReq.RequestType.SingleFile -> contentLength = sourceLength(getRequestStream()!!)
+                ReactNativeBlobUtilReq.RequestType.SingleFile -> contentLength = try {
+                    sourceLength(getRequestStream()!!)
+                } catch (ex: Exception) {
+                    buildError = sourceError(ex, rawBody!!.removePrefix(ReactNativeBlobUtilConst.FILE_PREFIX))
+                    throw ex
+                }
                 ReactNativeBlobUtilReq.RequestType.AsIs -> contentLength = this.rawBody!!.toByteArray().size.toLong()
                 ReactNativeBlobUtilReq.RequestType.Others -> {}
                 // No case for these in the Java switch either.
@@ -81,6 +97,8 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
             val cache = createMultipartBodyCache()
             bodyCache = cache
             contentLength = cache.length()
+        } catch (ex: UnreadableSource) {
+            buildError = ex.code to (ex.message ?: "")
         } catch (ex: Exception) {
             ex.printStackTrace()
             ReactNativeBlobUtilUtils.emitWarningEvent("ReactNativeBlobUtil failed to create request multipart body :" + ex.localizedMessage)
@@ -146,6 +164,38 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
             return false
         }
         return true
+    }
+
+    companion object {
+        /**
+         * Why a file cannot be uploaded, as (code, message), or null when it can:
+         * ENOENT when it is not there, EISDIR for a directory, EACCES when the app
+         * may not read it. Pure java.io, so it is unit-testable.
+         */
+        @JvmStatic
+        fun fileSourceError(file: File): Pair<String, String>? = when {
+            !file.exists() -> "ENOENT" to "No such file '${file.path}'"
+            file.isDirectory -> "EISDIR" to "Expecting a file but '${file.path}' is a directory"
+            !file.canRead() -> "EACCES" to "Not allowed to read '${file.path}'"
+            else -> null
+        }
+
+        /** The (code, message) for an exception opening an upload source. */
+        @JvmStatic
+        fun sourceError(e: Throwable, source: String): Pair<String, String> {
+            var cause: Throwable? = e
+            while (cause != null) {
+                when (cause) {
+                    is UnreadableSource -> return cause.code to (cause.message ?: "")
+                    is SecurityException -> return "EACCES" to "Not allowed to read '$source'"
+                    is java.io.FileNotFoundException ->
+                        return if (cause.message?.contains("EACCES") == true) "EACCES" to "Not allowed to read '$source'"
+                        else "ENOENT" to "No such file '$source'"
+                }
+                cause = cause.cause
+            }
+            return "EUNSPECIFIED" to "Could not read '$source': ${e.localizedMessage}"
+        }
     }
 
     @Throws(Exception::class)
@@ -263,42 +313,38 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
 
     /**
      * The content of a file part: a wrapped path, a bundled asset or a content URI.
-     * One that cannot be read leaves the part empty and warns, as before.
+     * One that cannot be read throws UnreadableSource, and the request fails before
+     * it is sent; it used to leave the part empty and warn (#502). A readable empty
+     * file is an empty part, as it should be.
      */
+    @Throws(UnreadableSource::class)
     private fun writeFileContent(data: String, os: FileOutputStream) {
         val ctx = ReactNativeBlobUtilImpl.RCTContext
-        if (data.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX)) {
-            val contentURI = data.substring(ReactNativeBlobUtilConst.CONTENT_PREFIX.length)
-            try {
-                pipeStreamToFileStream(ReactNativeBlobUtilContent.openInput(contentURI), os)
-            } catch (e: Exception) {
-                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from content URI:" + contentURI + ", " + e.localizedMessage)
-            }
-            return
-        }
-        val rawPath = data.removePrefix(ReactNativeBlobUtilConst.FILE_PREFIX)
-        val orgPath: String? = ReactNativeBlobUtilUtils.normalizePath(rawPath)
-        if (ReactNativeBlobUtilContent.isContent(rawPath)) {
-            // a content:// URI behind the file prefix is read through its provider too
-            try {
-                pipeStreamToFileStream(ReactNativeBlobUtilContent.openInput(rawPath), os)
-            } catch (e: Exception) {
-                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from content URI:$rawPath, " + e.localizedMessage)
-            }
-        } else if (ReactNativeBlobUtilUtils.isAsset(orgPath)) {
-            try {
-                val assetName = orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, "")
-                pipeStreamToFileStream(ctx.assets.open(assetName), os)
-            } catch (e: IOException) {
-                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data asset :" + orgPath + ", " + e.localizedMessage)
-            }
+        val source = if (data.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX)) {
+            data.substring(ReactNativeBlobUtilConst.CONTENT_PREFIX.length)
         } else {
-            val file = if (orgPath == null) null else File(orgPath)
-            if (file != null && file.exists()) {
-                pipeStreamToFileStream(FileInputStream(file), os)
-            } else {
-                ReactNativeBlobUtilUtils.emitWarningEvent("Failed to create form data from path :$orgPath, file not exists.")
+            data.removePrefix(ReactNativeBlobUtilConst.FILE_PREFIX)
+        }
+        val orgPath: String? = if (ReactNativeBlobUtilContent.isContent(source)) null else ReactNativeBlobUtilUtils.normalizePath(source)
+        if (orgPath != null && !ReactNativeBlobUtilUtils.isAsset(orgPath) && !ReactNativeBlobUtilUtils.isResource(orgPath)) {
+            fileSourceError(File(orgPath))?.let { throw UnreadableSource(it.first, it.second) }
+        }
+        val input = (try {
+            when {
+                // a content:// URI, also behind the file prefix, is read through its provider
+                ReactNativeBlobUtilContent.isContent(source) -> ReactNativeBlobUtilContent.openInput(source)
+                ReactNativeBlobUtilUtils.isAsset(orgPath) ->
+                    ctx.assets.open(orgPath!!.replace(ReactNativeBlobUtilConst.FILE_PREFIX_BUNDLE_ASSET, ""))
+                else -> ReactNativeBlobUtilFS.inputStreamFromPath(orgPath ?: source)
             }
+        } catch (e: Exception) {
+            val (code, message) = sourceError(e, source)
+            throw UnreadableSource(code, message)
+        }) ?: throw UnreadableSource("ENOENT", "No such file '$source'")
+        try {
+            pipeStreamToFileStream(input, os)
+        } catch (e: IOException) {
+            throw UnreadableSource("EUNSPECIFIED", "Could not read '$source': ${e.localizedMessage}")
         }
     }
 

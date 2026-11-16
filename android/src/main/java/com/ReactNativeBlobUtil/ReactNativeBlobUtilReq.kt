@@ -405,17 +405,21 @@ class ReactNativeBlobUtilReq(
                 requestType = RequestType.WithoutBody
             }
 
-            // A file body that is not there fails the request. It used to be created
-            // empty and uploaded, so the server got a zero-byte file.
+            // A file body that is not there, or cannot be read, fails the request. It
+            // used to be created empty and uploaded, so the server got a zero-byte file.
             if (requestType == RequestType.SingleFile && rawRequestBody != null && rawRequestBody.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
                 val filePath = rawRequestBody.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
                 val normalized = ReactNativeBlobUtilUtils.normalizePath(filePath)
                 if (!ReactNativeBlobUtilContent.isContent(filePath) && !ReactNativeBlobUtilUtils.isAsset(normalized) &&
-                    (normalized == null || !File(normalized).isFile)
+                    !ReactNativeBlobUtilUtils.isResource(normalized)
                 ) {
-                    fail("ENOENT", "No such file '$filePath'")
-                    releaseTaskResource()
-                    return
+                    val error = if (normalized == null) "ENOENT" to "No such file '$filePath'"
+                    else ReactNativeBlobUtilBody.fileSourceError(File(normalized))
+                    if (error != null) {
+                        fail(error.first, error.second)
+                        releaseTaskResource()
+                        return
+                    }
                 }
             }
 
@@ -452,6 +456,14 @@ class ReactNativeBlobUtilReq(
                 }
 
                 RequestType.Others -> {}
+            }
+
+            // A source that could not be read fails the request before it is sent (#502).
+            val bodyError = requestBody?.buildError
+            if (bodyError != null) {
+                fail(bodyError.first, bodyError.second)
+                releaseTaskResource()
+                return
             }
 
             // #156 fix cookie issue
