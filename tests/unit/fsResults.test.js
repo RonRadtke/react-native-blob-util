@@ -44,6 +44,20 @@ test('createFile, cp, mv, mkdir and slice resolve undefined on every platform', 
     }
 });
 
+// Windows resolves readFile through the spec's Promise<Array<any>>, so a utf8 or
+// base64 read arrived there as [text], and 0.25 and 1.1 handed that on.
+test('readFile resolves the text itself for utf8, base64 and bytes on every platform', async () => {
+    for (const [platform, shape] of [['android', (text) => text], ['ios', (text) => text], ['windows', (text) => [text]]]) {
+        native = {readFile: (path, encoding) => Promise.resolve(shape(encoding === 'base64' ? 'aGk=' : 'hi'))};
+        assert.equal(await fs.readFile('/docs/a'), 'hi', platform);
+        assert.equal(await fs.readFile('/docs/a', 'base64'), 'aGk=', platform);
+        assert.deepEqual(await fs.readFile('/docs/a', 'bytes'), new Uint8Array([104, 105]), platform);
+    }
+    // ascii resolves byte values, and a one-byte file is still a list.
+    native = {readFile: resolves([104])};
+    assert.deepEqual(await fs.readFile('/docs/a', 'ascii'), [104]);
+});
+
 // lstat listed a directory with stats; in Node lstat means "stat without
 // following a link". ls(path, {stats: true}) says what it does.
 test('ls with {stats: true} lists entries with numeric stats; lstat is its alias', async () => {

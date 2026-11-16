@@ -367,9 +367,17 @@ function readFile(path: string, encodingOrOptions: any = 'utf8', options: ?{tran
     }
     if (encoding === 'bytes') {
         return requireNativeModule().readFile(path, 'base64', Boolean(opts.transform))
-            .then((data) => decodeBase64(data, 'bytes'));
+            .then((data) => decodeBase64(textOf(data), 'bytes'));
     }
-    return withUnsignedBytes(encoding, requireNativeModule().readFile(path, encoding, Boolean(opts.transform)));
+    const content = requireNativeModule().readFile(path, encoding, Boolean(opts.transform));
+    return encoding === 'ascii' ? withUnsignedBytes(encoding, content) : content.then(textOf);
+}
+
+// The spec types readFile as Promise<Array<any>>, for ascii's byte values, and
+// Windows resolves through exactly that type, so a utf8 or base64 read arrives
+// there as [text]. Android and iOS resolve the text itself.
+function textOf(data: any): any {
+    return Array.isArray(data) && data.length === 1 && typeof data[0] === 'string' ? data[0] : data;
 }
 
 /**

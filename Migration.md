@@ -214,6 +214,7 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | An upload whose file exists but cannot be read (no permission, a directory) (#502) | sent as an empty body or part on iOS and Windows | fails before anything is sent, with `EACCES` or `EISDIR` (`ENOENT` when it is missing); a readable empty file is still sent (1.2.0) |
 | `progress` of a download without a `Content-Length` (#235, #292) | `(0, -1)` until the end (Android downloads to a file, iOS) | the bytes received so far with `total` `-1`, and `(n, n)` at the end (1.2.0) |
 | `stateChange` on Android | called twice per response | once, as on iOS and Windows (1.2.0) |
+| `fs.readFile` with `utf8` or `base64` on Windows | an array holding the text (`['hello']`) | the text itself, as on Android and iOS (1.2.0) |
 
 One difference cannot be aligned from this side. A string a native module
 resolves reaches JS through `jsi::String::createFromUtf8(runtime, [value UTF8String])`
