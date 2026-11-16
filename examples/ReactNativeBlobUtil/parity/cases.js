@@ -659,6 +659,22 @@ define('writestream', async () => {
     return out;
 });
 
+// A base64 chunk is read by the rule fs.writeFile uses (1.2.0): a line break and
+// missing padding are accepted, and a chunk that is not base64 rejects EINVAL and
+// writes nothing, so the stream goes on with the next chunk.
+define('writestream-base64-chunks', async () => {
+    const dir = await freshDir('writestream-base64-chunks');
+    const file = `${dir}/b64.bin`;
+    const stream = await fs.writeStream(file, 'base64', false);
+    const out = {};
+    out.wrappedUnpadded = await settle(async () => (await stream.write('QUJD\nRA')) === stream);
+    out.notBase64 = await settle(() => stream.write('@@@@'));
+    out.next = await settle(async () => (await stream.write('RQ==')) === stream);
+    await stream.close();
+    out.content = await settle(() => fs.readFile(file, 'base64'));
+    return out;
+});
+
 define('session-dispose', async () => {
     const dir = await freshDir('session-dispose');
     const a = `${dir}/a.txt`;

@@ -215,6 +215,7 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `progress` of a download without a `Content-Length` (#235, #292) | `(0, -1)` until the end (Android downloads to a file, iOS) | the bytes received so far with `total` `-1`, and `(n, n)` at the end (1.2.0) |
 | `stateChange` on Android | called twice per response | once, as on iOS and Windows (1.2.0) |
 | `fs.readFile` with `utf8` or `base64` on Windows | an array holding the text (`['hello']`) | the text itself, as on Android and iOS (1.2.0) |
+| A base64 `writeStream` chunk that is not base64 | rejected `EUNSPECIFIED` on Android and Windows; iOS resolved and wrote whatever bytes it could pick out, and dropped an unpadded chunk without a word | rejects `EINVAL` and writes nothing, everywhere; line breaks and missing padding are accepted (1.2.0) |
 
 One difference cannot be aligned from this side. A string a native module
 resolves reaches JS through `jsi::String::createFromUtf8(runtime, [value UTF8String])`

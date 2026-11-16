@@ -73,7 +73,9 @@ try {
 ```
 
 Wait for each `write()`: a write whose Promise nobody waits for can fail unnoticed. Writing to or
-closing a closed stream rejects `EBADF`. For an `ascii` stream, write arrays of bytes.
+closing a closed stream rejects `EBADF`. For an `ascii` stream, write arrays of bytes. A `base64`
+chunk is read as [`writeFile`](file-system.md#encodings) reads it: line breaks, spaces and missing
+padding are accepted, and a chunk that is not base64 rejects `EINVAL` and writes nothing.
 
 ## Performance
 

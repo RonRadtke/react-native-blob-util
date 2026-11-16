@@ -2061,7 +2061,17 @@ void ReactNativeBlobUtil::writeChunk(
         }
         else if (stream.encoding == EncodingOptions::BASE64)
         {
-            buffer = Cryptography::CryptographicBuffer::DecodeFromBase64String(winrt::to_hstring(data));
+            // The rule fs.writeFile uses: line breaks and missing padding are
+            // accepted, and a chunk that is not base64 rejects EINVAL and writes
+            // nothing. It used to reject EUNSPECIFIED "Bad Data.", the code of a
+            // failure nobody could foresee rather than of a bad argument.
+            auto decoded{ DecodeBase64ForFile(data) };
+            if (!decoded)
+            {
+                promise.Reject(rejection("EINVAL", "Data for stream '" + streamId + "' is not valid base64"));
+                return;
+            }
+            buffer = *decoded;
         }
         else
         {

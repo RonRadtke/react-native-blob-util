@@ -10,14 +10,15 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.lang.reflect.Proxy
 
 /**
  * The 1.2.0 file-system additions that stay on java.io: reading and writing a
  * byte range, touch, copying a directory, the destination checks of cp and mv,
- * the decoding of file:// paths, the picker's intent type and the image scaling
- * arithmetic. Assets, resources and content URIs need a device and are covered
+ * the decoding of file:// paths, the picker's intent type, the image scaling
+ * arithmetic and the decoding of a write stream chunk. Assets, resources and content URIs need a device and are covered
  * by the parity cases.
  */
 class ReactNativeBlobUtilFSAdditionsTest {
@@ -290,5 +291,25 @@ class ReactNativeBlobUtilFSAdditionsTest {
         assertTrue(ReactNativeBlobUtilMediaCollection.ScaleOptions.of(0, 0, 0.0).active)
         assertEquals(90, ReactNativeBlobUtilMediaCollection.ScaleOptions.of(640, 0, -1.0).quality)
         assertEquals(50, ReactNativeBlobUtilMediaCollection.ScaleOptions.of(0, 0, 0.5).quality)
+    }
+
+    // A write stream chunk that is not base64
+
+    @Test
+    fun `a base64 write stream chunk that does not decode rejects EINVAL and writes nothing`() {
+        val out = ByteArrayOutputStream()
+        val promise = RecordingPromise()
+        ReactNativeBlobUtilStream.writeChunkTo(out, "s1", "@@@@", "base64", promise.promise)
+        assertEquals("EINVAL", promise.code())
+        assertEquals(0, out.size())
+    }
+
+    @Test
+    fun `a utf8 write stream chunk is written as it is`() {
+        val out = ByteArrayOutputStream()
+        val promise = RecordingPromise()
+        ReactNativeBlobUtilStream.writeChunkTo(out, "s1", "hé", "utf8", promise.promise)
+        assertNull(promise.resolved())
+        assertArrayEquals(bytes(0x68, 0xc3, 0xa9), out.toByteArray())
     }
 }

@@ -245,9 +245,27 @@ class ReactNativeBlobUtilStream internal constructor(ctx: ReactApplicationContex
                 promise.reject("EBADF", "No such write stream '$streamId'")
                 return
             }
+            writeChunkTo(fs.writeStreamInstance!!, streamId, data, fs.encoding!!, promise)
+        }
+
+        /**
+         * Decodes a chunk and writes it to [out]. A base64 chunk that does not
+         * decode rejects EINVAL and writes nothing, as fs.writeFile does; it used
+         * to arrive as EUNSPECIFIED, which iOS and Windows do not use for it.
+         */
+        @JvmStatic
+        internal fun writeChunkTo(out: OutputStream, streamId: String?, data: String?, encoding: String, promise: Promise) {
+            val chunk = try {
+                ReactNativeBlobUtilUtils.stringToBytes(data!!, encoding)
+            } catch (e: IllegalArgumentException) {
+                promise.reject("EINVAL", "Data for stream '$streamId' is not valid base64")
+                return
+            } catch (e: Exception) {
+                promise.reject("EUNSPECIFIED", e.localizedMessage)
+                return
+            }
             try {
-                val chunk = ReactNativeBlobUtilUtils.stringToBytes(data!!, fs.encoding!!)
-                fs.writeStreamInstance!!.write(chunk)
+                out.write(chunk)
                 promise.resolve(null)
             } catch (e: Exception) {
                 promise.reject("EUNSPECIFIED", e.localizedMessage)

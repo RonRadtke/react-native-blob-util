@@ -1103,7 +1103,8 @@ export declare class ReactNativeBlobUtilWriteStream {
 
     /**
      * Write a chunk: a string, or byte values 0..255 for an ascii stream.
-     * Resolves the stream, so writes chain; rejects EBADF once it is closed.
+     * Resolves the stream, so writes chain; rejects EBADF once it is closed,
+     * and EINVAL for a base64 chunk that is not base64 (nothing is written).
      */
     write(data: string | number[]): Promise<ReactNativeBlobUtilWriteStream>;
 
