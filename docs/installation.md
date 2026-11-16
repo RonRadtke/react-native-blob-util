@@ -55,8 +55,23 @@ func application(_ application: UIApplication,
 ```
 
 The call returns `false` for a session that is not the library's; pass those on if your app has
-other background sessions. Without the method, a background download still finishes and is found
-on the next start of the app.
+other background sessions. When your `AppDelegate` subclasses `RCTAppDelegate` (or Expo's
+`ExpoAppDelegate`), the method is an `override`, and the other sessions go to `super`:
+
+```swift
+override func application(_ application: UIApplication,
+                          handleEventsForBackgroundURLSession identifier: String,
+                          completionHandler: @escaping () -> Void) {
+    if !ReactNativeBlobUtilBackground.handleEvents(forBackgroundURLSession: identifier,
+                                                   completionHandler: completionHandler) {
+        super.application(application, handleEventsForBackgroundURLSession: identifier,
+                          completionHandler: completionHandler)
+    }
+}
+```
+
+Without the method, a background download still finishes and is found on the next start of the
+app.
 
 ## Android
 
