@@ -205,6 +205,15 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `fs.dirs` on Windows | 7 directories set | every key set (Android-only ones are `""`) |
 | Events on iOS | a JSON string each listener had to parse | the object itself, as on Android |
 | `ios.excludeFromBackupKey` of a path with `#` or a space | marked a different file, or resolved without marking one | marks the file it was given; EINVAL when no URL can be built |
+| `fs` calls given a `file://` URL (#295) | not taken by every call on every platform; Android kept `%20` and other escapes in the file name | the URL's decoded path, for every `fs` call on every platform (1.2.0) |
+| `fs.writeFile`, `fs.appendFile` and `fs.createFile` with base64 holding line breaks, spaces or no padding | written on Android, rejected `EINVAL` on iOS and Windows | written everywhere; data that is not base64 still rejects `EINVAL`, before the file is touched (1.2.0) |
+| `fs.cp` of a directory | copied it on iOS, failed on Android and Windows | copies the directory with its contents everywhere (1.2.0) |
+| `fs.cp` / `fs.mv` onto an existing directory | a different failure per platform; Android's `mv` replaced an empty directory, and failed with `EUNSPECIFIED` on a full one | rejects `EEXIST` everywhere; an existing file is still replaced (1.2.0) |
+| `fs.exists` / `fs.stat` of an Android asset stored compressed (most text files) | reported missing: `false`, `ENOENT` | found (1.2.0) |
+| `fs.stat` of an Android asset in a folder (`fs.asset('dir/a.txt')`) | `filename` was the path inside `assets/` (`dir/a.txt`) | the name alone (`a.txt`), as for any file (1.2.0) |
+| An upload whose file exists but cannot be read (no permission, a directory) (#502) | sent as an empty body or part on iOS and Windows | fails before anything is sent, with `EACCES` or `EISDIR` (`ENOENT` when it is missing); a readable empty file is still sent (1.2.0) |
+| `progress` of a download without a `Content-Length` (#235, #292) | `(0, -1)` until the end (Android downloads to a file, iOS) | the bytes received so far with `total` `-1`, and `(n, n)` at the end (1.2.0) |
+| `stateChange` on Android | called twice per response | once, as on iOS and Windows (1.2.0) |
 
 One difference cannot be aligned from this side. A string a native module
 resolves reaches JS through `jsi::String::createFromUtf8(runtime, [value UTF8String])`
