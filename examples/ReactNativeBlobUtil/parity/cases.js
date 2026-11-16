@@ -1171,7 +1171,14 @@ define('fs-touch', async () => {
     };
     const out = {};
     out.create = await settle(() => fs.touch(file, {mtime: 1500000000000}));
-    out.created = await settle(() => statOf(file));
+    // Without a ctime the creation time is the platform's own: none on Android,
+    // pulled back to the mtime on iOS, the moment the file was made on Windows,
+    // which differs on every run.
+    out.created = await settle(async () => {
+        const stat = await statOf(file);
+        const created = stat.created === null || stat.created === 1500000000000 ? stat.created : timeKind(stat.created);
+        return {...stat, created};
+    });
     await fs.writeFile(file, 'kept', 'utf8');
     out.times = await settle(() => fs.touch(file, {mtime: new Date(1600000000000), ctime: 1400000000000}));
     out.afterTimes = await settle(() => statOf(file));

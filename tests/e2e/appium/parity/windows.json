@@ -83,7 +83,7 @@
       "rejected": {
         "code": "ENOENT",
         "message": "The system cannot find the file specified.",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "listing": [
@@ -97,21 +97,21 @@
       "rejected": {
         "code": "ENOENT",
         "message": "The system cannot find the file specified.",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "nested": {
       "rejected": {
         "code": "ENOENT",
         "message": "No such file '<DocumentDir>/parity/cp-mv/nested'",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "nested2": {
       "rejected": {
         "code": "ENOENT",
         "message": "No such file '<DocumentDir>/parity/cp-mv/nested2'",
-        "name": "<undefined>"
+        "name": "Error"
       }
     }
   },
@@ -124,56 +124,56 @@
       "rejected": {
         "code": "EISDIR",
         "message": "EISDIR: illegal operation on a directory, read",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "hashMissing": {
       "rejected": {
         "code": "ENOENT",
         "message": "ENOENT: no such file or directory, open <DocumentDir>/parity/errors-read/missing.txt",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "hashUnknownAlgorithm": {
       "rejected": {
         "code": "EINVAL",
         "message": "Invalid algorithm 'sha999', must be one of md5, sha1, sha224, sha256, sha384, sha512",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "lsFile": {
       "rejected": {
         "code": "ENOTDIR",
         "message": "Not a directory '<DocumentDir>/parity/errors-read/file.txt'",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "lsMissing": {
       "rejected": {
         "code": "ENOENT",
         "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "lstatMissing": {
       "rejected": {
         "code": "ENOENT",
         "message": "failed to lstat path `<DocumentDir>/parity/errors-read/missing.txt` because it does not exist or it is not a folder",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "readFileDir": {
       "rejected": {
         "code": "EISDIR",
         "message": "EISDIR: illegal operation on a directory, read",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "readFileMissing": {
       "rejected": {
         "code": "ENOENT",
         "message": "ENOENT: no such file or directory, open <DocumentDir>/parity/errors-read/missing.txt",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "readStreamMissing": {
@@ -192,14 +192,14 @@
       "rejected": {
         "code": "ENOENT",
         "message": "No such file '<DocumentDir>/parity/errors-read/missing.txt'",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "statMissing": {
       "rejected": {
         "code": "ENOENT",
         "message": "The system cannot find the file specified.",
-        "name": "<undefined>"
+        "name": "Error"
       }
     }
   },
@@ -209,7 +209,7 @@
         "rejected": {
           "code": "ENOENT",
           "message": "ENOENT: no such file or directory, open <DocumentDir>/parity/errors-write/bad.bin",
-          "name": "<undefined>"
+          "name": "Error"
         }
       },
       "file": {
@@ -223,7 +223,7 @@
       "rejected": {
         "code": "ENOENT",
         "message": "The system cannot find the file specified.",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "cpOntoExisting": {
@@ -233,35 +233,35 @@
       "rejected": {
         "code": "EEXIST",
         "message": "EEXIST: File already exists; <DocumentDir>/parity/errors-write/file.txt",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "createFileUriMissing": {
       "rejected": {
         "code": "ENOENT",
         "message": "Source file : <DocumentDir>/parity/errors-write/missing.txt does not exist",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "mkdirExistingDir": {
       "rejected": {
         "code": "EEXIST",
         "message": "Folder '<DocumentDir>/parity/errors-write' already exists",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "mkdirExistingFile": {
       "rejected": {
         "code": "EEXIST",
         "message": "File '<DocumentDir>/parity/errors-write/file.txt' already exists",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "mvMissing": {
       "rejected": {
         "code": "ENOENT",
         "message": "The system cannot find the file specified.",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "unlinkMissing": {
@@ -271,21 +271,21 @@
       "rejected": {
         "code": "EISDIR",
         "message": "Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "writeInvalidBase64": {
       "rejected": {
         "code": "EINVAL",
         "message": "Invalid base64 data",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "writeStreamOntoDir": {
       "rejected": {
         "code": "EISDIR",
         "message": "Expecting a file but '<DocumentDir>/parity/errors-write' is a directory",
-        "name": "<undefined>"
+        "name": "Error"
       }
     }
   },
@@ -886,14 +886,14 @@
       "rejected": {
         "code": "ENOENT",
         "message": "Destination directory of '<DocumentDir>/parity/fs-cp-dir/no/such/copy' does not exist",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "ontoDirectory": {
       "rejected": {
         "code": "EEXIST",
         "message": "Destination '<DocumentDir>/parity/fs-cp-dir/copy' is a directory",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "ontoFile": {
@@ -1041,7 +1041,7 @@
       "rejected": {
         "code": "EISDIR",
         "message": "Expecting a file but '<DocumentDir>/parity/fs-read-range' is a directory",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "lengthPastTheEnd": {
@@ -1054,7 +1054,7 @@
       "rejected": {
         "code": "ENOENT",
         "message": "No such file '<DocumentDir>/parity/fs-read-range/missing.bin'",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "negative": {
@@ -1097,7 +1097,7 @@
     },
     "created": {
       "resolved": {
-        "created": 1794853071000,
+        "created": "number:epoch-ms",
         "lastModified": 1500000000000,
         "size": 0
       }
@@ -1112,7 +1112,7 @@
       "rejected": {
         "code": "ENOENT",
         "message": "Directory of '<DocumentDir>/parity/fs-touch/no/such.txt' does not exist",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "now": {
@@ -1155,14 +1155,14 @@
       "rejected": {
         "code": "EISDIR",
         "message": "Expecting a file but '<DocumentDir>/parity/fs-write-range' is a directory",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "missingDirectory": {
       "rejected": {
         "code": "ENOENT",
         "message": "Directory of '<DocumentDir>/parity/fs-write-range/no/such/dir.txt' does not exist",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "newFile": {
@@ -1203,14 +1203,14 @@
         "rejected": {
           "code": "ENOTSUP",
           "message": "sha224 is not available on Windows",
-          "name": "<undefined>"
+          "name": "Error"
         }
       },
       "empty": {
         "rejected": {
           "code": "ENOTSUP",
           "message": "sha224 is not available on Windows",
-          "name": "<undefined>"
+          "name": "Error"
         }
       }
     },
@@ -1242,7 +1242,7 @@
       "rejected": {
         "code": "EINVAL",
         "message": "Invalid algorithm 'SHA256', must be one of md5, sha1, sha224, sha256, sha384, sha512",
-        "name": "<undefined>"
+        "name": "Error"
       }
     }
   },
@@ -1905,7 +1905,7 @@
       "rejected": {
         "code": "EINVAL",
         "message": "Data for stream '<md5>' is not valid base64",
-        "name": "<undefined>"
+        "name": "Error"
       }
     },
     "wrappedUnpadded": {

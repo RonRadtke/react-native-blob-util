@@ -47,7 +47,51 @@ function requireNativeModule() {
 
     ensureMessageChannel(resolved);
 
-    return resolved;
+    if (wrappedFor !== resolved) {
+        wrapped = withErrorRejections(resolved);
+        wrappedFor = resolved;
+    }
+    return wrapped;
+}
+
+let wrapped = null;
+let wrappedFor = null;
+
+/**
+ * An Error for what a native promise rejected with. Windows rejects with a
+ * plain object, {code, message}, where Android and iOS reject with an Error,
+ * so `err instanceof Error` was false there and the rejection had no name or
+ * stack. The fields it carried are kept.
+ */
+function asError(reason) {
+    if (reason == null || typeof reason !== 'object' || reason instanceof Error) {
+        return reason;
+    }
+    const error = new Error(reason.message == null ? '' : String(reason.message));
+    for (const key of Object.keys(reason)) {
+        if (key !== 'message') {
+            error[key] = reason[key];
+        }
+    }
+    return error;
+}
+
+/** The module, with every promise it returns rejecting with an Error. */
+function withErrorRejections(module) {
+    return new Proxy(module, {
+        get(target, prop) {
+            const value = target[prop];
+            if (typeof value !== 'function') {
+                return value;
+            }
+            return (...args) => {
+                const result = value.apply(target, args);
+                return result != null && typeof result.then === 'function'
+                    ? result.then(undefined, (reason) => { throw asError(reason); })
+                    : result;
+            };
+        },
+    });
 }
 
 /**

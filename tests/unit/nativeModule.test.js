@@ -14,9 +14,9 @@ test('the module is looked up again until it is registered', () => {
     assert.equal(getNativeModule(), null);
     assert.throws(() => requireNativeModule(), /native module is not available/);
 
-    const fake = {getConstants: () => ({})};
+    const fake = {getConstants: () => ({registered: true})};
     rn.setNativeModule(fake);
-    assert.equal(requireNativeModule(), fake);
+    assert.deepEqual(requireNativeModule().getConstants(), {registered: true});
 });
 
 test('a native "error" message is reported, not thrown from the listener (audit #3)', () => {
