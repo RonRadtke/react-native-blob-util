@@ -220,6 +220,7 @@ Where the platforms disagreed, 1.0 picks one behaviour:
 | `config({key})` on Windows | ignored: every request downloaded again, to a new file | a request whose `key` was downloaded before resolves with that file and sends nothing, as on Android and iOS (1.2.0) |
 | A `path` given to `config` on Windows | came back from `res.path()` and `background.list()` with its slashes turned into backslashes | comes back as it was given (1.2.0) |
 | A base64 `writeStream` chunk that is not base64 | rejected `EUNSPECIFIED` on Android and Windows; iOS resolved and wrote whatever bytes it could pick out, and dropped an unpadded chunk without a word | rejects `EINVAL` and writes nothing, everywhere; line breaks and missing padding are accepted (1.2.0) |
+| `android.getContentIntent` (now `open.pick`) when the app the user picks from answers with a `file://` URI, or with a URI of one of your app's own content providers | resolved it, and reading, uploading or deleting "the picked file" then reached a private file of your app | rejects `EACCES`; a `content://` URI of another app resolves as before (1.2.0) |
 
 One difference cannot be aligned from this side. A string a native module
 resolves reaches JS through `jsi::String::createFromUtf8(runtime, [value UTF8String])`

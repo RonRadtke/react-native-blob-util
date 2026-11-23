@@ -51,6 +51,12 @@ What a picked file is:
 | iOS | the path of a copy in the app's temporary directory | the original is outside the app's storage |
 | Windows | the path of a copy in `TemporaryFolder` | the picker filters by extension; the MIME types are turned into extensions, and an unknown one offers every file |
 
+On Android the picker is whichever app the user picks from, and the URI is that app's answer.
+`pick` resolves `content://` URIs of other apps only: a `file://` URI, or a URI of one of your
+app's own content providers, rejects `EACCES`, because either could name a private file of your
+app. Apply the same rule to a path or URI your app receives another way (a share intent, a deep
+link) before you pass it to `fs` or upload it.
+
 ```js
 import {fs, open} from 'react-native-blob-util';
 

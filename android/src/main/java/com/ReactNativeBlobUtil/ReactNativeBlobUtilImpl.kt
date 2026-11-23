@@ -49,17 +49,27 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
                 promiseTable.remove(GET_CONTENT_INTENT)
                 // The user dismissed the picker, or it returned nothing: resolve an
                 // empty list instead of leaving the promise pending forever.
-                val picked = Arguments.createArray()
+                val uris = ArrayList<Uri>()
                 if (resultCode == RESULT_OK && data != null) {
                     val clip = data.clipData
                     if (clip != null) {
                         for (i in 0 until clip.itemCount) {
-                            clip.getItemAt(i).uri?.let { picked.pushString(it.toString()) }
+                            clip.getItemAt(i).uri?.let { uris.add(it) }
                         }
                     } else {
-                        data.data?.let { picked.pushString(it.toString()) }
+                        data.data?.let { uris.add(it) }
                     }
                 }
+                // What came back is the picking app's word. See pickedUriRefusal.
+                val refusal = uris.firstNotNullOfOrNull {
+                    ReactNativeBlobUtilUtils.pickedUriRefusal(it.scheme, it.authority, ::isOwnProvider)
+                }
+                if (refusal != null) {
+                    pending.reject("EACCES", refusal)
+                    return
+                }
+                val picked = Arguments.createArray()
+                uris.forEach { picked.pushString(it.toString()) }
                 pending.resolve(picked)
             }
 
@@ -67,6 +77,13 @@ internal class ReactNativeBlobUtilImpl(reactContext: ReactApplicationContext) {
 
             }
         })
+    }
+
+    /** Whether a content provider of this name is one of this app's own. */
+    private fun isOwnProvider(authority: String): Boolean = try {
+        RCTContext.packageManager.resolveContentProvider(authority, 0)?.packageName == RCTContext.packageName
+    } catch (e: Exception) {
+        false
     }
 
     /**

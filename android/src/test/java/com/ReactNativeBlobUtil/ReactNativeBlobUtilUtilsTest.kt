@@ -94,4 +94,44 @@ class ReactNativeBlobUtilUtilsTest {
         assertEquals("/data/x.txt", ReactNativeBlobUtilUtils.normalizePath("file:///data/x.txt"))
         assertEquals("bundle-assets://a.png", ReactNativeBlobUtilUtils.normalizePath("bundle-assets://a.png"))
     }
+
+    // The picker is whatever app the user picks from, and what it returns is only
+    // a string. One naming this app's own files, by path or through one of its own
+    // providers, was passed on and then read, uploaded or deleted as "the picked
+    // file".
+    private val own = setOf("com.example.app.provider", "com.example.app.documents")
+    private fun refusal(scheme: String?, authority: String?) =
+        ReactNativeBlobUtilUtils.pickedUriRefusal(scheme, authority) { it in own }
+
+    @Test
+    fun `a picked URI of another app's provider is accepted`() {
+        assertNull(refusal("content", "com.android.providers.media.documents"))
+        assertNull(refusal("content", "media"))
+        assertNull(refusal("content", "0@com.android.externalstorage.documents"))
+    }
+
+    @Test
+    fun `a picked URI that is not content is refused`() {
+        // file:///data/user/0/<this app>/shared_prefs/auth.xml
+        for (scheme in listOf("file", "FILE", "Content", "android.resource", "http", "", null)) {
+            val reason = refusal(scheme, "")
+            assertTrue(scheme.toString(), reason != null && reason.contains("only content:// URIs"))
+        }
+    }
+
+    @Test
+    fun `a picked URI of this app's own provider is refused`() {
+        // content://com.example.app.provider/files-path/secret.db
+        for (authority in listOf("com.example.app.provider", "com.example.app.documents", "10@com.example.app.provider", "a@b@com.example.app.provider")) {
+            val reason = refusal("content", authority)
+            assertTrue(authority, reason != null && reason.contains("own provider"))
+        }
+    }
+
+    @Test
+    fun `a picked content URI without a provider is refused`() {
+        for (authority in listOf(null, "", "10@")) {
+            assertTrue(authority.toString(), refusal("content", authority) != null)
+        }
+    }
 }

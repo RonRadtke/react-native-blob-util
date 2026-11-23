@@ -329,5 +329,41 @@ class ReactNativeBlobUtilUtils {
         @JvmStatic
         fun isContentUri(path: String?): Boolean =
             path != null && path.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX_CONTENT)
+
+        /**
+         * Why a URI the file picker returned is not handed to the app, or null when
+         * it is another app's content.
+         *
+         * The picker is whatever app the user chose to pick from, and its answer is
+         * only a string. It used to be passed on as it came, and the app then read
+         * it, uploaded it or deleted it as "the file the user picked":
+         *  - `file:///data/user/0/<this app>/shared_prefs/...` names a private file of
+         *    this app by its path;
+         *  - `content://<this app>.provider/files-path/...` names one through the
+         *    library's own FileProvider, which serves the app's whole files, cache and
+         *    external directories to the app itself, and so does any other provider
+         *    of the app.
+         * A picker that can read a file hands out a content:// URI of a provider it
+         * can reach, so nothing else is accepted.
+         *
+         * @param scheme the URI's scheme
+         * @param authority its authority, decoded, as Uri.getAuthority reports it
+         * @param ownsAuthority whether a provider of this name belongs to this app
+         */
+        @JvmStatic
+        fun pickedUriRefusal(scheme: String?, authority: String?, ownsAuthority: (String) -> Boolean): String? {
+            if (scheme != "content") {
+                return "The picker returned a ${scheme ?: "relative"} URI; only content:// URIs are accepted"
+            }
+            // "10@authority" names the provider `authority` of user 10.
+            val provider = authority.orEmpty().substringAfterLast('@')
+            if (provider.isEmpty()) {
+                return "The picker returned a content:// URI without a provider"
+            }
+            if (ownsAuthority(provider)) {
+                return "The picker returned a URI of this app's own provider '$provider'"
+            }
+            return null
+        }
     }
 }

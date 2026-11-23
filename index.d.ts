@@ -911,7 +911,10 @@ export interface OpenApi {
      * The system file picker. Resolves what the user picked: a `content://`
      * URI on Android; on iOS and Windows the path of a copy in the temporary
      * directory. With `multiple` a list, [] when the user cancels; otherwise
-     * one entry, or null. Rejects EBUSY while another picker is open.
+     * one entry, or null. Rejects EBUSY while another picker is open, and
+     * EACCES on Android when the picking app returns anything but a
+     * `content://` URI of another app (a `file://` URI or one of this app's
+     * own providers could name the app's private files).
      */
     pick(options: PickOptions & {multiple: true}): Promise<string[]>;
     pick(mime?: string | string[] | (PickOptions & {multiple?: false})): Promise<string | null>;
