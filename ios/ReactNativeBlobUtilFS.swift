@@ -1128,7 +1128,11 @@ public class ReactNativeBlobUtilFS: NSObject, StreamDelegate {
                     if chunkSize <= 0 { break }
                     let chunk = handle.readData(ofLength: chunkSize)
                     if chunk.isEmpty { break }
-                    _ = chunk.withUnsafeBytes { output.write($0.bindMemory(to: UInt8.self).baseAddress!, maxLength: chunkSize) }
+                    // chunk.count, not chunkSize: a read comes back short when
+                    // the file holds less than its attributes report, and
+                    // writing chunkSize out of a shorter buffer sends whatever
+                    // follows it in memory - into a file an app then uploads.
+                    _ = chunk.withUnsafeBytes { output.write($0.bindMemory(to: UInt8.self).baseAddress!, maxLength: chunk.count) }
                     read += chunk.count
                 }
                 handle.closeFile()

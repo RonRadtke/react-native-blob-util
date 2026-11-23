@@ -394,6 +394,32 @@ final class FileSystemPinTests: XCTestCase {
         XCTAssertEqual(error.code, "ENOENT")
     }
 
+    /// slice wrote `chunkSize` bytes out of a buffer that can hold fewer: the
+    /// length came from the file's attributes and the read returns what is
+    /// there, so the bytes that happened to follow the buffer in memory went
+    /// into the destination - a file the app may well upload next. A symlink
+    /// makes the mismatch exact rather than a race: attributesOfItem does not
+    /// follow one, so .size is the length of the target's path, while the read
+    /// follows it and comes back with the target's three bytes.
+    func testSliceWritesOnlyTheBytesItRead() throws {
+        let target = try write("abc", "short-target.txt")
+        let link = "\(dir)/link-to-short.txt"
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: target)
+        let reported = try XCTUnwrap(
+            (FileManager.default.attributesOfItem(atPath: link)[.size] as? NSNumber)?.intValue)
+        XCTAssertGreaterThan(reported, 3, "the link's own size is its target's path, not three bytes")
+
+        let dest = "\(dir)/slice-short.txt"
+        _ = try settle { resolve, reject in
+            ReactNativeBlobUtilFS.slice(link, dest: dest, start: 0, end: 10000, encode: "",
+                                        resolver: resolve, rejecter: reject)
+        }
+
+        let written = try Data(contentsOf: URL(fileURLWithPath: dest))
+        XCTAssertEqual(written.count, 3, "\(reported - 3) bytes of adjacent memory otherwise")
+        XCTAssertEqual(written, Data("abc".utf8), "only what the read returned")
+    }
+
     // MARK: - readFile, ascii
 
     /// The ascii branch builds an NSMutableArray of per-byte NSNumbers and passes
