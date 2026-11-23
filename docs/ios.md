@@ -82,7 +82,9 @@ finished at once; without it it is found on the next start.
 
 `ios.backgroundTask: true` on a `GET` to a file (`path`) runs the download in the same session,
 under the task's id, and hands it to the task that started it; it does not stay in
-`background.list()` once delivered. Any other request with it runs as an ordinary request.
+`background.list()` once delivered. Any other request with it runs as an ordinary request, and so
+does one with `customCACerts`, `pinnedHosts` or `trusty`: the background session checks the server
+against the system's certificate store only.
 
 Two iOS rules apply: a user who force-quits the app from the app switcher cancels its background
 downloads, and the system may delay them on low battery or a poor network.

@@ -153,13 +153,18 @@ waiting for it rejects `ECANCELED`. A file it already wrote stays.
 download, or an `attach`), the record is removed. A download that ended while no task was waiting
 stays listed until it is attached or forgotten.
 
-**Rules.** A `GET` to `path`; a body, `transform`, `overwrite: false`, `resumable` or
-`android.downloadManager` rejects `EINVAL`. `pause()` rejects `ENOTSUP`.
+**Rules.** A `GET` of an `http` or `https` URL to `path`; a body, `transform`,
+`overwrite: false`, `resumable` or `android.downloadManager` rejects `EINVAL`. `pause()` rejects
+`ENOTSUP`.
+
+**Certificates.** The system runs the download and checks the server against its own certificate
+store. `customCACerts`, `pinnedHosts` and `trusty` cannot change that, so a background download
+with one of them rejects `EINVAL` instead of running without it.
 
 **Per platform**
 
 | | Runs it | Notes |
 |---|---|---|
 | iOS | a background `URLSession` | Add the [AppDelegate method](installation.md#ios) (Expo's plugin does) to finish a download that ends while the app is not running; without it the download is found on the next start. A user who force-quits the app from the app switcher cancels its background downloads, an iOS rule. The system may delay downloads on low battery or a poor network. |
-| Android | the DownloadManager | The file is downloaded into the app's external files directory and moved to `path` when it ends, by the app or, while the app is not running, by the library's broadcast receiver. A notification shows while it runs. The system's certificate trust applies: `customCACerts`, `pinnedHosts` and `trusty` do not. An app the user force-stops gets no broadcast until it is started again; the next `list()` or `attach()` then moves the file. |
-| Windows | BITS | BITS asks the server for the size (`HEAD`) and downloads in ranges. The file is put at `path` when the app next looks (`list`, `attach`, or the running app). Custom CA certificates do not apply. |
+| Android | the DownloadManager | The file is downloaded into the app's external files directory and moved to `path` when it ends, by the app or, while the app is not running, by the library's broadcast receiver. A notification shows while it runs. On Android 10 and lower, an app with the storage permission can read the file there, and replace it before it is moved; check a hash or signature of a file that must be the server's. An app the user force-stops gets no broadcast until it is started again; the next `list()` or `attach()` then moves the file. |
+| Windows | BITS | BITS asks the server for the size (`HEAD`) and downloads in ranges. The file is put at `path` when the app next looks (`list`, `attach`, or the running app). |

@@ -384,12 +384,13 @@ export interface ReactNativeBlobUtilConfig {
      * (`background.list()`, `background.attach(id)`). `true` gets a new id,
      * which is the task's `taskId`. The file lands at `path` even while the app
      * is not running. Run by a background URLSession on iOS, the DownloadManager
-     * on Android (which shows a notification while it runs, and uses the
-     * system's certificate trust, so customCACerts and trusty do not apply),
-     * and BITS on Windows. Needs GET and `path`; an id is 1 to 100 letters,
-     * digits, ".", "_" or "-", and one still running rejects EEXIST. A body,
-     * `transform`, `overwrite: false`, `resumable` or the DownloadManager
-     * option rejects EINVAL. A user who force-quits an iOS app from the app
+     * on Android (which shows a notification while it runs) and BITS on
+     * Windows. Needs GET, an http or https URL and `path`; an id is 1 to 100
+     * letters, digits, ".", "_" or "-", and one still running rejects EEXIST.
+     * A body, `transform`, `overwrite: false`, `resumable` or the
+     * DownloadManager option rejects EINVAL. So do `customCACerts`,
+     * `pinnedHosts` and `trusty`: the system checks the server against its own
+     * certificate store. A user who force-quits an iOS app from the app
      * switcher cancels its background downloads.
      */
     background?: boolean | {id?: string};

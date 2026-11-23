@@ -59,6 +59,10 @@ the Downloads app once it is complete. To register a file you downloaded yoursel
 [downloads.md](downloads.md#downloads-that-outlive-the-app); on Android they run through the
 DownloadManager too.
 
+The DownloadManager writes to shared storage. On Android 10 and lower, an app with the storage
+permission can read a file there and replace it, so check a hash or signature before you trust a
+file that must be the server's.
+
 ### Installing an APK
 
 Download it to a path you set (the package installer cannot read the DownloadManager's default
