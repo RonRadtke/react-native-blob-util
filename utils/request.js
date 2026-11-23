@@ -5,6 +5,7 @@
  */
 import base64 from 'base-64';
 import {binaryStringOfBytes} from './bytes';
+import {decodedUrlPath} from './path';
 
 const FILE_PREFIX = 'ReactNativeBlobUtil-file://';
 const CONTENT_PREFIX = 'ReactNativeBlobUtil-content://';
@@ -133,7 +134,8 @@ function fileReference(path: string): string {
  * read whatever followed the prefix as a path: iOS's multipart builder looked
  * for a file named "file:///..." and failed the request, Windows sent an empty
  * part, and Android kept %20 in the name (#411, #256). A malformed escape
- * leaves the path as it is.
+ * leaves the path as it is, and so does one that would decode into a
+ * separator or "..": see decodedUrlPath.
  * @param  {string} reference A string that starts with the file prefix.
  * @return {string}
  */
@@ -142,12 +144,7 @@ function withFilePath(reference: string): string {
     if (rest == null || !/^file:\/\//i.test(rest)) {
         return reference;
     }
-    const path = rest.replace(/^file:\/\/(localhost)?/i, '');
-    try {
-        return FILE_PREFIX + decodeURIComponent(path);
-    } catch {
-        return FILE_PREFIX + path;
-    }
+    return FILE_PREFIX + decodedUrlPath(rest.replace(/^file:\/\/(localhost)?/i, ''));
 }
 
 /**

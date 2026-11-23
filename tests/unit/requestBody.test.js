@@ -174,3 +174,20 @@ test('a file given as a file:// URL is sent as its decoded path', async () => {
     const malformed = await sent('POST', {}, {file: 'file:///docs/100%.txt'});
     assert.equal(malformed.body, 'ReactNativeBlobUtil-file:///docs/100%.txt');
 });
+
+// The same rule on the way up: an app that joins a name it was handed into a
+// file URL produces "..%2Fsecret.txt", a legal file name with no slash in it.
+// Decoding the URL as a whole made it the file one folder up and the upload
+// sent that one, so whoever chose the name chose which file left the device.
+// utils/path.js has the rule and the rest of the cases.
+test('a file URL whose escape would leave its folder is not decoded', async () => {
+    for (const path of ['/docs/inbox/..%2Fsecret.txt', '/docs/%2E%2E/secret.txt', '/docs/a%00b.txt']) {
+        const single = await sent('POST', {}, {file: `file://${path}`});
+        assert.equal(single.body, `ReactNativeBlobUtil-file://${path}`, path);
+
+        const form = await sent('POST', {}, [
+            {name: 'f', filename: 'f.txt', data: `ReactNativeBlobUtil-file://file://${path}`},
+        ]);
+        assert.equal(form.form[0].data, `ReactNativeBlobUtil-file://${path}`, path);
+    }
+});

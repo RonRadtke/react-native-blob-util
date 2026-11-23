@@ -37,10 +37,11 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
         var request = URLRequest(url: requestURL)
         var mheaders = ReactNativeBlobUtilNetwork.normalizeHeaders(headers)
 
-        // The original formatted an NSNumber with %d, which prints the pointer
-        // rather than the value. The boundary only has to be unique, and the
-        // parity signatures mask it, so this uses the timestamp itself.
-        let boundary = "ReactNativeBlobUtil\(Int(Date().timeIntervalSince1970 * 1000))"
+        // Random, not the time of day: whoever wrote a file or a text this app
+        // uploads can guess the millisecond it is sent in, put that boundary in
+        // the content, and so end the part early and add form fields of their
+        // own. The parity signatures mask the boundary.
+        let boundary = "ReactNativeBlobUtil-\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
 
         DispatchQueue.global(qos: .default).async {
             buildFormBody(form, boundary: boundary) { formData, hasError in
@@ -203,8 +204,60 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
         if resolved.hasPrefix(ReactNativeBlobUtilConst.alPrefix) { return nil }
         // A bundle asset that is not there resolves to "", and naming "" in the
         // rejection says nothing; keep what the caller wrote.
-        let path = resolved.isEmpty ? raw : resolved
-        return URL(string: path)?.path ?? path
+        return pathOfFileURL(resolved.isEmpty ? raw : resolved)
+    }
+
+    /// The path a file:// URL names; any other string as it is.
+    ///
+    /// Every path used to go through URL(string:).path, which reads a plain
+    /// path as a relative URL and decodes its percent escapes. A name such as
+    /// "..%2F..%2FLibrary%2FCookies%2FCookies.binarycookies" - a legal file
+    /// name, there is no slash in it - then named another file, and the upload
+    /// sent that one: whoever chose the name of a file the user uploads chose
+    /// which file of the app left the device. A "?" or "#" cut the name short
+    /// the same way.
+    ///
+    /// Escapes are decoded where a URL has them, and one path component at a
+    /// time (decodedByComponent), so an escape is a character of a name and
+    /// never a separator or "..":
+    ///  - a file:// URL, which JS turns into a path before it gets here
+    ///    (utils/request.js) and an older caller may still send;
+    ///  - a path cut out of a file URL by hand, `uri.replace('file://', '')`,
+    ///    which keeps the URL's escapes ("My%20Scan.pdf" for "My Scan.pdf")
+    ///    and worked through the old decoding. It is read that way only when
+    ///    no file has the name as it is written.
+    static func pathOfFileURL(_ value: String) -> String {
+        if value.lowercased().hasPrefix("file://") {
+            var rest = String(value.dropFirst("file://".count))
+            if rest.lowercased().hasPrefix("localhost/") {
+                rest = String(rest.dropFirst("localhost".count))
+            }
+            return decodedByComponent(rest) ?? rest
+        }
+        let fm = FileManager.default
+        guard value.contains("%"), !fm.fileExists(atPath: value),
+              let candidate = decodedByComponent(value), fm.fileExists(atPath: candidate) else {
+            return value
+        }
+        return candidate
+    }
+
+    /// A path with the percent escapes of each component decoded, or nil when
+    /// one is malformed or would change the shape of the path: an escape that
+    /// decodes into a separator, into "." or "..", or into a NUL. Which file
+    /// exists is not asked - "..%2Fsecret.txt" is one name, whether or not a
+    /// file has it.
+    static func decodedByComponent(_ path: String) -> String? {
+        var parts: [String] = []
+        for component in path.components(separatedBy: "/") {
+            guard let part = component.removingPercentEncoding else { return nil }
+            if part != component,
+               part.contains("/") || part.contains("\0") || part == "." || part == ".." {
+                return nil
+            }
+            parts.append(part)
+        }
+        return parts.joined(separator: "/")
     }
 
     /// Whether a form field is a file part, by the same rule the body builder
@@ -304,8 +357,9 @@ public class ReactNativeBlobUtilReqBuilder: NSObject {
 
                 let isFile = bodyType.map { $0 == "file" } ?? body.hasPrefix(ReactNativeBlobUtilConst.filePrefix)
                 if isFile && body.hasPrefix(ReactNativeBlobUtilConst.filePrefix) {
-                    var orgPath = ReactNativeBlobUtilFS.getPathOfAsset(String(body.dropFirst(ReactNativeBlobUtilConst.filePrefix.count)))
-                    orgPath = URL(string: orgPath)?.path ?? orgPath
+                    // As it is, not decoded: see pathOfFileURL.
+                    let orgPath = pathOfFileURL(
+                        ReactNativeBlobUtilFS.getPathOfAsset(String(body.dropFirst(ReactNativeBlobUtilConst.filePrefix.count))))
 
                     if orgPath.hasPrefix(ReactNativeBlobUtilConst.alPrefix) {
                         ReactNativeBlobUtilFS.readFile(orgPath, encoding: nil, transformFile: false) { content, _, err in

@@ -900,6 +900,30 @@ define('upload-multipart', async (ctx) => {
     return echoSummary(await res.json());
 });
 
+// What a part holds is the part's, whatever it looks like. Windows sent the
+// constant boundary "-----", so a row of dashes at the start of a line ended a
+// part: the Markdown rule below cut the upload short there, and the note added
+// a "role" field of its own. iOS used the time in milliseconds, which content
+// written for an upload can guess. The boundary is random on every platform.
+define('upload-multipart-dashes', async (ctx) => {
+    const dir = await freshDir('upload-multipart-dashes');
+    const file = `${dir}/notes.md`;
+    await fs.createFile(file, 'Title\r\n-------\r\nBody\r\n---------\r\nEnd', 'utf8');
+    const note = 'before\r\n-------\r\nContent-Disposition: form-data; name="role"\r\n\r\nadmin\r\n-------\r\nafter';
+    const res = await ReactNativeBlobUtil.fetch('POST', ctx.url('/echo'), {'Content-Type': 'multipart/form-data'}, [
+        {name: 'note', data: {text: note}},
+        {name: 'notes', filename: 'notes.md', type: 'text/markdown', data: {file}},
+        {name: 'last', data: {text: 'still here'}},
+    ]);
+    const echo = await res.json();
+    return {
+        method: echo.method,
+        names: Array.isArray(echo.parts) ? echo.parts.map((part) => part.name) : null,
+        noteArrivedWhole: Array.isArray(echo.parts) && echo.parts.length > 0 && echo.parts[0].text === note,
+        parts: raw(echo.parts),
+    };
+});
+
 // 1.0: JS decides what a body is and native obeys. The explicit forms are never
 // guessed from the Content-Type or a prefix, bytes go as base64, DELETE sends its
 // body, a missing file fails instead of uploading an empty one, GET with a body

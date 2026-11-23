@@ -265,6 +265,19 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertEqual(req.httpMethod, "POST")
     }
 
+    /// The boundary is random. It was the time in milliseconds, which the
+    /// author of an uploaded file can guess and put in the file, ending its
+    /// part early and adding form fields of their own.
+    func testTheMultipartBoundaryIsRandom() throws {
+        var seen = Set<String>()
+        for _ in 0..<5 {
+            let (_, boundary) = try multipartBody(form: [["name": "field", "data": "value"]])
+            XCTAssertNotNil(boundary.range(of: "^ReactNativeBlobUtil-[0-9A-F]{32}$", options: .regularExpression), boundary)
+            seen.insert(boundary)
+        }
+        XCTAssertEqual(seen.count, 5)
+    }
+
     func testMultipartWritesATextFieldWithItsDefaultContentType() throws {
         let (request, _) = try buildMultipart(form: [["name": "field", "data": "value"]])
         let body = try XCTUnwrap(String(data: try XCTUnwrap(try XCTUnwrap(request).httpBody), encoding: .utf8))
@@ -344,6 +357,127 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertNil(try XCTUnwrap(request).httpBody)
         XCTAssertEqual(uploadFile?.path, path)
         XCTAssertEqual(try String(contentsOf: try XCTUnwrap(uploadFile), encoding: .utf8), "explicit")
+    }
+
+    /// A path is used as it is. It used to be read as a URL, which decodes
+    /// percent escapes: a file named "..%2Fsecret.txt" - a legal name, without
+    /// a slash - then named the file one folder up, and that one was sent.
+    func testAFileBodyIsTheFileNamedNotTheOneItsNameDecodesTo() throws {
+        let inbox = "\(dir)/inbox"
+        try FileManager.default.createDirectory(atPath: inbox, withIntermediateDirectories: true)
+        try "private".write(toFile: "\(dir)/secret.txt", atomically: true, encoding: .utf8)
+        let picked = "\(inbox)/..%2Fsecret.txt"
+        try "picked".write(toFile: picked, atomically: true, encoding: .utf8)
+
+        for options in [["bodyType": "file"], [:]] {
+            let (_, length, uploadFile) = try buildOctetWithFile(
+                method: "POST", headers: ["content-type": "text/plain"],
+                body: ReactNativeBlobUtilConst.filePrefix + picked, options: options)
+            XCTAssertEqual(uploadFile?.path, picked)
+            XCTAssertEqual(try String(contentsOf: try XCTUnwrap(uploadFile), encoding: .utf8), "picked")
+            XCTAssertEqual(length, 6)
+        }
+    }
+
+    /// The same reading cut a name short at "?" or "#", which begin a URL's
+    /// query and fragment: "notes.txt?holiday.jpg" sent "notes.txt".
+    func testAFileBodyKeepsAQuestionMarkOrHashInItsName() throws {
+        try "private".write(toFile: "\(dir)/notes.txt", atomically: true, encoding: .utf8)
+        for name in ["notes.txt?holiday.jpg", "notes.txt#holiday.jpg"] {
+            let picked = "\(dir)/\(name)"
+            try "picked".write(toFile: picked, atomically: true, encoding: .utf8)
+            let (_, _, uploadFile) = try buildOctetWithFile(
+                method: "POST", headers: ["content-type": "text/plain"],
+                body: ReactNativeBlobUtilConst.filePrefix + picked, options: ["bodyType": "file"])
+            XCTAssertEqual(try String(contentsOf: try XCTUnwrap(uploadFile), encoding: .utf8), "picked", name)
+        }
+    }
+
+    /// The check before sending looks at the same file the upload reads: a
+    /// name with a literal "%41" exists as written, and "aA.txt" does not.
+    func testTheUploadCheckReadsAPercentInANameLiterally() throws {
+        let path = "\(dir)/a%41.txt"
+        try "x".write(toFile: path, atomically: true, encoding: .utf8)
+        XCTAssertNil(ReactNativeBlobUtilReqBuilder.unreadableSource(
+            ["bodyType": "file"], body: ReactNativeBlobUtilConst.filePrefix + path, form: nil))
+        XCTAssertNil(ReactNativeBlobUtilReqBuilder.unreadableSource(
+            nil, body: nil, form: [["name": "f", "filename": "a.txt", "kind": "file",
+                                    "data": ReactNativeBlobUtilConst.filePrefix + path]]))
+    }
+
+    /// A file:// URL still names its path, decoded as a URL is.
+    func testAFileURLBodyIsItsDecodedPath() throws {
+        let path = "\(dir)/with space.txt"
+        try "spaced".write(toFile: path, atomically: true, encoding: .utf8)
+        let url = URL(fileURLWithPath: path).absoluteString
+        XCTAssertTrue(url.contains("%20"), url)
+        XCTAssertEqual(ReactNativeBlobUtilReqBuilder.pathOfFileURL(url), path)
+        XCTAssertEqual(ReactNativeBlobUtilReqBuilder.pathOfFileURL(path), path)
+        XCTAssertEqual(ReactNativeBlobUtilReqBuilder.pathOfFileURL("/a/b%20c?d#e"), "/a/b%20c?d#e")
+    }
+
+    /// A path cut out of a file URL by hand keeps the URL's escapes, and apps
+    /// upload it that way (`uri.replace('file://', '')`). It names the file it
+    /// was cut from as long as no file has the name as written.
+    func testAPathWithTheEscapesOfItsFileURLStillNamesTheFile() throws {
+        let path = "\(dir)/My Scan.pdf"
+        try "scan".write(toFile: path, atomically: true, encoding: .utf8)
+        let escaped = "\(dir)/My%20Scan.pdf"
+        let (_, length, uploadFile) = try buildOctetWithFile(
+            method: "POST", headers: ["content-type": "application/pdf"],
+            body: ReactNativeBlobUtilConst.filePrefix + escaped, options: ["bodyType": "file"])
+        XCTAssertEqual(uploadFile?.path, path)
+        XCTAssertEqual(length, 4)
+        XCTAssertNil(ReactNativeBlobUtilReqBuilder.unreadableSource(
+            ["bodyType": "file"], body: ReactNativeBlobUtilConst.filePrefix + escaped, form: nil))
+
+        // A file that has the name as written is the one meant.
+        try "literal".write(toFile: escaped, atomically: true, encoding: .utf8)
+        let (_, _, literal) = try buildOctetWithFile(
+            method: "POST", headers: ["content-type": "application/pdf"],
+            body: ReactNativeBlobUtilConst.filePrefix + escaped, options: ["bodyType": "file"])
+        XCTAssertEqual(try String(contentsOf: try XCTUnwrap(literal), encoding: .utf8), "literal")
+    }
+
+    /// A name is not a path out of its folder. The app is handed a name -
+    /// nothing is written at the literal path - and the escapes in it must not
+    /// be decoded into separators, however the decoded path would resolve.
+    /// This is the "%20" allowance's dangerous twin: both have an escaped name
+    /// that does not exist and a decoded one that does.
+    func testACraftedNameCannotNameAFileOutsideItsFolder() throws {
+        try "private".write(toFile: "\(dir)/secret.txt", atomically: true, encoding: .utf8)
+        let inbox = "\(dir)/inbox"
+        try FileManager.default.createDirectory(atPath: inbox, withIntermediateDirectories: true)
+        for name in ["..%2Fsecret.txt", "..%2fsecret.txt", "%2E%2E/secret.txt", "%2e%2e%2fsecret.txt"] {
+            let crafted = "\(inbox)/\(name)"
+            XCTAssertFalse(FileManager.default.fileExists(atPath: crafted), "precondition")
+
+            let (_, length, uploadFile) = try buildOctetWithFile(
+                method: "POST", headers: ["content-type": "text/plain"],
+                body: ReactNativeBlobUtilConst.filePrefix + crafted, options: ["bodyType": "file"])
+
+            XCTAssertEqual(uploadFile?.path, crafted, "the name as written, not what it decodes to")
+            XCTAssertEqual(length, 0, name)
+            XCTAssertNotNil(ReactNativeBlobUtilReqBuilder.unreadableSource(
+                ["bodyType": "file"], body: ReactNativeBlobUtilConst.filePrefix + crafted, form: nil),
+                "a name that matches no file must be refused before sending")
+
+            // The same name inside a file:// URL.
+            XCTAssertEqual(ReactNativeBlobUtilReqBuilder.pathOfFileURL("file://\(crafted)"), crafted, name)
+        }
+    }
+
+    /// What decodedByComponent refuses, and what it leaves alone.
+    func testEscapesAreDecodedOneComponentAtATime() {
+        let decode = ReactNativeBlobUtilReqBuilder.decodedByComponent
+        XCTAssertEqual(decode("/a/My%20Scan%20%232.pdf"), "/a/My Scan #2.pdf")
+        XCTAssertEqual(decode("/a%20b/c%20d.txt"), "/a b/c d.txt")
+        // Dots and separators that are written out are the path's own.
+        XCTAssertEqual(decode("/a/../b%20c"), "/a/../b c")
+        XCTAssertEqual(decode("/a/b"), "/a/b")
+        for refused in ["/a/..%2Fb", "/a/%2E%2E/b", "/a/%2e/b", "/a/b%00c", "/a/100%.txt", "/a/%ZZ"] {
+            XCTAssertNil(decode(refused), refused)
+        }
     }
 
     /// DELETE and OPTIONS dropped their body; with bodyType any method but GET/HEAD sends it.
@@ -478,7 +612,7 @@ final class RequestBuilderPinTests: XCTestCase {
 
     /// The whole body for a one-field form, byte for byte. Everything except the
     /// boundary is fixed, and the boundary is masked in the parity signatures
-    /// because it is derived from a timestamp.
+    /// because it is random.
     func testMultipartBodyForASingleTextFieldIsExact() throws {
         let (request, _) = try buildMultipart(form: [["name": "field", "data": "value"]])
         let req = try XCTUnwrap(request)
@@ -500,8 +634,8 @@ final class RequestBuilderPinTests: XCTestCase {
         XCTAssertEqual(declared, body.utf8.count)
 
         // Deliberately not asserting an absolute number: it would encode the
-        // digit count of the boundary, which is derived from a timestamp and is
-        // masked in the parity signatures. The structure above is the contract.
+        // length of the boundary, which is random and masked in the parity
+        // signatures. The structure above is the contract.
     }
 
     private func multipartBody(form: [[String: Any]]) throws -> (body: String, boundary: String) {
