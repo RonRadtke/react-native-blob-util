@@ -16,10 +16,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 let packed;
 
-function packedFiles() {
-    if (packed) {
-        return packed;
-    }
+function pack() {
     const result = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
         cwd: root,
         encoding: 'utf8',
@@ -27,7 +24,13 @@ function packedFiles() {
         shell: process.platform === 'win32',
     });
     assert.equal(result.status, 0, result.stderr);
-    packed = JSON.parse(result.stdout)[0].files.map((file) => file.path);
+    return JSON.parse(result.stdout)[0].files.map((file) => file.path);
+}
+
+function packedFiles() {
+    if (!packed) {
+        packed = pack();
+    }
     return packed;
 }
 
@@ -87,6 +90,26 @@ const SHIPPED = [
 test('the tarball ships only package files', () => {
     const stray = packedFiles().filter((file) => !SHIPPED.some((pattern) => pattern.test(file)));
     assert.deepEqual(stray, [], 'not part of the package; delete it, or add it to `files` and to SHIPPED here');
+});
+
+// `files` listed `ios/` as a directory until 1.2.0, and a directory entry takes
+// whatever sits in it. Xcode writes ReactNativeBlobUtil.xcodeproj/ into the
+// module folder the first time it is opened there, and a `files` entry wins over
+// .gitignore, so the maintainer's window state packed with the sources. The
+// entries name the iOS sources now. The decoy is what makes this fail on a clean
+// checkout as well, where there is nothing for Xcode to have left behind yet -
+// the test above can only catch it on the machine that has the folder.
+test('the tarball leaves out what Xcode drops into ios/', () => {
+    const decoy = path.join(root, 'ios', 'npm-pack-decoy.xcodeproj');
+    assert.ok(!fs.existsSync(decoy), `${decoy} already exists; refusing to remove it`);
+    fs.mkdirSync(path.join(decoy, 'xcuserdata'), {recursive: true});
+    try {
+        fs.writeFileSync(path.join(decoy, 'project.pbxproj'), 'decoy\n');
+        fs.writeFileSync(path.join(decoy, 'xcuserdata', 'window.plist'), 'decoy\n');
+        assert.deepEqual(pack().filter((file) => file.includes('npm-pack-decoy')), []);
+    } finally {
+        fs.rmSync(decoy, {recursive: true, force: true});
+    }
 });
 
 // The README states the React Native floor; the peer dependency enforces it at
