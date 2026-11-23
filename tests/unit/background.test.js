@@ -143,6 +143,39 @@ test('backgroundIdOf and invalidBackground', () => {
     assert.deepEqual(backgroundIdOf({id: 'a.b_c-1'}, fresh), {id: 'a.b_c-1'});
     assert.ok(backgroundIdOf({id: '../x'}, fresh).error);
     assert.ok(backgroundIdOf({id: 'x'.repeat(101)}, fresh).error);
-    assert.equal(invalidBackground('get', {path: '/a'}, null), null);
-    assert.match(invalidBackground('GET', {path: '/a', addAndroidDownloads: {}}, null), /downloadManager/);
+    const url = 'https://example.test/a';
+    assert.equal(invalidBackground('get', {path: '/a'}, null, url), null);
+    assert.match(invalidBackground('GET', {path: '/a', addAndroidDownloads: {}}, null, url), /downloadManager/);
+});
+
+// The system runs the download and decides what it trusts: a background
+// URLSession, the DownloadManager and BITS all check the server against the
+// system store and never ask the library. A request that limits trust to its
+// own CA or to pinned hosts would run against that store with nothing saying
+// so, so it is refused rather than silently widened.
+test('a background download cannot bring its own trust', () => {
+    const ok = {path: '/a'};
+    const url = 'https://example.test/a';
+    assert.equal(invalidBackground('GET', ok, null, url), null);
+
+    assert.match(invalidBackground('GET', {...ok, customCACerts: ['my_ca']}, null, url), /customCACerts/);
+    assert.match(invalidBackground('GET', {...ok, pinnedHosts: ['example.test']}, null, url), /pinnedHosts/);
+    assert.match(invalidBackground('GET', {...ok, trusty: true}, null, url), /trusty/);
+
+    // Asking for nothing is not asking: an empty list leaves the request alone.
+    assert.equal(invalidBackground('GET', {...ok, customCACerts: [], pinnedHosts: []}, null, url), null);
+    assert.equal(invalidBackground('GET', {...ok, trusty: false}, null, url), null);
+    assert.equal(invalidBackground('GET', {...ok, trustSystemCerts: true}, null, url), null);
+});
+
+// BITS also takes file:// and a UNC name, and Windows signs in to whatever
+// host a UNC name points at. Only http and https reach any of the three.
+test('a background download needs an http or https URL', () => {
+    const ok = {path: '/a'};
+    for (const url of ['https://example.test/a', 'HTTP://example.test/a']) {
+        assert.equal(invalidBackground('GET', ok, null, url), null, url);
+    }
+    for (const url of ['file:///etc/passwd', '\\\\attacker.test\\share\\x', 'ftp://example.test/a', '/a/b', '', undefined]) {
+        assert.match(invalidBackground('GET', ok, null, url), /http or https/, String(url));
+    }
 });

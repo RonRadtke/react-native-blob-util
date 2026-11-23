@@ -123,7 +123,7 @@ function fetchWithOptions(options: ReactNativeBlobUtilConfig, method: string, ur
     const invalid = headersNotAnObject || invalidAppendExt(options) || prepared.error || invalidHeader(headers)
         || (Array.isArray(body) ? invalidFormField(body) : null)
         || (resumable ? invalidResumable(method, options, body) : null)
-        || (background ? background.error || invalidBackground(method, options, body) : null);
+        || (background ? background.error || invalidBackground(method, options, body, url) : null);
     headers = prepared.headers;
     body = Array.isArray(prepared.body) ? escapeForm(prepared.body) : prepared.body;
     // `range` is set here for a resumed request only; `resumable` is handled here.

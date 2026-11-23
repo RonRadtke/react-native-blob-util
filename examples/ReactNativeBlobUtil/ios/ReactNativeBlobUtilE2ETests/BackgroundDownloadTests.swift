@@ -344,6 +344,25 @@ final class BackgroundDownloadTests: XCTestCase {
         XCTAssertNil(idFor(["IOSBackgroundTask": true, "path": "/tmp/x.bin"], ""))
     }
 
+    /// The shared session answers no authentication challenge, so the system's
+    /// store decides. A request that brings its own CA, pins hosts or is trusty
+    /// must stay with the request layer, which honours that: in the shared
+    /// session a pinned host would be answered by any certificate the system
+    /// trusts, without an error.
+    func testTheOldOptionKeepsARequestThatDecidesItsOwnTrust() {
+        let base: [String: Any] = ["IOSBackgroundTask": true, "path": "/tmp/x.bin"]
+        func with(_ more: [String: Any]) -> [String: Any] { base.merging(more) { _, new in new } }
+        XCTAssertNil(idFor(with(["customCACerts": ["my_ca"]]), "task-7"))
+        XCTAssertNil(idFor(with(["customCACerts": ["my_ca"], "pinnedHosts": ["example.test"],
+                                 "trustSystemCerts": false]), "task-7"))
+        XCTAssertNil(idFor(with(["pinnedHosts": ["example.test"]]), "task-7"))
+        XCTAssertNil(idFor(with(["trusty": true]), "task-7"))
+        XCTAssertNil(idFor(with(["trusty": "true"]), "task-7"))
+        // Options that ask for nothing leave it a shared-session download.
+        XCTAssertEqual(idFor(with(["customCACerts": [String](), "pinnedHosts": [String](), "trusty": false]), "task-7"), "task-7")
+        XCTAssertEqual(idFor(with(["trustSystemCerts": true]), "task-7"), "task-7")
+    }
+
     func testTheNewOptionWinsOverTheOld() {
         XCTAssertEqual(idFor(["IOSBackgroundTask": true, "path": "/tmp/x.bin",
                               "background": ["id": "chosen"]], "task-7"), "chosen")

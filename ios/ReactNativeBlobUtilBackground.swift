@@ -150,10 +150,33 @@ public final class ReactNativeBlobUtilBackground: NSObject, URLSessionDownloadDe
         guard (options?["IOSBackgroundTask"] as? NSNumber)?.boolValue == true,
               method.uppercased() == "GET",
               let path = options?[ReactNativeBlobUtilConst.configFilePath] as? String, !path.isEmpty,
-              !taskId.isEmpty else {
+              !taskId.isEmpty,
+              !asksForOwnTrust(options) else {
             return nil
         }
         return taskId
+    }
+
+    /// Whether a request decides for itself which certificates it trusts:
+    /// `customCACerts`, `pinnedHosts` or `trusty`.
+    ///
+    /// The shared session answers no authentication challenge, so the system
+    /// checks the server against its own store. A request that pins its hosts
+    /// to a private CA would be answered by any certificate the system trusts,
+    /// and nothing would say so. Such a request stays with the request layer,
+    /// which does what it asks - as it did before `ios.backgroundTask` shared
+    /// this session. For `background` JS refuses the combination.
+    static func asksForOwnTrust(_ options: [String: Any]?) -> Bool {
+        let names = [ReactNativeBlobUtilConst.configCustomCaCerts, ReactNativeBlobUtilConst.configPinnedHosts]
+        if names.contains(where: { !((options?[$0] as? [Any]) ?? []).isEmpty }) {
+            return true
+        }
+        // As the request layer reads it: "true" as a string counts too.
+        switch options?[ReactNativeBlobUtilConst.configTrusty] {
+        case let number as NSNumber: return number.boolValue
+        case let string as NSString: return string.boolValue
+        default: return false
+        }
     }
 
     // MARK: - starting
