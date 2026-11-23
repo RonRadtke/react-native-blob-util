@@ -288,6 +288,60 @@ final class RequestHardeningTests: XCTestCase {
         XCTAssertEqual(discard, -2)
     }
 
+    // MARK: - where a finished download is put
+
+    /// The finished download was moved onto its path, and whatever stood there
+    /// was cleared away first - a directory with everything in it included,
+    /// after which the request reported success for the file left where the
+    /// folder had been. A path built by joining a name the app was handed is
+    /// enough to aim a download at a folder. Android ("Output path is a
+    /// directory") and Windows both fail and keep it, so iOS was the odd one.
+    func testADirectoryAtTheDestinationFailsAndIsKept() throws {
+        let target = "\(dir)/target"
+        // Removed here: tearDown chmods what it finds, which would leave a
+        // directory it cannot then delete.
+        defer { try? FileManager.default.removeItem(atPath: target) }
+        try FileManager.default.createDirectory(atPath: target, withIntermediateDirectories: true)
+        let inside = "\(target)/keep.txt"
+        try "keep".write(toFile: inside, atomically: true, encoding: .utf8)
+        let downloaded = try write("downloaded.bin", "payload")
+
+        let placement = ReactNativeBlobUtilRequest.place(URL(fileURLWithPath: downloaded),
+                                                        at: target, append: false)
+        XCTAssertEqual(placement, .failed(code: "EISDIR",
+                                          message: "Expecting a file but '\(target)' is a directory"))
+        XCTAssertEqual(try String(contentsOfFile: inside, encoding: .utf8), "keep",
+                       "the folder and the file in it stay")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: downloaded),
+                      "and the download was not moved anywhere")
+    }
+
+    /// A file there is still replaced, which is what the clearing-away was for.
+    func testAFileAtTheDestinationIsReplaced() throws {
+        let target = try write("target.bin", "old")
+        let downloaded = try write("downloaded-replace.bin", "new")
+        XCTAssertEqual(ReactNativeBlobUtilRequest.place(URL(fileURLWithPath: downloaded),
+                                                        at: target, append: false), .placed)
+        XCTAssertEqual(try String(contentsOfFile: target, encoding: .utf8), "new")
+    }
+
+    func testAnAppendedDownloadAddsToWhatIsThere() throws {
+        let target = try write("target-append.bin", "old")
+        let downloaded = try write("downloaded-append.bin", "new")
+        XCTAssertEqual(ReactNativeBlobUtilRequest.place(URL(fileURLWithPath: downloaded),
+                                                        at: target, append: true), .placed)
+        XCTAssertEqual(try String(contentsOfFile: target, encoding: .utf8), "oldnew")
+    }
+
+    /// The parent folder is made when it is missing, as before.
+    func testAMissingParentFolderIsCreated() throws {
+        let target = "\(dir)/made/up/target.bin"
+        let downloaded = try write("downloaded-nested.bin", "payload")
+        XCTAssertEqual(ReactNativeBlobUtilRequest.place(URL(fileURLWithPath: downloaded),
+                                                        at: target, append: false), .placed)
+        XCTAssertEqual(try String(contentsOfFile: target, encoding: .utf8), "payload")
+    }
+
     // MARK: - #491: a cancel that arrives while the request is still being built
 
     func testACancelBeforeTheTaskExistsIsRemembered() {

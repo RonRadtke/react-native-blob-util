@@ -65,6 +65,10 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     private var responseFormat: ResponseFormat = .auto
     private var followRedirect = true
     private var backgroundTask = false
+    /// Why the finished download could not be put where it belongs.
+    /// didFinishDownloadingTo sets it and didCompleteWithError, which runs
+    /// after it, carries it to the caller.
+    private var destinationFailure: (code: String, message: String)?
 
     private func md5(_ input: String) -> String {
         let data = Data(input.utf8)
@@ -296,7 +300,48 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         }
     }
 
-    private func copyDownloadedFile(_ sourceURL: URL, toPath targetPath: String, append: Bool) -> Bool {
+    /// Where a finished download ends up, and why it sometimes cannot.
+    enum Placement: Equatable {
+        /// The download is at the destination.
+        case placed
+        /// Nothing was written there, and the request fails with this.
+        case failed(code: String, message: String)
+        /// Neither: the caller reads the bytes and writes them its own way.
+        case notPlaced
+    }
+
+    /// Puts the finished download at `path`, replacing a file already there and
+    /// creating the parent folder if it is missing.
+    ///
+    /// A directory at `path` fails instead and is left as it is. A download
+    /// cannot be written to one, and the clearing-away that used to make room
+    /// took the directory with everything inside it - after which the request
+    /// reported success for the file standing where the folder had been.
+    /// Android ("Output path is a directory") and Windows both fail and keep it.
+    static func place(_ location: URL, at path: String, append: Bool) -> Placement {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        if fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
+            return .failed(code: "EISDIR", message: "Expecting a file but '\(path)' is a directory")
+        }
+
+        let folder = (path as NSString).deletingLastPathComponent
+        if !fm.fileExists(atPath: folder) {
+            try? fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        }
+
+        if !append {
+            if fm.fileExists(atPath: path) {
+                try? fm.removeItem(atPath: path)
+            }
+            if (try? fm.moveItem(at: location, to: URL(fileURLWithPath: path))) != nil {
+                return .placed
+            }
+        }
+        return copyDownloadedFile(location, toPath: path, append: append) ? .placed : .notPlaced
+    }
+
+    private static func copyDownloadedFile(_ sourceURL: URL, toPath targetPath: String, append: Bool) -> Bool {
         guard let input = InputStream(url: sourceURL),
               let output = OutputStream(toFileAtPath: targetPath, append: append) else {
             return false
@@ -534,6 +579,13 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             ])
         }
 
+        // A network error says more about what went wrong than this does, and
+        // the download would not have finished for one to be set.
+        if errMsg == nil, let failure = destinationFailure {
+            errCode = failure.code
+            errMsg = failure.message
+        }
+
         if respFile {
             if shouldTransformFile() {
                 if let transformer = ReactNativeBlobUtilFileTransformer.getFileTransformer() {
@@ -642,29 +694,20 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                 writeStream = nil
             }
 
-            let folder = (destPath as NSString).deletingLastPathComponent
-            if !fm.fileExists(atPath: folder) {
-                try? fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
-            }
-
             let overwrite = options?["overwrite"] == nil
                 ? true
                 : ((options?["overwrite"] as? NSNumber)?.boolValue ?? false)
             let appendToExistingFile = destPath.contains("?append=true") || !overwrite
             destPath = destPath.replacingOccurrences(of: "?append=true", with: "")
 
-            if !appendToExistingFile && fm.fileExists(atPath: destPath) {
-                try? fm.removeItem(atPath: destPath)
-            }
-
-            if !appendToExistingFile {
-                if (try? fm.moveItem(at: location, to: URL(fileURLWithPath: destPath))) != nil {
-                    return
-                }
-            }
-
-            if copyDownloadedFile(location, toPath: destPath, append: appendToExistingFile) {
+            switch Self.place(location, at: destPath, append: appendToExistingFile) {
+            case .placed:
                 return
+            case .failed(let code, let message):
+                destinationFailure = (code, message)
+                return
+            case .notPlaced:
+                break
             }
         }
 
