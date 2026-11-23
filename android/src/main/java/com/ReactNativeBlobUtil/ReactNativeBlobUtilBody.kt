@@ -21,6 +21,7 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
     private var form: ReadableArray? = null
     private var rawBody: String? = null
     private var requestType: ReactNativeBlobUtilReq.RequestType? = null
+    private var bodyType: String? = null
     private var mime: MediaType? = null
     private var bodyCache: File? = null
     private var chunkedEncoding = false
@@ -48,6 +49,12 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
 
     fun setRequestType(type: ReactNativeBlobUtilReq.RequestType?): ReactNativeBlobUtilBody {
         this.requestType = type
+        return this
+    }
+
+    /** What JS says the body is: "text", "base64" or "file"; null from an older caller. */
+    fun setBodyType(type: String?): ReactNativeBlobUtilBody {
+        this.bodyType = type
         return this
     }
 
@@ -180,6 +187,18 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
             else -> null
         }
 
+        /**
+         * Whether a single body names a file or a content URI to send. JS says
+         * what a body is; base64 that starts with the file prefix is still
+         * base64. It used to be read as the file it named, so data an app sent
+         * as bytes could pick one of the app's own files for the upload. Only a
+         * body without a type is still told by its prefix.
+         */
+        @JvmStatic
+        fun namesASource(bodyType: String?, body: String): Boolean =
+            bodyType != "base64" && bodyType != "text" &&
+                (body.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX) || body.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX))
+
         /** The (code, message) for an exception opening an upload source. */
         @JvmStatic
         fun sourceError(e: Throwable, source: String): Pair<String, String> {
@@ -202,6 +221,13 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
     private fun getRequestStream(): InputStream? {
         val body = rawBody!!
 
+        if (!namesASource(bodyType, body)) {
+            try {
+                return ByteArrayInputStream(Base64.decode(body, 0))
+            } catch (ex: Exception) {
+                throw Exception("error when getting request stream: " + ex.localizedMessage)
+            }
+        }
         // upload from storage
         if (body.startsWith(ReactNativeBlobUtilConst.FILE_PREFIX)) {
             var orgPath: String? = body.substring(ReactNativeBlobUtilConst.FILE_PREFIX.length)
@@ -225,21 +251,12 @@ internal class ReactNativeBlobUtilBody(private val mTaskId: String?) : RequestBo
                     throw Exception("error when getting request stream: " + e.localizedMessage)
                 }
             }
-        } else if (body.startsWith(ReactNativeBlobUtilConst.CONTENT_PREFIX)) {
+        } else {
             val contentURI = body.substring(ReactNativeBlobUtilConst.CONTENT_PREFIX.length)
             try {
                 return ReactNativeBlobUtilImpl.RCTContext.contentResolver.openInputStream(Uri.parse(contentURI))
             } catch (e: Exception) {
                 throw Exception("error when getting request stream for content URI: $contentURI", e)
-            }
-        }
-        // base 64 encoded
-        else {
-            try {
-                val bytes = Base64.decode(body, 0)
-                return ByteArrayInputStream(bytes)
-            } catch (ex: Exception) {
-                throw Exception("error when getting request stream: " + ex.localizedMessage)
             }
         }
     }

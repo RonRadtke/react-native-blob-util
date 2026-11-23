@@ -1,7 +1,9 @@
 package com.ReactNativeBlobUtil
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assume
 import org.junit.Rule
 import org.junit.Test
@@ -41,6 +43,24 @@ class ReactNativeBlobUtilUploadSourceTest {
         } finally {
             file.setReadable(true)
         }
+    }
+
+    // JS says what a body is. A {base64} body that starts with the file prefix was
+    // read as the file it named, so bytes an app passed on could pick one of the
+    // app's own files for the upload.
+    @Test
+    fun `a base64 or text body is never a file, whatever it starts with`() {
+        val file = "ReactNativeBlobUtil-file:///data/user/0/app/files/secret.db"
+        val content = "ReactNativeBlobUtil-content://media/external/images/1"
+        for (body in listOf(file, content)) {
+            assertFalse(ReactNativeBlobUtilBody.namesASource("base64", body))
+            assertFalse(ReactNativeBlobUtilBody.namesASource("text", body))
+            assertTrue(ReactNativeBlobUtilBody.namesASource("file", body))
+            // No type: an older caller, told by the prefix as before.
+            assertTrue(ReactNativeBlobUtilBody.namesASource(null, body))
+        }
+        assertFalse(ReactNativeBlobUtilBody.namesASource(null, "aGVsbG8="))
+        assertFalse(ReactNativeBlobUtilBody.namesASource("base64", "aGVsbG8="))
     }
 
     @Test

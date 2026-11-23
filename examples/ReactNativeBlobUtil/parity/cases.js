@@ -963,6 +963,30 @@ define('upload-explicit', async (ctx) => {
     };
 });
 
+// A {base64} body is bytes, whatever it starts with. One that starts with the
+// file prefix was read as the file it named on Android, so data an app passed
+// on as bytes could pick one of the app's own files for the upload. What a
+// platform makes of the text as base64 differs and is not recorded; that the
+// file stays where it is, is.
+define('upload-base64-file-prefix', async (ctx) => {
+    const dir = await freshDir('upload-base64-file-prefix');
+    const file = `${dir}/private.txt`;
+    await fs.createFile(file, 'private file content', 'utf8');
+    const sent = async (body) => {
+        try {
+            const res = await ReactNativeBlobUtil.fetch('POST', ctx.url('/echo'), {'Content-Type': 'application/octet-stream'}, body);
+            return {sentTheFile: String((await res.json()).text).includes('private file content')};
+        } catch (err) {
+            return {sentTheFile: false};
+        }
+    };
+    return {
+        base64: await sent({base64: `ReactNativeBlobUtil-file://${file}`}),
+        text: await sent({text: `ReactNativeBlobUtil-file://${file}`}),
+        file: await sent({file}),
+    };
+});
+
 define('android-media-store', async (ctx) => {
     const source = await ReactNativeBlobUtil.config({fileCache: true}).fetch('GET', ctx.url('/image.png'));
     const dir = await freshDir('android-media-store');

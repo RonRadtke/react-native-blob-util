@@ -1526,6 +1526,17 @@
     "size": 4,
     "type": "file"
   },
+  "upload-base64-file-prefix": {
+    "base64": {
+      "sentTheFile": false
+    },
+    "file": {
+      "sentTheFile": true
+    },
+    "text": {
+      "sentTheFile": false
+    }
+  },
   "upload-bodies": {
     "chunked": {
       "resolved": {
