@@ -1486,8 +1486,13 @@ namespace winrt::ReactNativeBlobUtil
             {
                 nextRequest.Headers().TryAppendWithoutValidation(header.Key(), header.Value());
             }
-            // Authorization does not follow to another host, as with OkHttp.
-            if (next.Host() != request.RequestUri().Host() && nextRequest.Headers().HasKey(L"Authorization"))
+            // Authorization does not follow to another host, port or scheme, as
+            // with OkHttp. Only the host was compared, so the credentials went
+            // on to another service on the same machine, and from https to http.
+            const auto current{ request.RequestUri() };
+            const bool sameOrigin{ next.Host() == current.Host() && next.Port() == current.Port() &&
+                next.SchemeName() == current.SchemeName() };
+            if (!sameOrigin && nextRequest.Headers().HasKey(L"Authorization"))
             {
                 nextRequest.Headers().Remove(L"Authorization");
             }

@@ -140,6 +140,7 @@ const handleEcho = async (req, res) => {
         contentLength: req.headers["content-length"] ?? null,
         transferEncoding: req.headers["transfer-encoding"] ?? null,
         custom: req.headers["x-rnbu-e2e"] ?? null,
+        authorization: req.headers.authorization ?? null,
         bytes: body.length,
         sha256: sha256(body),
         text: body.length <= 256 ? body.toString("utf8") : null,
@@ -248,6 +249,13 @@ const handler = async (req, res) => {
 
     if (method === "GET" && url.pathname === "/redirect") {
         res.writeHead(302, { Location: "/health", "Content-Length": 0 });
+        res.end();
+        return;
+    }
+
+    // Redirects to `to`: a path here, or the URL of another origin.
+    if (method === "GET" && url.pathname === "/redirect-to") {
+        res.writeHead(302, { Location: url.searchParams.get("to") || "/health", "Content-Length": 0 });
         res.end();
         return;
     }

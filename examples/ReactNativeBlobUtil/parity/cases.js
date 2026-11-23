@@ -773,6 +773,19 @@ define('fetch-redirect', async (ctx) => {
     return {follow, noFollow};
 });
 
+// Authorization follows a redirect within one origin and no further: not to
+// another port or scheme of the same host. Windows compared the host only, so
+// the header went on to the other server. Any other header follows.
+define('fetch-redirect-authorization', async (ctx) => {
+    const seen = (to) => settle(async () => {
+        const res = await ReactNativeBlobUtil.config({trusty: true})
+            .fetch('GET', ctx.url(`/redirect-to?to=${encodeURIComponent(to)}`), {Authorization: 'Bearer parity', 'X-RNBU-E2E': 'kept'});
+        const echo = await res.json();
+        return {status: res.info().status, authorization: echo.authorization, custom: echo.custom};
+    });
+    return {sameOrigin: await seen('/echo'), otherPortAndScheme: await seen(ctx.httpsUrl('/echo'))};
+});
+
 define('fetch-timeout', async (ctx) => {
     const started = Date.now();
     const result = await settle(async () => {

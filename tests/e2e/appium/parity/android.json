@@ -950,6 +950,22 @@
       }
     }
   },
+  "fetch-redirect-authorization": {
+    "otherPortAndScheme": {
+      "resolved": {
+        "authorization": null,
+        "custom": "kept",
+        "status": 200
+      }
+    },
+    "sameOrigin": {
+      "resolved": {
+        "authorization": "Bearer parity",
+        "custom": "kept",
+        "status": 200
+      }
+    }
+  },
   "fetch-resumable": {
     "firstAskedForNoRange": true,
     "firstRejected": true,
