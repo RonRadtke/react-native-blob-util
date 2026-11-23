@@ -291,7 +291,8 @@ const handler = async (req, res) => {
     // and If-Range headers the requests for that token carried.
     // Counts the requests per token, so a case can tell a request sent once from
     // one sent again. reset=1 drops the connection without an answer; ms=<n>
-    // answers after n milliseconds. /count/hits?token=t says how many arrived.
+    // answers after n milliseconds; status=<n> answers with that status.
+    // /count/hits?token=t says how many arrived.
     if (url.pathname === "/count/hits") {
         return sendJson(res, 200, {hits: COUNT_HITS.get(url.searchParams.get("token") || "") || 0});
     }
@@ -305,7 +306,8 @@ const handler = async (req, res) => {
                 return;
             }
             const ms = Math.min(Number(url.searchParams.get("ms") || 0), 30000);
-            setTimeout(() => sendJson(res, 200, {ok: true}), ms);
+            const status = Number(url.searchParams.get("status") || 200);
+            setTimeout(() => sendJson(res, status, {ok: status < 400}), ms);
         });
         return;
     }

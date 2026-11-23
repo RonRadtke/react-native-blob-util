@@ -92,6 +92,9 @@ class ReactNativeBlobUtilReq(
     private val options = ReactNativeBlobUtilConfig(options)
     private var destPath: String? = null
 
+    // Where a response with a `key` is kept once it has arrived whole.
+    private var keyPath: String? = null
+
     // Never assigned, as in Java: DownloadManager.addCompletedDownload always receives 0.
     private val contentLength: Long = 0
     // Set on the module thread, read by onReceive on the main thread.
@@ -255,10 +258,17 @@ class ReactNativeBlobUtilReq(
             }
         }
 
+        // A response with a `key` is written to the request's own file, like any
+        // fileCache response, and becomes the key's file once it has arrived
+        // whole with a success status (see keptForKey). It used to be written to
+        // the key's file directly, where a download cut short or an error page
+        // was a hit for every later request.
         if (options.path != null)
             destPath = options.path
-        else if (options.fileCache!!)
-            destPath = ReactNativeBlobUtilFS.getTmpPath(cacheKey) + ext
+        else if (options.fileCache!!) {
+            destPath = ReactNativeBlobUtilFS.getTmpPath(taskId) + ext
+            if (options.key != null && cacheKey != taskId) keyPath = ReactNativeBlobUtilFS.getTmpPath(cacheKey) + ext
+        }
 
 
         try {
@@ -658,6 +668,7 @@ class ReactNativeBlobUtilReq(
                                 invokeCallback("Error from file transformer:" + e.localizedMessage, respmap.copy())
                                 return
                             }
+                            if (keyPath != null) destPath = keptForKey(file, keyPath, resp.code, true).absolutePath
                             invokeCallback(null, ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, destPath, respmap.copy())
                             return
                         }
@@ -740,6 +751,7 @@ class ReactNativeBlobUtilReq(
                     invokeCallback("Download interrupted.", respmap.copy())
                 } else {
                     destPath = destPath!!.replace("?append=true", "")
+                    if (keyPath != null) destPath = keptForKey(File(destPath!!), keyPath, resp.code, true).absolutePath
                     invokeCallback(null, ReactNativeBlobUtilConst.RNFB_RESPONSE_PATH, destPath, respmap.copy())
                 }
             }
@@ -1241,6 +1253,22 @@ class ReactNativeBlobUtilReq(
                 // not encoded after all
                 localUri.removePrefix("file://")
             }
+        }
+
+        /**
+         * The file a response with a `key` resolves with. One that arrived whole
+         * with a success status is moved to the key's file, [keyPath], and is what
+         * later requests with the key get. Anything else stays the request's own
+         * file, [written]: an error status still resolves with its body there, and
+         * the next request with the key asks the server again. Without a key, or
+         * when the move fails, it is [written] as well.
+         */
+        @JvmStatic
+        internal fun keptForKey(written: File, keyPath: String?, status: Int, complete: Boolean): File {
+            if (keyPath == null || !complete || status !in 200..299) return written
+            val kept = File(keyPath)
+            kept.delete()
+            return if (written.renameTo(kept)) kept else written
         }
 
         /**

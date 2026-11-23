@@ -87,7 +87,7 @@ const res = await config({fileCache: true, timeout: 30000}).fetch('GET', url);
 | `overwrite` | `boolean` | Replace an existing file at `path` (default `true`); `false` appends the response to it. |
 | `resumable` | `boolean` | Download through a part file that a later request continues. See [downloads.md](downloads.md#resumable-downloads). |
 | `background` | `boolean \| {id}` | Let the system run the download, so it outlives the app. See [downloads.md](downloads.md#downloads-that-outlive-the-app). |
-| `key` | `string` | Cache the response under this key: a file downloaded with the same key is returned without a request. |
+| `key` | `string` | Cache the response under this key: a file downloaded with the same key is returned without a request. Only a response that arrived whole with a success status is kept; after an error status or an interrupted download the next request asks the server again. |
 | `session` | `string` | Add the response file to this [session](responses.md#sessions). |
 | `timeout` | `number` | Request timeout in milliseconds. Default 60000. |
 | `followRedirect` | `boolean` | Follow redirects (default `true`). |

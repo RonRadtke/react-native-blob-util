@@ -753,6 +753,41 @@ define('fetch-key-cache', async (ctx) => {
     };
 });
 
+// A `key` keeps a response that arrived whole with a success status, nothing
+// else. The response was written to the key's file as it came in, so a download
+// cut short, or a 404 with its error page, was the cached file from then on:
+// every later request with the key resolved with it and asked no server.
+define('fetch-key-cache-incomplete', async (ctx) => {
+    const stamp = Date.now();
+    const keyed = (key, url) => settle(async () => {
+        const res = await ReactNativeBlobUtil.config({fileCache: true, key}).fetch('GET', url);
+        const status = res.info().status;
+        return {status: status == null ? null : status, size: (await fs.stat(res.path())).size};
+    });
+
+    const errorToken = `parity-key-404-${stamp}`;
+    const errorUrl = ctx.url(`/count?token=${errorToken}&status=404`);
+    const notFound = await keyed(errorToken, errorUrl);
+    const notFoundAgain = await keyed(errorToken, errorUrl);
+    const errorHits = (await (await ReactNativeBlobUtil.fetch('GET', ctx.url(`/count/hits?token=${errorToken}`))).json()).hits;
+
+    // The server closes the connection after 3000 of 8192 bytes, once.
+    const cutToken = `parity-key-cut-${stamp}`;
+    const cutUrl = ctx.url(`/range?token=${cutToken}&size=8192&drop=3000&ms=20`);
+    const cut = await keyed(cutToken, cutUrl);
+    const whole = await keyed(cutToken, cutUrl);
+    const cached = await keyed(cutToken, cutUrl);
+    return {
+        notFound,
+        notFoundAgain,
+        errorRequests: errorHits,
+        cutRejected: 'rejected' in cut,
+        whole,
+        cached,
+        cutRequests: (await rangeLog(ctx, cutToken)).length,
+    };
+});
+
 define('fetch-status', async (ctx) => {
     const fetchStatus = (code) => settle(async () => {
         const res = await ReactNativeBlobUtil.fetch('GET', ctx.url(`/status/${code}`));

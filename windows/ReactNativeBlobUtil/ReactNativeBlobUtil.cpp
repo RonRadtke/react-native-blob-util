@@ -1055,28 +1055,35 @@ namespace
         });
     }
 
-    // Where a response goes when the caller asked for a file. An explicit path
-    // wins; otherwise the name matches Android's (ReactNativeBlobUtilTmp_<taskId>
-    // plus appendExt), under the directory fs.dirs reports as CacheDir so JS can
-    // stat, session and unlink it.
-    std::string ResponseFilePath(const ReactNativeBlobUtilConfig& config, const std::string& taskId)
+    // A generated response file: ReactNativeBlobUtilTmp_<name> plus appendExt, as
+    // on Android, under the directory fs.dirs reports as CacheDir so JS can stat,
+    // session and unlink it.
+    std::string CacheFilePath(const ReactNativeBlobUtilConfig& config, const std::string& name)
     {
-        if (!config.path.empty())
-        {
-            return config.path;
-        }
-
-        // A key names the file after its MD5, as on Android and iOS, so a later
-        // request with the same key finds it.
         std::string path = winrt::to_string(
             winrt::Windows::Storage::ApplicationData::Current().LocalCacheFolder().Path())
-            + "\\ReactNativeBlobUtilTmp_" + (config.key.empty() ? taskId : Md5Hex(config.key));
+            + "\\ReactNativeBlobUtilTmp_" + name;
         if (!config.appendExt.empty())
         {
             path += "." + config.appendExt;
         }
 
         return path;
+    }
+
+    // Where a response is written when the caller asked for a file: an explicit
+    // path, or the request's own file in the cache.
+    std::string ResponseFilePath(const ReactNativeBlobUtilConfig& config, const std::string& taskId)
+    {
+        return config.path.empty() ? CacheFilePath(config, taskId) : config.path;
+    }
+
+    // The file a `key` keeps its response in, named after the key's MD5 as on
+    // Android and iOS, so a later request with the same key finds it. Empty
+    // without a key, and with a path, which a key never applied to.
+    std::string KeyFilePath(const ReactNativeBlobUtilConfig& config)
+    {
+        return config.key.empty() || !config.path.empty() ? std::string{} : CacheFilePath(config, Md5Hex(config.key));
     }
 
     // A request with a `key` whose file is already there resolves with that
@@ -1086,12 +1093,8 @@ namespace
     template <typename Callback>
     bool CachedByKey(ReactNativeBlobUtilConfig const& config, std::string const& taskId, Callback const& callback)
     {
-        if (config.key.empty() || !config.path.empty())
-        {
-            return false;
-        }
-        const std::string cached{ ResponseFilePath(config, taskId) };
-        if (!PathExists(cached) || IsDirectory(cached))
+        const std::string cached{ KeyFilePath(config) };
+        if (cached.empty() || !PathExists(cached) || IsDirectory(cached))
         {
             return false;
         }
@@ -1278,6 +1281,24 @@ namespace
         if (length < 0)
         {
             progress(offset + received, static_cast<int64_t>(offset + received));
+        }
+
+        // A response with a `key` becomes the key's file once it has arrived
+        // whole with a success status. It used to be written to that file
+        // directly, where a download cut short or an error page was a hit for
+        // every later request. Anything else stays the request's own file: an
+        // error status still resolves with its body there.
+        const std::string kept{ KeyFilePath(config) };
+        if (!kept.empty() && status >= 200 && status < 300)
+        {
+            const std::filesystem::path keptPath{ std::filesystem::path{ kept }.make_preferred() };
+            std::filesystem::remove(keptPath, fsError);
+            std::filesystem::rename(path, keptPath, fsError);
+            if (!fsError)
+            {
+                callback(std::nullopt, "path", kept, ::React::JSValue{ std::move(info) });
+                co_return;
+            }
         }
 
         callback(std::nullopt, "path", destination, ::React::JSValue{ std::move(info) });

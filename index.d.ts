@@ -348,7 +348,9 @@ export interface ReactNativeBlobUtilConfig {
 
     /**
      * Cache the response under this key: when a file downloaded with the same
-     * key exists, it is returned without a request.
+     * key exists, it is returned without a request. Only a response that
+     * arrived whole with a success status is kept: an error status resolves
+     * with its body in a file of its own, and the next request asks again.
      */
     key?: string;
 

@@ -488,6 +488,35 @@
     },
     "secondType": "path"
   },
+  "fetch-key-cache-incomplete": {
+    "cached": {
+      "resolved": {
+        "size": 8192,
+        "status": null
+      }
+    },
+    "cutRejected": true,
+    "cutRequests": 2,
+    "errorRequests": 2,
+    "notFound": {
+      "resolved": {
+        "size": 12,
+        "status": 404
+      }
+    },
+    "notFoundAgain": {
+      "resolved": {
+        "size": 12,
+        "status": 404
+      }
+    },
+    "whole": {
+      "resolved": {
+        "size": 8192,
+        "status": 200
+      }
+    }
+  },
   "fetch-no-resend": {
     "droppedHits": 1,
     "droppedRejected": true,
