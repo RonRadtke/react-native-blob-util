@@ -193,6 +193,17 @@ test('a path that is not a file URL, or has a malformed escape, is passed on as 
     assert.deepEqual(calls.map((c) => c[1]), ['/docs/100%.txt', '/docs/100%.txt', 'content://media/1', 'bundle-assets://a.txt']);
 });
 
+// "%2F" decoded as part of the whole URL became a separator, so a name joined
+// into a URL, "..%2Fsecret.txt", named the file one folder up.
+test('an escape in a file:// URL cannot become a separator or a parent folder', async () => {
+    const names = ['..%2Fsecret.txt', '%2E%2E/secret.txt', '..%5Csecret.txt', 'a%00b.txt'];
+    for (const name of names) {
+        await fs.readFile(`file:///docs/inbox/${name}`);
+        await fs.unlink(`file:///docs/inbox/${name}`);
+    }
+    assert.deepEqual([...new Set(calls.map((c) => c[1]))], names.map((name) => `/docs/inbox/${name}`));
+});
+
 test('protection is applied on iOS after the call succeeds, and ignored elsewhere', async () => {
     results.writeFile = 1;
     for (const platform of ['ios', 'android', 'windows']) {

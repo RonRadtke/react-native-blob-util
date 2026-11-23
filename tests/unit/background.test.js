@@ -179,3 +179,20 @@ test('a background download needs an http or https URL', () => {
         assert.match(invalidBackground('GET', ok, null, url), /http or https/, String(url));
     }
 });
+
+// The two rules above through fetch itself: the request is refused before
+// native hears of it, so no platform starts a download it would check
+// differently from what the options asked for.
+test('fetch refuses own trust and other URL schemes for a background download', async () => {
+    const refused = (options, url, message) => assert.rejects(
+        ReactNativeBlobUtil.config({path: '/docs/a.bin', background: true, ...options}).fetch('GET', url),
+        {code: 'EINVAL', message},
+        JSON.stringify({options, url}),
+    );
+    await refused({customCACerts: ['my_ca']}, 'https://example.test/a', /customCACerts/);
+    await refused({pinnedHosts: ['example.test']}, 'https://example.test/a', /pinnedHosts/);
+    await refused({trusty: true}, 'https://example.test/a', /trusty/);
+    await refused({}, 'file://files.example/share/a.bin', /http or https/);
+    await refused({}, 'ftp://example.test/a', /http or https/);
+    assert.deepEqual(calls, [], 'nothing reached native');
+});
