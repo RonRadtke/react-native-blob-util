@@ -90,7 +90,7 @@ const res = await config({fileCache: true, timeout: 30000}).fetch('GET', url);
 | `key` | `string` | Cache the response under this key: a file downloaded with the same key is returned without a request. Only a response that arrived whole with a success status is kept; after an error status or an interrupted download the next request asks the server again. |
 | `session` | `string` | Add the response file to this [session](responses.md#sessions). |
 | `timeout` | `number` | Request timeout in milliseconds. Default 60000. |
-| `followRedirect` | `boolean` | Follow redirects (default `true`). |
+| `followRedirect` | `boolean` | Follow redirects (default `true`). An `Authorization` header goes along only within the same scheme, host and port on Android and Windows; iOS drops it on every redirect. |
 | `transform` | `boolean` | Run the [file transformer](file-transformer.md) on a response written to a file. |
 | `trusty` | `boolean` | Skip certificate validation; development only. See [below](#self-signed-certificates). |
 | `customCACerts` | `string[]` | Trust these bundled CA certificates. See [below](#custom-ca-certificates). |
