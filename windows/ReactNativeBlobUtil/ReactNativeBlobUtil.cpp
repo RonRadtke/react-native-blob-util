@@ -1600,7 +1600,12 @@ namespace winrt::ReactNativeBlobUtil
                 co_return;
             }
 
-            winrt::hstring boundary{ L"-----" };
+            // Random for each request. It was the constant "-----", which made
+            // "-------" at the start of a line the delimiter between parts: a
+            // row of dashes in an uploaded text or file ended the upload there,
+            // and content written for it added form fields of its own.
+            const winrt::hstring boundary{ L"ReactNativeBlobUtil-" +
+                Cryptography::CryptographicBuffer::EncodeToHexString(Cryptography::CryptographicBuffer::GenerateRandom(16)) };
             ReactNativeBlobUtilConfig config{ options };
             if (!IsSafeExtension(config.appendExt))
             {

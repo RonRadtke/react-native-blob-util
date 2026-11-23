@@ -2120,6 +2120,41 @@
     "text": "<multipart>",
     "transferEncoding": null
   },
+  "upload-multipart-dashes": {
+    "method": "POST",
+    "names": [
+      "note",
+      "notes",
+      "last"
+    ],
+    "noteArrivedWhole": true,
+    "parts": [
+      {
+        "bytes": 85,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "note",
+        "sha256": "3b784f261b8bdc3395587b46074906753e28aeae62940a189a737e900176a613",
+        "text": "before\r\n-------\r\nContent-Disposition: form-data; name=\"role\"\r\n\r\nadmin\r\n-------\r\nafter"
+      },
+      {
+        "bytes": 36,
+        "contentType": "text/markdown",
+        "filename": "notes.md",
+        "name": "notes",
+        "sha256": "6a6d39e292ffae16e23ec5b4f016c0d8100c75739ba4ec70cc315b734356be88",
+        "text": "Title\r\n-------\r\nBody\r\n---------\r\nEnd"
+      },
+      {
+        "bytes": 10,
+        "contentType": "text/plain",
+        "filename": null,
+        "name": "last",
+        "sha256": "0f6203d23a9978df793873fe25ffe6147e957c1c259a2a3de123197fe53071d0",
+        "text": "still here"
+      }
+    ]
+  },
   "write-returns": {
     "appendAscii": {
       "resolved": 1
