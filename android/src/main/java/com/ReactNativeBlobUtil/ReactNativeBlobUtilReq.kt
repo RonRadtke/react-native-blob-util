@@ -965,10 +965,6 @@ class ReactNativeBlobUtilReq(
         val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
         if (id != downloadManagerId) return
 
-        // One receiver per download; it used to stay registered for the life of the app.
-        endDownloadManager()
-        releaseTaskResource()
-
         var status: Int? = null
         var reason = 0
         var reported: String? = null
@@ -987,9 +983,20 @@ class ReactNativeBlobUtilReq(
                 reported = dm.getUriForDownloadedFile(id)?.toString()
             }
         } catch (e: Exception) {
+            endDownloadManager()
+            releaseTaskResource()
             fail("EUNSPECIFIED", "The DownloadManager could not report on the download: ${e.localizedMessage}")
             return
         }
+
+        // The receiver is exported, so any app can send this broadcast, and the ids
+        // are small numbers. The download used to be given up on the broadcast alone;
+        // the DownloadManager's own status says whether it has ended.
+        if (!downloadManagerEnded(status)) return
+
+        // One receiver per download; it used to stay registered for the life of the app.
+        endDownloadManager()
+        releaseTaskResource()
 
         val outcome = downloadManagerOutcome(status, reason, reported)
         if (outcome.code != null) {
@@ -1235,6 +1242,14 @@ class ReactNativeBlobUtilReq(
                 localUri.removePrefix("file://")
             }
         }
+
+        /**
+         * Whether the DownloadManager is done with a download: it succeeded, failed
+         * or is gone. Pending, running and paused downloads go on.
+         */
+        @JvmStatic
+        internal fun downloadManagerEnded(status: Int?): Boolean =
+            status == null || status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED
 
         /** How a DownloadManager download settles: [result], or [code] and [message]. */
         internal data class DownloadManagerOutcome(val result: String?, val code: String?, val message: String?)

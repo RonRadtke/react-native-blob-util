@@ -142,6 +142,20 @@ class ReactNativeBlobUtilDownloadManagerTest {
         assertNull(nowhere.result)
     }
 
+    // The receiver is exported and the ids are small numbers, so another app can
+    // send the "download complete" broadcast for a download that is still running.
+    // The download was given up on the broadcast alone and rejected.
+    @Test
+    fun `a broadcast for a download that has not ended is ignored`() {
+        assertFalse(ReactNativeBlobUtilReq.downloadManagerEnded(DownloadManager.STATUS_RUNNING))
+        assertFalse(ReactNativeBlobUtilReq.downloadManagerEnded(DownloadManager.STATUS_PENDING))
+        assertFalse(ReactNativeBlobUtilReq.downloadManagerEnded(DownloadManager.STATUS_PAUSED))
+        assertTrue(ReactNativeBlobUtilReq.downloadManagerEnded(DownloadManager.STATUS_SUCCESSFUL))
+        assertTrue(ReactNativeBlobUtilReq.downloadManagerEnded(DownloadManager.STATUS_FAILED))
+        // The row is gone: the download was removed.
+        assertTrue(ReactNativeBlobUtilReq.downloadManagerEnded(null))
+    }
+
     // The DownloadManager never replaces a file, so a second download to one path
     // went to report-1.pdf (#325, #249).
     @Test
