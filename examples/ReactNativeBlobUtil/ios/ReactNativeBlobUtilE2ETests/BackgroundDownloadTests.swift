@@ -268,6 +268,35 @@ final class BackgroundDownloadTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: path))
     }
 
+    // MARK: - the finished file
+
+    /// Whatever sat at `path` was removed before the finished download was
+    /// moved onto it - a directory included, with everything inside it, and the
+    /// download reported success afterwards. A directory is not a file to
+    /// replace.
+    func testADirectoryWhereTheFileGoesFailsAndIsKept() throws {
+        let destination = "\(dir)/target"
+        let inside = "\(destination)/keep.txt"
+        try FileManager.default.createDirectory(atPath: destination, withIntermediateDirectories: true)
+        try Data("keep".utf8).write(to: URL(fileURLWithPath: inside))
+
+        let downloaded = "\(dir)/downloaded.bin"
+        try Data("payload".utf8).write(to: URL(fileURLWithPath: downloaded))
+
+        let id = record(state: "running", path: destination)
+        let task = URLSession.shared.downloadTask(with: URL(string: "https://example.invalid/f")!)
+        task.taskDescription = id
+        manager.urlSession(manager.session, downloadTask: task,
+                           didFinishDownloadingTo: URL(fileURLWithPath: downloaded))
+        task.cancel()
+
+        let stored = try XCTUnwrap(manager.record(for: id))
+        XCTAssertEqual(stored["state"] as? String, "failed")
+        XCTAssertEqual(stored["errorCode"] as? String, "EISDIR")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: inside), "the folder and its file stay")
+        XCTAssertEqual(try String(contentsOfFile: inside, encoding: .utf8), "keep")
+    }
+
     // MARK: - starting
 
     /// Two downloads with one id would overwrite each other's record and file.

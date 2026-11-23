@@ -413,16 +413,26 @@ public final class ReactNativeBlobUtilBackground: NSObject, URLSessionDownloadDe
         } else {
             let fm = FileManager.default
             let folder = (destination as NSString).deletingLastPathComponent
-            do {
-                if !fm.fileExists(atPath: folder) {
-                    try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: destination, isDirectory: &isDir), isDir.boolValue {
+                // Not something to clear out of the way: removeItem takes a
+                // folder and everything in it, and the download then reported
+                // success for the file it put where the folder had been. EISDIR
+                // is what every other surface answers for a path that is a
+                // directory, and the folder is left as it is.
+                failure = ("EISDIR", "Expecting a file but '\(destination)' is a directory")
+            } else {
+                do {
+                    if !fm.fileExists(atPath: folder) {
+                        try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
+                    }
+                    if fm.fileExists(atPath: destination) {
+                        try fm.removeItem(atPath: destination)
+                    }
+                    try fm.moveItem(at: location, to: URL(fileURLWithPath: destination))
+                } catch let error as NSError {
+                    failure = (ReactNativeBlobUtilFS.errorCode(error), error.localizedDescription)
                 }
-                if fm.fileExists(atPath: destination) {
-                    try fm.removeItem(atPath: destination)
-                }
-                try fm.moveItem(at: location, to: URL(fileURLWithPath: destination))
-            } catch let error as NSError {
-                failure = (ReactNativeBlobUtilFS.errorCode(error), error.localizedDescription)
             }
         }
 
