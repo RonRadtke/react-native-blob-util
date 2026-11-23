@@ -3833,6 +3833,15 @@ void ReactNativeBlobUtil::StartBackgroundDownload(std::string id, std::string ur
                 callback(fetchError("EINVAL", "Invalid URL: " + url), std::nullopt, std::nullopt, std::nullopt);
                 co_return;
             }
+            // BITS also downloads file:// and UNC names, over SMB, signing in to
+            // the host they name as the user. JS refuses them (utils/background.js);
+            // checked again here, where the job is made.
+            if (uri.SchemeName() != L"http" && uri.SchemeName() != L"https")
+            {
+                self->BackgroundStartEnded(id, false);
+                callback(fetchError("EINVAL", "A background download needs an http or https URL"), std::nullopt, std::nullopt, std::nullopt);
+                co_return;
+            }
             const std::filesystem::path target{ std::filesystem::path{ path }.make_preferred() };
             std::error_code ec;
             std::filesystem::create_directories(target.parent_path(), ec);
