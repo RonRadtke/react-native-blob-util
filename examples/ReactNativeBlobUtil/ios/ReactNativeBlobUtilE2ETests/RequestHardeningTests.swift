@@ -288,6 +288,58 @@ final class RequestHardeningTests: XCTestCase {
         XCTAssertEqual(discard, -2)
     }
 
+    // MARK: - what a `key` keeps
+
+    /// A `key` named the file the response was written into as it came in, so a
+    /// 404 with its error page, or a download cut short, was the cached file
+    /// from then on: every later request for that key resolved with it and
+    /// asked no server. Written to its own file first, a response that did not
+    /// arrive whole is simply never moved onto the key's.
+    func testAWholeSuccessfulResponseIsKeptUnderTheKey() throws {
+        let written = try write("written.bin", "payload")
+        let keyPath = "\(dir)/keyed.bin"
+        XCTAssertEqual(ReactNativeBlobUtilRequest.keptForKey(written: written, keyPath: keyPath,
+                                                            status: 200, complete: true), keyPath)
+        XCTAssertEqual(try String(contentsOfFile: keyPath, encoding: .utf8), "payload")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: written), "moved, not copied")
+    }
+
+    func testAnErrorStatusIsNotKept() throws {
+        let written = try write("notfound.bin", "{\"ok\":false}")
+        let keyPath = "\(dir)/keyed-404.bin"
+        XCTAssertEqual(ReactNativeBlobUtilRequest.keptForKey(written: written, keyPath: keyPath,
+                                                            status: 404, complete: true), written)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: keyPath),
+                       "so the next request for the key goes to the server")
+    }
+
+    func testAResponseThatDidNotArriveWholeIsNotKept() throws {
+        let written = try write("cut.bin", "half")
+        let keyPath = "\(dir)/keyed-cut.bin"
+        XCTAssertEqual(ReactNativeBlobUtilRequest.keptForKey(written: written, keyPath: keyPath,
+                                                            status: 200, complete: false), written)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: keyPath))
+    }
+
+    /// Without a key there is nothing to keep, and a `key` with a `path` keeps
+    /// nothing either - the request layer passes no key path for one.
+    func testWithoutAKeyThereIsNothingToKeep() throws {
+        let written = try write("plain.bin", "payload")
+        XCTAssertEqual(ReactNativeBlobUtilRequest.keptForKey(written: written, keyPath: nil,
+                                                            status: 200, complete: true), written)
+        XCTAssertEqual(try String(contentsOfFile: written, encoding: .utf8), "payload")
+    }
+
+    /// A key whose file is already there is only reached when the hit check let
+    /// the request through, so the response that did arrive replaces it.
+    func testAKeyAlreadyHoldingAFileIsReplaced() throws {
+        let written = try write("fresh.bin", "new")
+        let keyPath = try write("keyed-old.bin", "old")
+        XCTAssertEqual(ReactNativeBlobUtilRequest.keptForKey(written: written, keyPath: keyPath,
+                                                            status: 200, complete: true), keyPath)
+        XCTAssertEqual(try String(contentsOfFile: keyPath, encoding: .utf8), "new")
+    }
+
     // MARK: - where a finished download is put
 
     /// The finished download was moved onto its path, and whatever stood there

@@ -65,6 +65,9 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
     private var responseFormat: ResponseFormat = .auto
     private var followRedirect = true
     private var backgroundTask = false
+    /// Where a response kept under a `key` is moved once it has arrived
+    /// whole; nil when this request is not keeping one.
+    private var keyPath: String?
     /// Why the finished download could not be put where it belongs.
     /// didFinishDownloadingTo sets it and didCompleteWithError, which runs
     /// after it, carries it to the caller.
@@ -185,18 +188,23 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
                 cacheKey = md5(key)
                 if cacheKey.isEmpty { cacheKey = taskId ?? "" }
 
-                destPath = ReactNativeBlobUtilFS.getTempPath(cacheKey,
-                                                             withExtension: self.options?[ReactNativeBlobUtilConst.configFileExt] as? String)
-                if FileManager.default.fileExists(atPath: destPath) {
-                    callback?([NSNull(), ReactNativeBlobUtilConst.respTypePath, destPath])
+                let keyed = ReactNativeBlobUtilFS.getTempPath(cacheKey,
+                                                              withExtension: self.options?[ReactNativeBlobUtilConst.configFileExt] as? String)
+                if FileManager.default.fileExists(atPath: keyed) {
+                    callback?([NSNull(), ReactNativeBlobUtilConst.respTypePath, keyed])
                     return
                 }
+                // Not written into: the response goes to this request's own
+                // file and is moved onto the key's once it has arrived whole.
+                // `key` with a `path` keeps nothing, as before.
+                if path == nil { keyPath = keyed }
             }
 
             if let path = path {
                 destPath = path
             } else {
-                destPath = ReactNativeBlobUtilFS.getTempPath(cacheKey,
+                let own = (taskId ?? "").isEmpty ? cacheKey : taskId!
+                destPath = ReactNativeBlobUtilFS.getTempPath(own,
                                                              withExtension: self.options?[ReactNativeBlobUtilConst.configFileExt] as? String)
             }
 
@@ -298,6 +306,35 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
         } else {
             respData?.append(data)
         }
+    }
+
+    /// Where a response kept under a `key` ends up: the key's file when it
+    /// arrived whole, with a success status and no error, and the file it was
+    /// written to otherwise.
+    ///
+    /// A `key` used to name the file the response was written into as it came
+    /// in, so a 404 with its error page, or a download cut short, was the
+    /// cached file from then on: every later request for that key resolved
+    /// with it and asked no server. Written to its own file first, a response
+    /// that did not arrive whole is simply never moved, and the next request
+    /// for the key goes to the server.
+    ///
+    /// A cut body reaches this as an error, which is why `complete` is the
+    /// absence of one: the connection drops and URLSession reports it.
+    static func keptForKey(written: String, keyPath: String?, status: Int, complete: Bool) -> String {
+        guard let keyPath = keyPath, complete, (200...299).contains(status) else {
+            return written
+        }
+        if keyPath == written { return written }
+
+        let fm = FileManager.default
+        if fm.fileExists(atPath: keyPath) {
+            try? fm.removeItem(atPath: keyPath)
+        }
+        guard (try? fm.moveItem(atPath: written, toPath: keyPath)) != nil else {
+            return written
+        }
+        return keyPath
     }
 
     /// Where a finished download ends up, and why it sometimes cannot.
@@ -611,6 +648,9 @@ public class ReactNativeBlobUtilRequest: NSObject, URLSessionDelegate, URLSessio
             }
             writeStream?.close()
             rnfbRespType = ReactNativeBlobUtilConst.respTypePath
+            destPath = Self.keptForKey(written: destPath, keyPath: keyPath,
+                                       status: (task.response as? HTTPURLResponse)?.statusCode ?? 0,
+                                       complete: error == nil)
             respStr = destPath
         } else {
             // #73: try UTF-8 first so unicode survives, and fall back to base64.
