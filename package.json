@@ -1,6 +1,6 @@
 {
     "name": "react-native-blob-util",
-    "version": "1.2.0-rc.1",
+    "version": "1.2.0",
     "description": "File system access, downloads and uploads for React Native on Android, iOS and Windows: read and write files, download to and upload from files with progress, pause, resume and background downloads, streams, multipart, MediaStore and custom CA certificates.",
     "main": "index",
     "files": [
