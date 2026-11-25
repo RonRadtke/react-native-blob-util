@@ -391,6 +391,15 @@ wrote, as it reports it:
 | With `storeLocal` | the file was written next to `fs.dirs.DownloadDir`, as `Download<uuid>` | inside `fs.dirs.DownloadDir` |
 | That fails or is removed | rejected `EUNSPECIFIED` with "Status Code = 16" | a failure rejects `EUNSPECIFIED` with the reason (`HTTP 404`, `there is not enough space`); a download removed before it finished (from the notification, say) rejects `ECANCELED` |
 
+### ACCESS_WIFI_STATE is no longer declared (Android)
+
+The library's manifest declared `ACCESS_WIFI_STATE`, but no code used it: `wifiOnly`
+and `targetHostIp` read the network through `ConnectivityManager`, which needs
+`ACCESS_NETWORK_STATE` only. Google Play reads that permission as a requirement for
+Wi-Fi hardware (`android.hardware.wifi`), so it hid apps from devices without Wi-Fi and
+flagged them in Play Console. If your own code reads Wi-Fi state through `WifiManager`,
+declare `ACCESS_WIFI_STATE` in your app's manifest.
+
 ### TLS and other hardening (Android)
 
 - `trusty: true` keeps hostname verification. It used to install an accept-all
