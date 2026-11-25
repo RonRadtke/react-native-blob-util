@@ -144,42 +144,81 @@ static NSMutableArray *RecordedBodies = nil;
 /// window's root view controller, and UIKit does not present from a controller
 /// that is already presenting one, so a menu opened over a modal screen did
 /// nothing (#311).
+///
+/// Reading the provider twice around a presentation only measures the walk if
+/// both reads are about the same window, and in this host they often were not.
+/// `RCTKeyWindow` answers for whichever window is key at the moment it is
+/// asked; the host creates windows of its own while the first tests run, and
+/// logging from the tests before this one can bring up another. One arriving
+/// between the two reads moved the provider to a different window, and the
+/// assertion then compared the modal against that window's root view
+/// controller. It failed on 4 of 5 full runs while passing every time the
+/// class ran alone, because alone there is nothing to create the second window.
+///
+/// Waiting for the window to hold still did not fix it - nothing has changed
+/// yet either, so the wait ends before the window arrives. So each attempt
+/// checks its own premise instead: present from where the provider points,
+/// read it again, and only assert when the answer is still about the window
+/// the modal went into. A window that moves under an attempt costs a retry,
+/// not a failure, and the assertion itself is unweakened - with the window
+/// steady, a provider that stopped at the root still fails it.
 - (void)testTheProviderReturnsTheControllerOnTop {
-    UIWindow *key = nil;
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if (![scene isKindOfClass:UIWindowScene.class]) {
-            continue;
-        }
-        for (UIWindow *window in ((UIWindowScene *)scene).windows) {
-            if (window.isKeyWindow) {
-                key = window;
-            }
-        }
-    }
-    if (key.rootViewController == nil) {
-        XCTSkip(@"the test host has no key window with a root view controller");
-    }
-    UIViewController *top = key.rootViewController;
-    while (top.presentedViewController != nil) {
-        top = top.presentedViewController;
-    }
+    UIViewController * _Nullable (^provider)(void) = [self provider];
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:30];
+    NSMutableArray<NSString *> *moved = [NSMutableArray array];
 
-    UIViewController *modal = [UIViewController new];
-    XCTestExpectation *shown = [self expectationWithDescription:@"modal presented"];
-    [top presentViewController:modal animated:NO completion:^{
-        [shown fulfill];
-    }];
-    [self waitForExpectations:@[shown] timeout:5];
-    @try {
-        XCTAssertEqual([self provider](), modal);
-    }
-    @finally {
+    for (NSUInteger attempt = 1; attempt <= 5; attempt++) {
+        UIViewController *top = provider();
+        if (top == nil) {
+            XCTSkip(@"the test host has no window the provider can present from");
+        }
+        UIWindow *window = top.view.window;
+        // The provider stops at a controller whose presented one is on its way
+        // out, and UIKit will not present from a controller that still holds
+        // one. Let that dismissal finish rather than present onto it.
+        if (top.presentedViewController != nil) {
+            NSPredicate *clear = [NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) {
+                return ((UIViewController *)object).presentedViewController == nil;
+            }];
+            [self waitForExpectations:@[[self expectationForPredicate:clear
+                                                    evaluatedWithObject:top
+                                                                handler:nil]]
+                              timeout:5];
+        }
+
+        UIViewController *modal = [UIViewController new];
+        XCTestExpectation *shown = [self expectationWithDescription:@"modal presented"];
+        [top presentViewController:modal animated:NO completion:^{
+            [shown fulfill];
+        }];
+        [self waitForExpectations:@[shown] timeout:5];
+
+        UIViewController *answer = provider();
+        BOOL sameWindow = answer.view.window == window;
+        if (!sameWindow) {
+            [moved addObject:[NSString stringWithFormat:@"attempt %lu: presented into %p, provider answered about %p",
+                              (unsigned long)attempt, window, answer.view.window]];
+        }
+
         XCTestExpectation *gone = [self expectationWithDescription:@"modal dismissed"];
         [modal dismissViewControllerAnimated:NO completion:^{
             [gone fulfill];
         }];
         [self waitForExpectations:@[gone] timeout:5];
+
+        if (sameWindow) {
+            XCTAssertEqual(answer, modal,
+                           @"the provider answered about %@, not the modal presented from it",
+                           answer == top ? @"the controller it started from" : @"another controller");
+            return;
+        }
+        if ([deadline timeIntervalSinceNow] <= 0) {
+            break;
+        }
     }
+
+    XCTFail(@"the key window moved under every attempt, so the walk was never measured:\n%@",
+            [moved componentsJoinedByString:@"\n"]);
 }
 
 @end
