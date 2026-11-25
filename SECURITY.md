@@ -22,9 +22,9 @@ There is no bug bounty.
 
 ## What happens next
 
-1. The report is reproduced and assessed on the supported versions below.
-2. A fix is prepared in private and released on every supported line at the same time.
-3. The advisory is published once the fixed versions are on npm. It lists the affected and
+1. The report is reproduced and assessed on the current 1.x release.
+2. A fix is prepared in private and released as a new 1.x version.
+3. The advisory is published once the fixed version is on npm. It lists the affected and
    patched versions, and a CVE is requested for it. Reporters are credited unless they ask
    not to be.
 
@@ -33,12 +33,10 @@ There is no bug bounty.
 | Version | Supported |
 |---|---|
 | 1.x | yes |
-| 0.25.x | security fixes only |
-| 0.24.x | security fixes only |
-| older | no |
+| 0.x | no |
 
-0.25 is the last line that supports React Native's Old Architecture. Security fixes are made
-there, and on 0.24, for apps that cannot move to 1.x yet. Other bug fixes only go into 1.x.
+Fixes, security fixes included, only go into 1.x. 0.25 is the last line that supports React
+Native's Old Architecture; it and the lines before it no longer receive releases.
 
 ## Scope
 
