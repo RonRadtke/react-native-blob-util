@@ -45,6 +45,13 @@ const buildMobileCaps = (platform) => {
             caps['appium:noReset'] = true;
         }
 
+        // Without a udid the driver takes the first device `adb devices` lists. With
+        // two emulators attached that can be another project's: the run then installs
+        // the test app there, clears its data and tests a device nobody prepared.
+        if (process.env.ANDROID_UDID) {
+            caps['appium:udid'] = process.env.ANDROID_UDID;
+        }
+
         if (process.env.ANDROID_APP_PACKAGE) {
             caps['appium:appPackage'] = process.env.ANDROID_APP_PACKAGE;
         }

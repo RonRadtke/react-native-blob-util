@@ -234,6 +234,8 @@ and runs this same suite against provided app artifacts (`android_app`, `ios_app
 - `E2E_APP_PATH`: generic app path (`.apk`, `.app`, `.ipa`)
 - `E2E_APP_PATH_ANDROID`, `E2E_APP_PATH_IOS`, `E2E_APP_PATH_WINDOWS`: per-platform app paths
 - `ANDROID_APP_PACKAGE`, `ANDROID_APP_ACTIVITY`
+- `ANDROID_UDID`: pin the Android run to one device (a serial from `adb devices`);
+  without it the driver takes the first device listed
 - `IOS_BUNDLE_ID`
 - `IOS_UDID`, `IOS_PLATFORM_VERSION`: pin the iOS run to one simulator
 - `WINDOWS_APP_ID`, `WINDOWS_APP_PATH`
