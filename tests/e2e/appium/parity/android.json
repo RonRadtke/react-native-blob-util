@@ -1198,6 +1198,14 @@
       }
     }
   },
+  "fetch-untrusted-after-trusty": {
+    "afterCode": "ESSL",
+    "trusty": {
+      "resolved": {
+        "status": 200
+      }
+    }
+  },
   "fetch-untrusted-cert": {
     "untrusted": {
       "rejected": {

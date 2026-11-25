@@ -486,6 +486,10 @@ namespace
         case 0x80072F19: // WININET_E_SEC_CERT_REV_FAILED
         case 0x80072F7D: // WININET_E_SECURITY_CHANNEL_ERROR
         case 0x80072F8F: // WININET_E_DECODING_FAILED / secure failure
+        // What a certificate the system does not trust fails with when an earlier
+        // request to the same server accepted it (`trusty: true`); the system then
+        // refuses with this code instead of WININET_E_INVALID_CA.
+        case 0x800C000E: // INET_E_SECURITY_PROBLEM
             return "ESSL";
         case 0x800704C7: // ERROR_CANCELLED
             return "ECANCELED";

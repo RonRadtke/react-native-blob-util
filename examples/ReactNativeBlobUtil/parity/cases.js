@@ -808,19 +808,6 @@ define('fetch-redirect', async (ctx) => {
     return {follow, noFollow};
 });
 
-// Authorization follows a redirect within one origin and no further: not to
-// another port or scheme of the same host. Windows compared the host only, so
-// the header went on to the other server. Any other header follows.
-define('fetch-redirect-authorization', async (ctx) => {
-    const seen = (to) => settle(async () => {
-        const res = await ReactNativeBlobUtil.config({trusty: true})
-            .fetch('GET', ctx.url(`/redirect-to?to=${encodeURIComponent(to)}`), {Authorization: 'Bearer parity', 'X-RNBU-E2E': 'kept'});
-        const echo = await res.json();
-        return {status: res.info().status, authorization: echo.authorization, custom: echo.custom};
-    });
-    return {sameOrigin: await seen('/echo'), otherPortAndScheme: await seen(ctx.httpsUrl('/echo'))};
-});
-
 define('fetch-timeout', async (ctx) => {
     const started = Date.now();
     const result = await settle(async () => {
@@ -916,6 +903,37 @@ define('fetch-untrusted-cert', async (ctx) => ({
         return {status: res.info().status};
     }),
 }));
+
+// Authorization follows a redirect within one origin and no further: not to
+// another port or scheme of the same host. Windows compared the host only, so
+// the header went on to the other server. Any other header follows.
+// It stands after fetch-untrusted-cert because its second request trusts the
+// HTTPS server: on Windows the next request to that server then fails with
+// another system message, which that case records.
+define('fetch-redirect-authorization', async (ctx) => {
+    const seen = (to) => settle(async () => {
+        const res = await ReactNativeBlobUtil.config({trusty: true})
+            .fetch('GET', ctx.url(`/redirect-to?to=${encodeURIComponent(to)}`), {Authorization: 'Bearer parity', 'X-RNBU-E2E': 'kept'});
+        const echo = await res.json();
+        return {status: res.info().status, authorization: echo.authorization, custom: echo.custom};
+    });
+    return {sameOrigin: await seen('/echo'), otherPortAndScheme: await seen(ctx.httpsUrl('/echo'))};
+});
+
+// A request that trusted any certificate does not make the next request to that
+// server trust it too, and the next one still fails as a certificate failure. On
+// Windows it failed with a system error the library did not know, so it reached
+// JS as EUNSPECIFIED. Only the code is recorded: the system's message differs
+// between a first request and one that follows a trusting one.
+define('fetch-untrusted-after-trusty', async (ctx) => {
+    const get = (config) => settle(async () => {
+        const res = await ReactNativeBlobUtil.config(config).fetch('GET', ctx.httpsUrl('/health'));
+        return {status: res.info().status};
+    });
+    const trusty = await get({trusty: true});
+    const after = await get({timeout: 5000});
+    return {trusty, afterCode: after.rejected ? after.rejected.code : after};
+});
 
 define('upload-bodies', async (ctx) => {
     const dir = await freshDir('upload-bodies');
