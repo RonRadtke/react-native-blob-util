@@ -363,6 +363,15 @@ POST no longer goes out on a connection a server that closes idle ones after 5 s
 (Node's default) has already closed. `respInfo.timeout` on a response is always
 `false`; it was only ever `true` after a resend that succeeded.
 
+### ACCESS_WIFI_STATE is no longer declared (Android)
+
+The library's manifest declared `ACCESS_WIFI_STATE`, but no code used it: `wifiOnly`
+and `targetHostIp` read the network through `ConnectivityManager`, which needs
+`ACCESS_NETWORK_STATE` only. Google Play reads that permission as a requirement for
+Wi-Fi hardware (`android.hardware.wifi`), so it hid apps from devices without Wi-Fi and
+flagged them in Play Console. If your own code reads Wi-Fi state through `WifiManager`,
+declare `ACCESS_WIFI_STATE` in your app's manifest.
+
 ### TLS and other hardening (Android)
 
 - `trusty: true` keeps hostname verification. It used to install an accept-all
