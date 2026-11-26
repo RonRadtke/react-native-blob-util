@@ -55,3 +55,20 @@ test('ANDROID_UDID does not reach an iOS run', () => {
     );
     assert.equal('appium:udid' in caps, false);
 });
+
+// A debug build keeps its version, and the driver installs only a newer one unless told.
+test('an Android run installs the app it was given, also over the same version', () => {
+    const caps = withEnv(
+        {E2E_APP_PATH: 'app-debug.apk', ANDROID_APP_PACKAGE: undefined},
+        () => buildCapabilities('android'),
+    );
+    assert.equal(caps['appium:enforceAppInstall'], true);
+});
+
+test('an Android run on an installed package installs nothing', () => {
+    const caps = withEnv(
+        {E2E_APP_PATH: undefined, ANDROID_APP_PACKAGE: 'com.example.app'},
+        () => buildCapabilities('android'),
+    );
+    assert.equal('appium:enforceAppInstall' in caps, false);
+});

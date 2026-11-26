@@ -24,6 +24,14 @@ const buildMobileCaps = (platform) => {
     if (isAndroid) {
         caps['appium:autoGrantPermissions'] = true;
 
+        // The driver skips the install when the device already has the app in the
+        // same version, and a debug build never changes its version: after a
+        // rebuild the run tested the app that was installed before, and reported
+        // on that one.
+        if (caps['appium:app']) {
+            caps['appium:enforceAppInstall'] = true;
+        }
+
         // UiAutomator2 gives every adb command 20s. On a memory-starved emulator a
         // plain `pm clear` measured 25s, and the session then fails before a single
         // step has run, reading like a broken app. Raise the adb budgets per run
